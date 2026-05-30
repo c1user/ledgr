@@ -7,6 +7,8 @@ import transactionRoutes from "./routes/transactions.js";
 import categoryRoutes from "./routes/categories.js";
 import accountRoutes from "./routes/accounts.js";
 import receiptRoutes from "./routes/receipts.js";
+import employeeRoutes from "./routes/employees.js";
+import payrollRoutes from "./routes/payroll.js";
 
 dotenv.config();
 
@@ -22,6 +24,8 @@ app.use("/api/transactions", transactionRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/accounts", accountRoutes);
 app.use("/api/receipts", receiptRoutes);
+app.use("/api/employees", employeeRoutes);
+app.use("/api/payroll", payrollRoutes);
 
 // Health check
 app.get("/health", (req, res) => {
