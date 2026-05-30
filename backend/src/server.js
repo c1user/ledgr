@@ -6,6 +6,7 @@ import authRoutes from "./routes/auth.js";
 import transactionRoutes from "./routes/transactions.js";
 import categoryRoutes from "./routes/categories.js";
 import accountRoutes from "./routes/accounts.js";
+import receiptRoutes from "./routes/receipts.js";
 
 dotenv.config();
 
@@ -20,6 +21,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/transactions", transactionRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/accounts", accountRoutes);
+app.use("/api/receipts", receiptRoutes);
 
 // Health check
 app.get("/health", (req, res) => {
