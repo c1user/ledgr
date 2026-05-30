@@ -9,6 +9,7 @@ import accountRoutes from "./routes/accounts.js";
 import receiptRoutes from "./routes/receipts.js";
 import employeeRoutes from "./routes/employees.js";
 import payrollRoutes from "./routes/payroll.js";
+import aiRoutes from "./routes/ai.js";
 
 dotenv.config();
 
@@ -26,6 +27,7 @@ app.use("/api/accounts", accountRoutes);
 app.use("/api/receipts", receiptRoutes);
 app.use("/api/employees", employeeRoutes);
 app.use("/api/payroll", payrollRoutes);
+app.use("/api/ai", aiRoutes);
 
 // Health check
 app.get("/health", (req, res) => {
