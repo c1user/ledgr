@@ -2,12 +2,26 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
-import useThemeStore from "../store/themeStore";
 
 export default function Login() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
-  const { theme, toggleTheme } = useThemeStore();
+
+  const [theme, setTheme] = useState(() => {
+    const stored = localStorage.getItem("ledgr-theme");
+    return stored ? JSON.parse(stored)?.state?.theme || "light" : "light";
+  });
+
+  const toggleTheme = () => {
+    const next = theme === "light" ? "dark" : "light";
+    setTheme(next);
+    document.documentElement.setAttribute("data-theme", next);
+    // Also update zustand store in localStorage directly
+    localStorage.setItem(
+      "ledgr-theme",
+      JSON.stringify({ state: { theme: next }, version: 0 }),
+    );
+  };
 
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
@@ -22,7 +36,6 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     setError("");
-
     try {
       const { data } = await api.post("/auth/login", form);
       setAuth(data.token, data.user, data.business);
@@ -45,10 +58,9 @@ export default function Login() {
         padding: 24,
       }}
     >
-      {/* Theme toggle top right */}
+      {/* Theme toggle */}
       <button
         onClick={toggleTheme}
-        aria-label="Toggle theme"
         style={{
           position: "fixed",
           top: 16,
@@ -56,23 +68,23 @@ export default function Login() {
           background: "var(--bg-primary)",
           border: "0.5px solid var(--border-color)",
           borderRadius: 8,
-          padding: "6px 10px",
+          padding: "8px 14px",
           cursor: "pointer",
           color: "var(--text-secondary)",
-          fontSize: 14,
+          fontSize: 13,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
         }}
       >
-        <i
-          className={`ti ${theme === "dark" ? "ti-sun" : "ti-moon"}`}
-          aria-hidden="true"
-        />
+        <i className={`ti ${theme === "dark" ? "ti-sun" : "ti-moon"}`} />
+        {theme === "dark" ? "Light mode" : "Dark mode"}
       </button>
 
       <div
         className="card fade-in"
         style={{ width: "100%", maxWidth: 400, padding: 32 }}
       >
-        {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div
             style={{
@@ -90,7 +102,6 @@ export default function Login() {
           </div>
         </div>
 
-        {/* Error */}
         {error && (
           <div
             style={{
@@ -103,16 +114,11 @@ export default function Login() {
               marginBottom: 16,
             }}
           >
-            <i
-              className="ti ti-alert-circle"
-              style={{ marginRight: 6 }}
-              aria-hidden="true"
-            />
+            <i className="ti ti-alert-circle" style={{ marginRight: 6 }} />
             {error}
           </div>
         )}
 
-        {/* Form */}
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 16 }}>
             <label className="label" htmlFor="email">
@@ -162,20 +168,18 @@ export default function Login() {
                 <i
                   className="ti ti-loader-2"
                   style={{ animation: "spin 1s linear infinite" }}
-                  aria-hidden="true"
                 />
                 Signing in...
               </>
             ) : (
               <>
-                <i className="ti ti-login" aria-hidden="true" />
+                <i className="ti ti-login" />
                 Sign in
               </>
             )}
           </button>
         </form>
 
-        {/* Register link */}
         <div
           style={{
             textAlign: "center",

@@ -5,6 +5,7 @@ import useThemeStore from "../store/themeStore";
 const navItems = [
   { to: "/dashboard", icon: "ti-layout-dashboard", label: "Dashboard" },
   { to: "/transactions", icon: "ti-arrows-up-down", label: "Transactions" },
+  { to: "/accounts", icon: "ti-building-bank", label: "Accounts" },
   { to: "/receipts", icon: "ti-receipt", label: "Receipts" },
   { to: "/payroll", icon: "ti-users", label: "Payroll" },
   { to: "/ai", icon: "ti-sparkles", label: "AI Chat" },
@@ -12,7 +13,7 @@ const navItems = [
 
 export default function AppLayout() {
   const { user, business, logout } = useAuthStore();
-  const { theme, toggleTheme } = useThemeStore();
+  const { theme } = useThemeStore();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -131,8 +132,16 @@ export default function AppLayout() {
             </div>
             {/* Toggle switch */}
             <button
-              onClick={toggleTheme}
-              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+              onClick={() => {
+                const next = theme === "light" ? "dark" : "light";
+                document.documentElement.setAttribute("data-theme", next);
+                localStorage.setItem(
+                  "ledgr-theme",
+                  JSON.stringify({ state: { theme: next }, version: 0 }),
+                );
+                useThemeStore.setState({ theme: next });
+              }}
+              aria-label="Toggle theme"
               style={{
                 width: 36,
                 height: 20,
@@ -142,8 +151,8 @@ export default function AppLayout() {
                 border: "none",
                 cursor: "pointer",
                 position: "relative",
-                transition: "background 0.2s",
                 flexShrink: 0,
+                transition: "background 0.2s",
               }}
             >
               <div

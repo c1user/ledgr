@@ -2,7 +2,21 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import pool from "../config/db.js";
+import rateLimit from "express-rate-limit";
 import { requireAuth } from "../middleware/auth.js";
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // max 5 failed attempts
+  skipSuccessfulRequests: true, // only count failed attempts
+  handler: (req, res) => {
+    return res.status(429).json({
+      error: "Too many failed login attempts. Please try again in 15 minutes.",
+    });
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 const router = express.Router();
 
@@ -125,7 +139,7 @@ router.post("/register", async (req, res) => {
 });
 
 // ── POST /api/auth/login ──────────────────────────────────────
-router.post("/login", async (req, res) => {
+router.post("/login", loginLimiter, async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -177,8 +191,13 @@ router.post("/login", async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("Login error:", err);
-    return res.status(500).json({ error: "Login failed. Please try again." });
+    if (err.response?.status === 429) {
+      setError(
+        "Too many failed attempts. Please wait 15 minutes before trying again.",
+      );
+    } else {
+      setError(err.response?.data?.error || "Login failed. Please try again.");
+    }
   }
 });
 

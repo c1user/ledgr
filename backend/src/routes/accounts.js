@@ -115,9 +115,9 @@ router.post("/", async (req, res) => {
     return res.status(400).json({ error: "name and type are required" });
   }
 
-  if (!["bank", "credit", "cash", "loan"].includes(type)) {
+  if (!["savings", "current", "credit", "cash", "loan"].includes(type)) {
     return res.status(400).json({
-      error: "type must be bank, credit, cash, or loan",
+      error: "type must be savings, current, credit, cash, or loan",
     });
   }
 

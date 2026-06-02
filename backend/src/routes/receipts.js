@@ -182,7 +182,7 @@ router.get("/:id", async (req, res) => {
 router.put("/:id/review", async (req, res) => {
   const { businessId } = req.user;
   const { id } = req.params;
-  const { merchant, date, total } = req.body;
+  const { merchant, date, total, lineItems } = req.body;
 
   try {
     const existing = await pool.query(
@@ -196,13 +196,21 @@ router.put("/:id/review", async (req, res) => {
 
     const result = await pool.query(
       `UPDATE receipts SET
-        ai_merchant = COALESCE($1, ai_merchant),
-        ai_date     = COALESCE($2, ai_date),
-        ai_total    = COALESCE($3, ai_total),
-        status      = 'reviewed'
-       WHERE id = $4 AND business_id = $5
-       RETURNING *`,
-      [merchant || null, date || null, total || null, id, businessId],
+    ai_merchant    = COALESCE($1, ai_merchant),
+    ai_date        = COALESCE($2, ai_date),
+    ai_total       = COALESCE($3, ai_total),
+    ai_line_items  = COALESCE($4, ai_line_items),
+    status         = 'reviewed'
+   WHERE id = $5 AND business_id = $6
+   RETURNING *`,
+      [
+        merchant || null,
+        date || null,
+        total || null,
+        lineItems ? JSON.stringify(lineItems) : null,
+        id,
+        businessId,
+      ],
     );
 
     return res.json(result.rows[0]);

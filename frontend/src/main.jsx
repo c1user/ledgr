@@ -13,6 +13,11 @@ const queryClient = new QueryClient({
   },
 });
 
+// Apply theme before React renders — reads directly from localStorage
+const stored = localStorage.getItem("ledgr-theme");
+const theme = stored ? JSON.parse(stored)?.state?.theme : "light";
+document.documentElement.setAttribute("data-theme", theme || "light");
+
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>

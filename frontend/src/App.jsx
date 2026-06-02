@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Transactions from "./pages/Transactions";
+import Accounts from "./pages/Accounts";
 import Receipts from "./pages/Receipts";
 import Payroll from "./pages/Payroll";
 import AiChat from "./pages/AiChat";
@@ -49,6 +50,7 @@ export default function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="transactions" element={<Transactions />} />
+          <Route path="accounts" element={<Accounts />} />
           <Route path="receipts" element={<Receipts />} />
           <Route path="payroll" element={<Payroll />} />
           <Route path="ai" element={<AiChat />} />
