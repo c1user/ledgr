@@ -1,8 +1,14 @@
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import dayjs from "dayjs";
+
+const fmt = (val, currency = "USD") =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency }).format(
+    val || 0,
+  );
 
 // ── KPI Card ─────────────────────────────────────────────────
 function KpiCard({ label, value, color, icon, bg }) {
@@ -51,22 +57,23 @@ function KpiCard({ label, value, color, icon, bg }) {
   );
 }
 
-// ── Format currency ───────────────────────────────────────────
-const fmt = (val, currency = "USD") =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency }).format(
-    val || 0,
-  );
-
 export default function Dashboard() {
   const { business } = useAuthStore();
   const navigate = useNavigate();
   const currency = business?.currency || "USD";
 
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const now = dayjs();
   const startOfMonth = now.startOf("month").format("YYYY-MM-DD");
   const endOfMonth = now.endOf("month").format("YYYY-MM-DD");
 
-  // Fetch this month's transaction summary
   const { data: summary, isLoading: summaryLoading } = useQuery({
     queryKey: ["summary", startOfMonth, endOfMonth],
     queryFn: () =>
@@ -77,19 +84,16 @@ export default function Dashboard() {
         .then((r) => r.data),
   });
 
-  // Fetch recent transactions
   const { data: txData, isLoading: txLoading } = useQuery({
     queryKey: ["transactions", "recent"],
     queryFn: () => api.get("/transactions?limit=8").then((r) => r.data),
   });
 
-  // Fetch account balances
   const { data: balances, isLoading: balancesLoading } = useQuery({
     queryKey: ["balances"],
     queryFn: () => api.get("/accounts/summary/balances").then((r) => r.data),
   });
 
-  // Fetch accounts list
   const { data: accounts } = useQuery({
     queryKey: ["accounts"],
     queryFn: () => api.get("/accounts").then((r) => r.data),
@@ -159,180 +163,14 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Main grid */}
+      {/* Main grid — two column on desktop, single column on mobile */}
       <div
-        style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 16 }}
+        style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "1fr 300px",
+          gap: 16,
+        }}
       >
-        {/* Recent transactions */}
-        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-          <div
-            style={{
-              padding: "14px 18px",
-              borderBottom: "0.5px solid var(--border-color)",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <div
-              style={{
-                fontSize: 14,
-                fontWeight: 500,
-                color: "var(--text-primary)",
-              }}
-            >
-              Recent Transactions
-            </div>
-            <button
-              onClick={() => navigate("/transactions")}
-              className="btn btn-secondary"
-              style={{ padding: "5px 10px", fontSize: 12 }}
-            >
-              View all
-            </button>
-          </div>
-
-          {txLoading ? (
-            <div
-              style={{
-                padding: 24,
-                textAlign: "center",
-                color: "var(--text-muted)",
-              }}
-            >
-              Loading...
-            </div>
-          ) : txData?.transactions?.length === 0 ? (
-            <div style={{ padding: 32, textAlign: "center" }}>
-              <i
-                className="ti ti-receipt-off"
-                style={{ fontSize: 32, color: "var(--text-muted)" }}
-                aria-hidden="true"
-              />
-              <div
-                style={{
-                  color: "var(--text-muted)",
-                  fontSize: 13,
-                  marginTop: 8,
-                }}
-              >
-                No transactions yet
-              </div>
-              <button
-                onClick={() => navigate("/transactions")}
-                className="btn btn-primary"
-                style={{ marginTop: 12 }}
-              >
-                Add your first transaction
-              </button>
-            </div>
-          ) : (
-            <div>
-              {txData?.transactions?.map((tx) => (
-                <div
-                  key={tx.id}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "12px 18px",
-                    borderBottom: "0.5px solid var(--border-color)",
-                    cursor: "pointer",
-                    transition: "background 0.15s",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = "var(--bg-secondary)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = "transparent")
-                  }
-                  onClick={() => navigate("/transactions")}
-                >
-                  <div
-                    style={{ display: "flex", alignItems: "center", gap: 12 }}
-                  >
-                    <div
-                      style={{
-                        width: 34,
-                        height: 34,
-                        borderRadius: 8,
-                        background:
-                          tx.type === "income"
-                            ? "var(--income-bg)"
-                            : "var(--expense-bg)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <i
-                        className={`ti ${tx.type === "income" ? "ti-arrow-down-left" : "ti-arrow-up-right"}`}
-                        style={{
-                          fontSize: 16,
-                          color:
-                            tx.type === "income"
-                              ? "var(--income)"
-                              : "var(--expense)",
-                        }}
-                        aria-hidden="true"
-                      />
-                    </div>
-                    <div>
-                      <div
-                        style={{
-                          fontSize: 13,
-                          fontWeight: 500,
-                          color: "var(--text-primary)",
-                        }}
-                      >
-                        {tx.merchant || "No merchant"}
-                        {tx.is_split && (
-                          <span
-                            style={{
-                              fontSize: 10,
-                              background: "var(--payroll-bg)",
-                              color: "var(--payroll)",
-                              padding: "1px 6px",
-                              borderRadius: 3,
-                              marginLeft: 6,
-                              fontWeight: 400,
-                            }}
-                          >
-                            split
-                          </span>
-                        )}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: "var(--text-muted)",
-                          marginTop: 1,
-                        }}
-                      >
-                        {dayjs(tx.date).format("MMM D, YYYY")} ·{" "}
-                        {tx.account_name}
-                      </div>
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 600,
-                      color:
-                        tx.type === "income"
-                          ? "var(--income)"
-                          : "var(--expense)",
-                    }}
-                  >
-                    {tx.type === "income" ? "+" : "-"}
-                    {fmt(tx.total_amount, currency)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
         {/* Right column */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {/* Account balances */}
@@ -501,27 +339,194 @@ export default function Dashboard() {
                 className="btn btn-secondary"
                 style={{ justifyContent: "flex-start", fontSize: 13 }}
               >
-                <i className="ti ti-plus" aria-hidden="true" />
-                Add transaction
+                <i className="ti ti-plus" aria-hidden="true" /> Add transaction
               </button>
               <button
                 onClick={() => navigate("/receipts")}
                 className="btn btn-secondary"
                 style={{ justifyContent: "flex-start", fontSize: 13 }}
               >
-                <i className="ti ti-camera" aria-hidden="true" />
-                Scan receipt
+                <i className="ti ti-camera" aria-hidden="true" /> Scan receipt
               </button>
               <button
                 onClick={() => navigate("/payroll")}
                 className="btn btn-secondary"
                 style={{ justifyContent: "flex-start", fontSize: 13 }}
               >
-                <i className="ti ti-report-money" aria-hidden="true" />
-                Run payroll
+                <i className="ti ti-report-money" aria-hidden="true" /> Run
+                payroll
               </button>
             </div>
           </div>
+        </div>
+        {/* Left — Recent transactions */}
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <div
+            style={{
+              padding: "14px 18px",
+              borderBottom: "0.5px solid var(--border-color)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 14,
+                fontWeight: 500,
+                color: "var(--text-primary)",
+              }}
+            >
+              Recent Transactions
+            </div>
+            <button
+              onClick={() => navigate("/transactions")}
+              className="btn btn-secondary"
+              style={{ padding: "5px 10px", fontSize: 12 }}
+            >
+              View all
+            </button>
+          </div>
+
+          {txLoading ? (
+            <div
+              style={{
+                padding: 24,
+                textAlign: "center",
+                color: "var(--text-muted)",
+              }}
+            >
+              Loading...
+            </div>
+          ) : txData?.transactions?.length === 0 ? (
+            <div style={{ padding: 32, textAlign: "center" }}>
+              <i
+                className="ti ti-receipt-off"
+                style={{ fontSize: 32, color: "var(--text-muted)" }}
+                aria-hidden="true"
+              />
+              <div
+                style={{
+                  color: "var(--text-muted)",
+                  fontSize: 13,
+                  marginTop: 8,
+                }}
+              >
+                No transactions yet
+              </div>
+              <button
+                onClick={() => navigate("/transactions")}
+                className="btn btn-primary"
+                style={{ marginTop: 12 }}
+              >
+                Add your first transaction
+              </button>
+            </div>
+          ) : (
+            <div>
+              {txData?.transactions?.map((tx) => (
+                <div
+                  key={tx.id}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "12px 18px",
+                    borderBottom: "0.5px solid var(--border-color)",
+                    cursor: "pointer",
+                    transition: "background 0.15s",
+                    gap: 12,
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "var(--bg-secondary)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "transparent")
+                  }
+                  onClick={() => navigate("/transactions")}
+                >
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 8,
+                      background:
+                        tx.type === "income"
+                          ? "var(--income-bg)"
+                          : "var(--expense-bg)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <i
+                      className={`ti ${tx.type === "income" ? "ti-arrow-down-left" : "ti-arrow-up-right"}`}
+                      style={{
+                        fontSize: 16,
+                        color:
+                          tx.type === "income"
+                            ? "var(--income)"
+                            : "var(--expense)",
+                      }}
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: "var(--text-primary)",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {tx.merchant || "No merchant"}
+                      {tx.is_split && (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            background: "var(--payroll-bg)",
+                            color: "var(--payroll)",
+                            padding: "1px 6px",
+                            borderRadius: 3,
+                            marginLeft: 6,
+                          }}
+                        >
+                          split
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "var(--text-muted)",
+                        marginTop: 2,
+                      }}
+                    >
+                      {dayjs(tx.date).format("MMM D, YYYY")} · {tx.account_name}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 600,
+                      flexShrink: 0,
+                      color:
+                        tx.type === "income"
+                          ? "var(--income)"
+                          : "var(--expense)",
+                    }}
+                  >
+                    {tx.type === "income" ? "+" : "-"}
+                    {fmt(tx.total_amount, currency)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

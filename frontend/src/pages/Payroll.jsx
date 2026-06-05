@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
 import dayjs from "dayjs";
@@ -147,7 +147,6 @@ function EmployeeModal({ onClose, editEmployee }) {
         )}
 
         <form onSubmit={handleSubmit}>
-          {/* Basic info */}
           <div
             style={{
               fontSize: 11,
@@ -233,7 +232,6 @@ function EmployeeModal({ onClose, editEmployee }) {
             </div>
           </div>
 
-          {/* Pay info */}
           <div
             style={{
               fontSize: 11,
@@ -301,7 +299,6 @@ function EmployeeModal({ onClose, editEmployee }) {
             </select>
           </div>
 
-          {/* Tax info */}
           <div
             style={{
               fontSize: 11,
@@ -790,7 +787,6 @@ function PayrollRunModal({ run, onClose }) {
           </div>
         </div>
 
-        {/* Totals */}
         <div
           style={{
             display: "grid",
@@ -840,7 +836,6 @@ function PayrollRunModal({ run, onClose }) {
           ))}
         </div>
 
-        {/* Payslips */}
         {isLoading ? (
           <div
             style={{
@@ -971,7 +966,6 @@ function PayrollRunModal({ run, onClose }) {
           </div>
         )}
 
-        {/* Actions */}
         <div
           style={{
             display: "flex",
@@ -1022,6 +1016,13 @@ export default function Payroll() {
   const [showRunModal, setShowRunModal] = useState(false);
   const [editEmployee, setEditEmployee] = useState(null);
   const [selectedRun, setSelectedRun] = useState(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const { data: employees, isLoading: empLoading } = useQuery({
     queryKey: ["employees"],
@@ -1077,13 +1078,15 @@ export default function Payroll() {
               setShowEmployeeModal(true);
             }}
           >
-            <i className="ti ti-user-plus" aria-hidden="true" /> Add Employee
+            <i className="ti ti-user-plus" aria-hidden="true" />
+            {!isMobile && " Add Employee"}
           </button>
           <button
             className="btn btn-primary"
             onClick={() => setShowRunModal(true)}
           >
-            <i className="ti ti-report-money" aria-hidden="true" /> Run Payroll
+            <i className="ti ti-report-money" aria-hidden="true" />
+            {!isMobile && " Run Payroll"}
           </button>
         </div>
       </div>
@@ -1093,7 +1096,7 @@ export default function Payroll() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
             gap: 12,
             marginBottom: 24,
           }}
@@ -1176,7 +1179,7 @@ export default function Payroll() {
         ))}
       </div>
 
-      {/* Employees tab */}
+      {/* ── EMPLOYEES TAB ── */}
       {tab === "employees" && (
         <div>
           {empLoading ? (
@@ -1213,7 +1216,178 @@ export default function Payroll() {
                 Add your first employee
               </button>
             </div>
+          ) : isMobile ? (
+            // Mobile card layout
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {employees.map((emp) => (
+                <div
+                  key={emp.id}
+                  className="card"
+                  style={{
+                    padding: "14px 16px",
+                    opacity: emp.is_active ? 1 : 0.6,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      marginBottom: 10,
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 500,
+                          color: "var(--text-primary)",
+                        }}
+                      >
+                        {emp.name}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "var(--text-muted)",
+                          marginTop: 2,
+                        }}
+                      >
+                        {emp.email || "—"}
+                      </div>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        padding: "2px 8px",
+                        borderRadius: 4,
+                        fontWeight: 500,
+                        background: emp.is_active
+                          ? "var(--income-bg)"
+                          : "var(--expense-bg)",
+                        color: emp.is_active
+                          ? "var(--income)"
+                          : "var(--expense)",
+                      }}
+                    >
+                      {emp.is_active ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 8,
+                      marginBottom: 12,
+                    }}
+                  >
+                    <div
+                      style={{
+                        background: "var(--bg-secondary)",
+                        borderRadius: 6,
+                        padding: "8px 10px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color: "var(--text-muted)",
+                          marginBottom: 2,
+                        }}
+                      >
+                        Pay Rate
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 500,
+                          color: "var(--text-primary)",
+                        }}
+                      >
+                        {fmt(emp.pay_rate)}
+                        {emp.pay_type === "hourly" ? "/hr" : "/yr"}
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        background: "var(--bg-secondary)",
+                        borderRadius: 6,
+                        padding: "8px 10px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color: "var(--text-muted)",
+                          marginBottom: 2,
+                        }}
+                      >
+                        Frequency
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 500,
+                          color: "var(--text-primary)",
+                          textTransform: "capitalize",
+                        }}
+                      >
+                        {emp.pay_frequency}
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      justifyContent: "flex-end",
+                    }}
+                  >
+                    <button
+                      onClick={() => {
+                        setEditEmployee(emp);
+                        setShowEmployeeModal(true);
+                      }}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "var(--text-muted)",
+                        fontSize: 13,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        padding: "4px 8px",
+                      }}
+                    >
+                      <i className="ti ti-pencil" aria-hidden="true" /> Edit
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Deactivate ${emp.name}?`))
+                          deactivateMutation.mutate(emp.id);
+                      }}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "var(--danger)",
+                        fontSize: 13,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        padding: "4px 8px",
+                      }}
+                    >
+                      <i className="ti ti-user-off" aria-hidden="true" />{" "}
+                      Deactivate
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
+            // Desktop table layout
             <div className="card" style={{ padding: 0, overflow: "hidden" }}>
               <div
                 style={{
@@ -1366,7 +1540,7 @@ export default function Payroll() {
         </div>
       )}
 
-      {/* Payroll runs tab */}
+      {/* ── PAYROLL RUNS TAB ── */}
       {tab === "runs" && (
         <div>
           {runsLoading ? (
@@ -1403,7 +1577,124 @@ export default function Payroll() {
                 Run your first payroll
               </button>
             </div>
+          ) : isMobile ? (
+            // Mobile card layout
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {payrollRuns.map((run) => (
+                <div
+                  key={run.id}
+                  className="card"
+                  style={{ padding: "14px 16px", cursor: "pointer" }}
+                  onClick={() => setSelectedRun(run)}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      marginBottom: 10,
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 500,
+                          color: "var(--text-primary)",
+                        }}
+                      >
+                        {dayjs(run.period_start).format("MMM D")} —{" "}
+                        {dayjs(run.period_end).format("MMM D, YYYY")}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "var(--text-muted)",
+                          marginTop: 2,
+                        }}
+                      >
+                        Run on {dayjs(run.run_date).format("MMM D, YYYY")} ·{" "}
+                        {run.employee_count} employees
+                      </div>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        padding: "2px 8px",
+                        borderRadius: 4,
+                        fontWeight: 500,
+                        background:
+                          run.status === "finalized"
+                            ? "var(--income-bg)"
+                            : "var(--payroll-bg)",
+                        color:
+                          run.status === "finalized"
+                            ? "var(--income)"
+                            : "var(--payroll)",
+                        textTransform: "capitalize",
+                      }}
+                    >
+                      {run.status}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr 1fr",
+                      gap: 8,
+                    }}
+                  >
+                    {[
+                      {
+                        label: "Gross",
+                        value: run.total_gross,
+                        color: "var(--text-primary)",
+                      },
+                      {
+                        label: "Taxes",
+                        value: run.total_taxes,
+                        color: "var(--expense)",
+                      },
+                      {
+                        label: "Net",
+                        value: run.total_net,
+                        color: "var(--income)",
+                      },
+                    ].map((s) => (
+                      <div
+                        key={s.label}
+                        style={{
+                          background: "var(--bg-secondary)",
+                          borderRadius: 6,
+                          padding: "8px 10px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: "var(--text-muted)",
+                            marginBottom: 2,
+                          }}
+                        >
+                          {s.label}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: s.color,
+                          }}
+                        >
+                          {fmt(s.value)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
+            // Desktop table layout
             <div className="card" style={{ padding: 0, overflow: "hidden" }}>
               <div
                 style={{

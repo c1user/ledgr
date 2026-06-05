@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
 import dayjs from "dayjs";
@@ -19,22 +19,96 @@ function UploadZone({ onUploaded }) {
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [showCamera, setShowCamera] = useState(false);
+  const [stream, setStream] = useState(null);
+  const [capturedImage, setCapturedImage] = useState(null);
   const inputRef = useRef();
+  const videoRef = useRef();
+  const canvasRef = useRef();
 
-  const upload = async (file) => {
-    if (!file) return;
-    const allowed = [
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-      "application/pdf",
-    ];
-    if (!allowed.includes(file.type)) {
-      return setError("Only JPEG, PNG, WEBP, and PDF files are allowed");
+  // Start camera stream
+  const startCamera = async () => {
+    setError("");
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" }, // use back camera on phones
+      });
+      setStream(mediaStream);
+      setShowCamera(true);
+      // Wait for next render then attach stream to video element
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+        }
+      }, 100);
+    } catch (err) {
+      if (err.name === "NotAllowedError") {
+        setError(
+          "Camera access was denied. Please allow camera access in your browser settings.",
+        );
+      } else if (err.name === "NotFoundError") {
+        setError("No camera found on this device.");
+      } else {
+        setError(
+          "Could not access camera. Please try uploading a file instead.",
+        );
+      }
     }
-    if (file.size > 10 * 1024 * 1024) {
-      return setError("File must be under 10MB");
+  };
+
+  // Stop camera stream
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+      setStream(null);
     }
+    setShowCamera(false);
+    setCapturedImage(null);
+  };
+
+  // Capture photo from video stream
+  const capturePhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0);
+    const imageDataUrl = canvas.toDataURL("image/jpeg", 0.9);
+    setCapturedImage(imageDataUrl);
+    // Pause video to show captured frame
+    video.pause();
+  };
+
+  // Retake photo
+  const retakePhoto = () => {
+    setCapturedImage(null);
+    if (videoRef.current) videoRef.current.play();
+  };
+
+  // Convert base64 to File and upload
+  const uploadCapturedPhoto = async () => {
+    if (!capturedImage) return;
+    setUploading(true);
+    setError("");
+    try {
+      // Convert data URL to blob
+      const res = await fetch(capturedImage);
+      const blob = await res.blob();
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const file = new File([blob], `receipt-${timestamp}.jpg`, {
+        type: "image/jpeg",
+      });
+      stopCamera();
+      await uploadFile(file);
+    } catch {
+      setError("Failed to process captured photo. Please try again.");
+      setUploading(false);
+    }
+  };
+
+  // Shared upload function
+  const uploadFile = async (file) => {
     setUploading(true);
     setError("");
     try {
@@ -51,8 +125,177 @@ function UploadZone({ onUploaded }) {
     }
   };
 
+  const upload = async (file) => {
+    if (!file) return;
+    const allowed = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "application/pdf",
+    ];
+    if (!allowed.includes(file.type)) {
+      return setError("Only JPEG, PNG, WEBP, and PDF files are allowed");
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      return setError("File must be under 10MB");
+    }
+    await uploadFile(file);
+  };
+
+  // Cleanup stream on unmount
+  useEffect(() => {
+    return () => {
+      if (stream) stream.getTracks().forEach((track) => track.stop());
+    };
+  }, [stream]);
+
   return (
     <div style={{ marginBottom: 24 }}>
+      {/* Camera modal */}
+      {showCamera && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.85)",
+            zIndex: 1000,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 500,
+              background: "var(--bg-primary)",
+              borderRadius: 12,
+              overflow: "hidden",
+            }}
+          >
+            {/* Camera header */}
+            <div
+              style={{
+                padding: "14px 18px",
+                borderBottom: "0.5px solid var(--border-color)",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color: "var(--text-primary)",
+                }}
+              >
+                {capturedImage ? "Review Photo" : "Take Photo"}
+              </div>
+              <button
+                onClick={stopCamera}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--text-muted)",
+                  fontSize: 20,
+                }}
+              >
+                <i className="ti ti-x" aria-hidden="true" />
+              </button>
+            </div>
+
+            {/* Video / captured image */}
+            <div
+              style={{
+                position: "relative",
+                background: "#000",
+                aspectRatio: "4/3",
+              }}
+            >
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  display: capturedImage ? "none" : "block",
+                }}
+              />
+              {capturedImage && (
+                <img
+                  src={capturedImage}
+                  alt="Captured receipt"
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              )}
+              <canvas ref={canvasRef} style={{ display: "none" }} />
+            </div>
+
+            {/* Camera controls */}
+            <div
+              style={{
+                padding: 16,
+                display: "flex",
+                gap: 10,
+                justifyContent: "center",
+              }}
+            >
+              {!capturedImage ? (
+                <>
+                  <button
+                    onClick={stopCamera}
+                    className="btn btn-secondary"
+                    style={{ flex: 1 }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={capturePhoto}
+                    className="btn btn-primary"
+                    style={{ flex: 2 }}
+                  >
+                    <i className="ti ti-camera" aria-hidden="true" /> Capture
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={retakePhoto}
+                    className="btn btn-secondary"
+                    style={{ flex: 1 }}
+                  >
+                    <i className="ti ti-refresh" aria-hidden="true" /> Retake
+                  </button>
+                  <button
+                    onClick={uploadCapturedPhoto}
+                    className="btn btn-primary"
+                    style={{ flex: 2 }}
+                    disabled={uploading}
+                  >
+                    {uploading ? (
+                      "Processing..."
+                    ) : (
+                      <>
+                        <i className="ti ti-sparkles" aria-hidden="true" /> Use
+                        this photo
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload zone */}
       <div
         onClick={() => !uploading && inputRef.current?.click()}
         onDragOver={(e) => {
@@ -68,7 +311,7 @@ function UploadZone({ onUploaded }) {
         style={{
           border: `2px dashed ${dragging ? "var(--brand)" : "var(--border-color)"}`,
           borderRadius: 12,
-          padding: "36px 24px",
+          padding: "28px 24px",
           textAlign: "center",
           cursor: uploading ? "wait" : "pointer",
           background: dragging ? "var(--brand-light)" : "var(--bg-primary)",
@@ -82,6 +325,7 @@ function UploadZone({ onUploaded }) {
           style={{ display: "none" }}
           onChange={(e) => upload(e.target.files[0])}
         />
+
         {uploading ? (
           <>
             <i
@@ -106,7 +350,7 @@ function UploadZone({ onUploaded }) {
         ) : (
           <>
             <i
-              className="ti ti-camera"
+              className="ti ti-receipt"
               style={{ fontSize: 36, color: "var(--text-muted)" }}
               aria-hidden="true"
             />
@@ -116,36 +360,55 @@ function UploadZone({ onUploaded }) {
                 fontSize: 14,
                 fontWeight: 500,
                 marginTop: 10,
+                marginBottom: 4,
               }}
             >
-              Drop a receipt here or click to upload
+              Add a receipt
             </div>
             <div
-              style={{ color: "var(--text-muted)", fontSize: 12, marginTop: 4 }}
+              style={{
+                color: "var(--text-muted)",
+                fontSize: 12,
+                marginBottom: 16,
+              }}
             >
               JPEG, PNG, WEBP or PDF · Max 10MB
             </div>
-            <div style={{ marginTop: 14 }}>
-              <span
-                style={{
-                  background: "var(--brand)",
-                  color: "#fff",
-                  padding: "7px 16px",
-                  borderRadius: 8,
-                  fontSize: 13,
+
+            {/* Action buttons */}
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                justifyContent: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startCamera();
                 }}
+                className="btn btn-primary"
+                style={{ fontSize: 13 }}
               >
-                <i
-                  className="ti ti-sparkles"
-                  style={{ marginRight: 6 }}
-                  aria-hidden="true"
-                />
-                Upload Receipt
-              </span>
+                <i className="ti ti-camera" aria-hidden="true" /> Take Photo
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  inputRef.current?.click();
+                }}
+                className="btn btn-secondary"
+                style={{ fontSize: 13 }}
+              >
+                <i className="ti ti-upload" aria-hidden="true" /> Upload File
+              </button>
             </div>
           </>
         )}
       </div>
+
       {error && (
         <div
           style={{
@@ -166,6 +429,7 @@ function UploadZone({ onUploaded }) {
           {error}
         </div>
       )}
+
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );

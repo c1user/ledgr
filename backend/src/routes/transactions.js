@@ -23,7 +23,7 @@ router.get("/", async (req, res) => {
 
   try {
     let query = `
-      SELECT 
+      SELECT
         t.id,
         t.date,
         t.merchant,
@@ -33,11 +33,13 @@ router.get("/", async (req, res) => {
         t.notes,
         t.plaid_tx_id,
         t.created_at,
+        t.category_id,
         a.name AS account_name,
         u.name AS created_by_name,
         r.id AS receipt_id,
         r.status AS receipt_status,
-        -- Get splits as JSON array
+        cat.name AS category_name,
+        cat.color AS category_color,
         COALESCE(
           json_agg(
             json_build_object(
@@ -45,8 +47,8 @@ router.get("/", async (req, res) => {
               'amount', ts.amount,
               'notes', ts.notes,
               'category_id', ts.category_id,
-              'category_name', c.name,
-              'category_color', c.color
+              'category_name', sc.name,
+              'category_color', sc.color
             )
           ) FILTER (WHERE ts.id IS NOT NULL),
           '[]'
@@ -56,7 +58,8 @@ router.get("/", async (req, res) => {
       LEFT JOIN users u ON u.id = t.created_by
       LEFT JOIN receipts r ON r.id = t.receipt_id
       LEFT JOIN transaction_splits ts ON ts.transaction_id = t.id
-      LEFT JOIN categories c ON c.id = ts.category_id
+      LEFT JOIN categories sc ON sc.id = ts.category_id
+      LEFT JOIN categories cat ON cat.id = t.category_id
       WHERE t.business_id = $1
     `;
 
@@ -89,12 +92,12 @@ router.get("/", async (req, res) => {
 
     if (categoryId) {
       paramCount++;
-      query += ` AND ts.category_id = $${paramCount}`;
+      query += ` AND (t.category_id = $${paramCount} OR ts.category_id = $${paramCount})`;
       params.push(categoryId);
     }
 
     query += `
-      GROUP BY t.id, a.name, u.name, r.id, r.status
+      GROUP BY t.id, a.name, u.name, r.id, r.status, cat.name, cat.color
       ORDER BY t.date DESC, t.created_at DESC
       LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
     `;
@@ -105,7 +108,6 @@ router.get("/", async (req, res) => {
     // Get total count for pagination
     const countResult = await pool.query(
       `SELECT COUNT(*) FROM transactions t
-       LEFT JOIN transaction_splits ts ON ts.transaction_id = t.id
        WHERE t.business_id = $1`,
       [businessId],
     );
@@ -130,7 +132,7 @@ router.get("/:id", async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT 
+      `SELECT
         t.*,
         a.name AS account_name,
         u.name AS created_by_name,
@@ -139,6 +141,8 @@ router.get("/:id", async (req, res) => {
         r.ai_merchant,
         r.ai_total,
         r.ai_date,
+        cat.name AS category_name,
+        cat.color AS category_color,
         COALESCE(
           json_agg(
             json_build_object(
@@ -146,9 +150,9 @@ router.get("/:id", async (req, res) => {
               'amount', ts.amount,
               'notes', ts.notes,
               'category_id', ts.category_id,
-              'category_name', c.name,
-              'category_color', c.color,
-              'category_type', c.type
+              'category_name', sc.name,
+              'category_color', sc.color,
+              'category_type', sc.type
             )
           ) FILTER (WHERE ts.id IS NOT NULL),
           '[]'
@@ -158,9 +162,10 @@ router.get("/:id", async (req, res) => {
       LEFT JOIN users u ON u.id = t.created_by
       LEFT JOIN receipts r ON r.id = t.receipt_id
       LEFT JOIN transaction_splits ts ON ts.transaction_id = t.id
-      LEFT JOIN categories c ON c.id = ts.category_id
+      LEFT JOIN categories sc ON sc.id = ts.category_id
+      LEFT JOIN categories cat ON cat.id = t.category_id
       WHERE t.id = $1 AND t.business_id = $2
-      GROUP BY t.id, a.name, u.name, r.s3_key, r.status, r.ai_merchant, r.ai_total, r.ai_date`,
+      GROUP BY t.id, a.name, u.name, r.s3_key, r.status, r.ai_merchant, r.ai_total, r.ai_date, cat.name, cat.color`,
       [id, businessId],
     );
 
@@ -187,7 +192,8 @@ router.post("/", async (req, res) => {
     type,
     notes,
     receiptId,
-    splits, // Array of { categoryId, amount, notes }
+    categoryId,
+    splits,
   } = req.body;
 
   // Validation
@@ -211,7 +217,6 @@ router.post("/", async (req, res) => {
   if (splits && splits.length > 0) {
     const splitSum = splits.reduce((sum, s) => sum + parseFloat(s.amount), 0);
     const total = parseFloat(totalAmount);
-    // Allow small rounding difference
     if (Math.abs(splitSum - total) > 0.01) {
       return res.status(400).json({
         error: `Split amounts ($${splitSum.toFixed(2)}) must equal total amount ($${total.toFixed(2)})`,
@@ -245,9 +250,9 @@ router.post("/", async (req, res) => {
 
     // Insert transaction
     const txResult = await client.query(
-      `INSERT INTO transactions 
-        (business_id, account_id, created_by, date, merchant, total_amount, type, is_split, receipt_id, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `INSERT INTO transactions
+        (business_id, account_id, created_by, date, merchant, total_amount, type, is_split, receipt_id, notes, category_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
         businessId,
@@ -260,6 +265,7 @@ router.post("/", async (req, res) => {
         isSplit,
         receiptId || null,
         notes || null,
+        !isSplit ? categoryId || null : null,
       ],
     );
     const transaction = txResult.rows[0];
@@ -267,7 +273,6 @@ router.post("/", async (req, res) => {
     // Insert splits if provided
     if (isSplit) {
       for (const split of splits) {
-        // Verify category belongs to this business
         const catCheck = await client.query(
           "SELECT id FROM categories WHERE id = $1 AND business_id = $2",
           [split.categoryId, businessId],
@@ -278,7 +283,6 @@ router.post("/", async (req, res) => {
             error: `Category ${split.categoryId} not found`,
           });
         }
-
         await client.query(
           `INSERT INTO transaction_splits (transaction_id, category_id, amount, notes)
            VALUES ($1, $2, $3, $4)`,
@@ -296,10 +300,12 @@ router.post("/", async (req, res) => {
 
     await client.query("COMMIT");
 
-    // Return full transaction with splits
+    // Return full transaction with splits and category
     const fullTx = await pool.query(
-      `SELECT t.*, 
+      `SELECT t.*,
         a.name AS account_name,
+        cat.name AS category_name,
+        cat.color AS category_color,
         COALESCE(
           json_agg(
             json_build_object(
@@ -307,8 +313,8 @@ router.post("/", async (req, res) => {
               'amount', ts.amount,
               'notes', ts.notes,
               'category_id', ts.category_id,
-              'category_name', c.name,
-              'category_color', c.color
+              'category_name', sc.name,
+              'category_color', sc.color
             )
           ) FILTER (WHERE ts.id IS NOT NULL),
           '[]'
@@ -316,9 +322,10 @@ router.post("/", async (req, res) => {
        FROM transactions t
        LEFT JOIN accounts a ON a.id = t.account_id
        LEFT JOIN transaction_splits ts ON ts.transaction_id = t.id
-       LEFT JOIN categories c ON c.id = ts.category_id
+       LEFT JOIN categories sc ON sc.id = ts.category_id
+       LEFT JOIN categories cat ON cat.id = t.category_id
        WHERE t.id = $1
-       GROUP BY t.id, a.name`,
+       GROUP BY t.id, a.name, cat.name, cat.color`,
       [transaction.id],
     );
 
@@ -337,8 +344,16 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   const { businessId } = req.user;
   const { id } = req.params;
-  const { date, merchant, totalAmount, type, notes, accountId, splits } =
-    req.body;
+  const {
+    date,
+    merchant,
+    totalAmount,
+    type,
+    notes,
+    accountId,
+    categoryId,
+    splits,
+  } = req.body;
 
   const client = await pool.connect();
 
@@ -376,19 +391,20 @@ router.put("/:id", async (req, res) => {
       [oldBalanceChange, oldTx.account_id],
     );
 
-    const isSplit = splits && splits.length > 0;
+    const isSplit = !!(splits && splits.length > 0);
 
     // Update transaction
     const updatedTx = await client.query(
       `UPDATE transactions SET
-        date = COALESCE($1, date),
-        merchant = COALESCE($2, merchant),
+        date         = COALESCE($1, date),
+        merchant     = COALESCE($2, merchant),
         total_amount = COALESCE($3, total_amount),
-        type = COALESCE($4, type),
-        notes = COALESCE($5, notes),
-        account_id = COALESCE($6, account_id),
-        is_split = $7
-       WHERE id = $8 AND business_id = $9
+        type         = COALESCE($4, type),
+        notes        = COALESCE($5, notes),
+        account_id   = COALESCE($6, account_id),
+        is_split     = $7,
+        category_id  = CASE WHEN $7 = true THEN NULL ELSE COALESCE($8, category_id) END
+       WHERE id = $9 AND business_id = $10
        RETURNING *`,
       [
         date,
@@ -398,6 +414,7 @@ router.put("/:id", async (req, res) => {
         notes,
         accountId,
         isSplit,
+        categoryId || null,
         id,
         businessId,
       ],
@@ -454,7 +471,6 @@ router.delete("/:id", async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    // Get transaction before deleting to reverse balance
     const existing = await client.query(
       "SELECT * FROM transactions WHERE id = $1 AND business_id = $2",
       [id, businessId],
@@ -465,13 +481,11 @@ router.delete("/:id", async (req, res) => {
     }
     const tx = existing.rows[0];
 
-    // Delete transaction (splits deleted via ON DELETE CASCADE)
     await client.query(
       "DELETE FROM transactions WHERE id = $1 AND business_id = $2",
       [id, businessId],
     );
 
-    // Reverse balance change
     const balanceChange =
       tx.type === "income" ? -tx.total_amount : tx.total_amount;
     await client.query(
@@ -491,7 +505,7 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-// ── GET /api/transactions/summary ────────────────────────────
+// ── GET /api/transactions/summary/totals ─────────────────────
 // Get income vs expense totals for a date range (for dashboard)
 router.get("/summary/totals", async (req, res) => {
   const { businessId } = req.user;

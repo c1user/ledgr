@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
@@ -9,7 +9,6 @@ const fmt = (val, currency = "USD") =>
     val || 0,
   );
 
-// ── Empty form state ──────────────────────────────────────────
 const emptyForm = {
   accountId: "",
   date: dayjs().format("YYYY-MM-DD"),
@@ -17,29 +16,24 @@ const emptyForm = {
   totalAmount: "",
   type: "expense",
   notes: "",
+  categoryId: "",
   splits: [],
 };
 
-// ── Split Editor ──────────────────────────────────────────────
 function SplitEditor({ splits, setSplits, totalAmount, categories }) {
   const remaining =
     parseFloat(totalAmount || 0) -
     splits.reduce((s, r) => s + parseFloat(r.amount || 0), 0);
 
-  const addSplit = () => {
+  const addSplit = () =>
     setSplits([...splits, { categoryId: "", amount: "", notes: "" }]);
-  };
 
-  const updateSplit = (i, field, value) => {
-    const updated = splits.map((s, idx) =>
-      idx === i ? { ...s, [field]: value } : s,
+  const updateSplit = (i, field, value) =>
+    setSplits(
+      splits.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)),
     );
-    setSplits(updated);
-  };
 
-  const removeSplit = (i) => {
-    setSplits(splits.filter((_, idx) => idx !== i));
-  };
+  const removeSplit = (i) => setSplits(splits.filter((_, idx) => idx !== i));
 
   return (
     <div style={{ marginTop: 8 }}>
@@ -48,7 +42,7 @@ function SplitEditor({ splits, setSplits, totalAmount, categories }) {
           key={i}
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 100px auto",
+            gridTemplateColumns: "1fr 110px auto",
             gap: 8,
             marginBottom: 8,
             alignItems: "center",
@@ -86,7 +80,6 @@ function SplitEditor({ splits, setSplits, totalAmount, categories }) {
               width: 30,
               height: 30,
               cursor: "pointer",
-              fontSize: 16,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -96,7 +89,6 @@ function SplitEditor({ splits, setSplits, totalAmount, categories }) {
           </button>
         </div>
       ))}
-
       <div
         style={{
           display: "flex",
@@ -130,8 +122,7 @@ function SplitEditor({ splits, setSplits, totalAmount, categories }) {
   );
 }
 
-// ── Transaction Form Modal ────────────────────────────────────
-function TransactionModal({ onClose, accounts, categories, editTx, currency }) {
+function TransactionModal({ onClose, accounts, categories, editTx }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(
     editTx
@@ -142,6 +133,7 @@ function TransactionModal({ onClose, accounts, categories, editTx, currency }) {
           totalAmount: editTx.total_amount,
           type: editTx.type,
           notes: editTx.notes || "",
+          categoryId: editTx.category_id || "",
           splits:
             editTx.splits?.map((s) => ({
               categoryId: s.category_id,
@@ -151,7 +143,6 @@ function TransactionModal({ onClose, accounts, categories, editTx, currency }) {
         }
       : emptyForm,
   );
-
   const [useSplit, setUseSplit] = useState(editTx ? editTx.is_split : false);
   const [error, setError] = useState("");
 
@@ -167,34 +158,28 @@ function TransactionModal({ onClose, accounts, categories, editTx, currency }) {
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       onClose();
     },
-    onError: (err) => {
-      setError(err.response?.data?.error || "Failed to save transaction");
-    },
+    onError: (err) =>
+      setError(err.response?.data?.error || "Failed to save transaction"),
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
     setError("");
-
     if (!form.accountId) return setError("Please select an account");
     if (!form.totalAmount || form.totalAmount <= 0)
       return setError("Enter a valid amount");
-
-    const payload = {
+    if (useSplit && form.splits.length === 0)
+      return setError("Add at least one split line or disable split mode");
+    mutation.mutate({
       accountId: form.accountId,
       date: form.date,
       merchant: form.merchant || undefined,
       totalAmount: parseFloat(form.totalAmount),
       type: form.type,
       notes: form.notes || undefined,
+      categoryId: !useSplit ? form.categoryId || undefined : undefined,
       splits: useSplit ? form.splits : [],
-    };
-
-    if (useSplit && form.splits.length === 0) {
-      return setError("Add at least one split line or disable split mode");
-    }
-
-    mutation.mutate(payload);
+    });
   };
 
   return (
@@ -202,7 +187,7 @@ function TransactionModal({ onClose, accounts, categories, editTx, currency }) {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.5)",
+        background: "rgba(0,0,0,0.4)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -211,7 +196,7 @@ function TransactionModal({ onClose, accounts, categories, editTx, currency }) {
       }}
     >
       <div
-        className="card"
+        className="card fade-in"
         style={{
           width: "100%",
           maxWidth: 520,
@@ -263,12 +248,16 @@ function TransactionModal({ onClose, accounts, categories, editTx, currency }) {
               marginBottom: 16,
             }}
           >
+            <i
+              className="ti ti-alert-circle"
+              style={{ marginRight: 6 }}
+              aria-hidden="true"
+            />
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
-          {/* Type toggle */}
           <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
             {["expense", "income"].map((t) => (
               <button
@@ -314,7 +303,6 @@ function TransactionModal({ onClose, accounts, categories, editTx, currency }) {
             ))}
           </div>
 
-          {/* Amount + Date */}
           <div
             style={{
               display: "grid",
@@ -356,7 +344,6 @@ function TransactionModal({ onClose, accounts, categories, editTx, currency }) {
             </div>
           </div>
 
-          {/* Merchant */}
           <div style={{ marginBottom: 14 }}>
             <label className="label" htmlFor="merchant">
               Merchant / Description
@@ -371,7 +358,6 @@ function TransactionModal({ onClose, accounts, categories, editTx, currency }) {
             />
           </div>
 
-          {/* Account */}
           <div style={{ marginBottom: 14 }}>
             <label className="label" htmlFor="accountId">
               Account
@@ -392,7 +378,32 @@ function TransactionModal({ onClose, accounts, categories, editTx, currency }) {
             </select>
           </div>
 
-          {/* Notes */}
+          {/* Category — only show when not splitting */}
+          {!useSplit && (
+            <div style={{ marginBottom: 14 }}>
+              <label className="label" htmlFor="categoryId">
+                Category
+              </label>
+              <select
+                id="categoryId"
+                className="input"
+                value={form.categoryId}
+                onChange={(e) =>
+                  setForm({ ...form, categoryId: e.target.value })
+                }
+              >
+                <option value="">Select a category</option>
+                {categories
+                  ?.filter((c) => c.type === form.type)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
+
           <div style={{ marginBottom: 14 }}>
             <label className="label" htmlFor="notes">
               Notes
@@ -407,7 +418,6 @@ function TransactionModal({ onClose, accounts, categories, editTx, currency }) {
             />
           </div>
 
-          {/* Split toggle */}
           <div
             style={{
               display: "flex",
@@ -464,7 +474,6 @@ function TransactionModal({ onClose, accounts, categories, editTx, currency }) {
             </div>
           </div>
 
-          {/* Split editor */}
           {useSplit && (
             <div
               style={{
@@ -493,7 +502,6 @@ function TransactionModal({ onClose, accounts, categories, editTx, currency }) {
             </div>
           )}
 
-          {/* Actions */}
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
             <button
               type="button"
@@ -520,21 +528,26 @@ function TransactionModal({ onClose, accounts, categories, editTx, currency }) {
   );
 }
 
-// ── Main Transactions Page ────────────────────────────────────
 export default function Transactions() {
   const { business } = useAuthStore();
   const queryClient = useQueryClient();
   const currency = business?.currency || "USD";
-
   const [showModal, setShowModal] = useState(false);
   const [editTx, setEditTx] = useState(null);
   const [filters, setFilters] = useState({
     type: "",
     startDate: "",
     endDate: "",
+    categoryId: "",
   });
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  // Fetch transactions
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const { data, isLoading } = useQuery({
     queryKey: ["transactions", filters],
     queryFn: () => {
@@ -542,22 +555,20 @@ export default function Transactions() {
       if (filters.type) params.append("type", filters.type);
       if (filters.startDate) params.append("startDate", filters.startDate);
       if (filters.endDate) params.append("endDate", filters.endDate);
+      if (filters.categoryId) params.append("categoryId", filters.categoryId);
       return api.get(`/transactions?${params}`).then((r) => r.data);
     },
   });
 
-  // Fetch accounts + categories for the form
   const { data: accounts } = useQuery({
     queryKey: ["accounts"],
     queryFn: () => api.get("/accounts").then((r) => r.data),
   });
-
   const { data: categories } = useQuery({
     queryKey: ["categories"],
     queryFn: () => api.get("/categories").then((r) => r.data),
   });
 
-  // Delete transaction
   const deleteMutation = useMutation({
     mutationFn: (id) => api.delete(`/transactions/${id}`),
     onSuccess: () => {
@@ -568,16 +579,10 @@ export default function Transactions() {
     },
   });
 
-  const handleEdit = (tx) => {
-    setEditTx(tx);
-    setShowModal(true);
-  };
-
   const handleClose = () => {
     setShowModal(false);
     setEditTx(null);
   };
-
   const transactions = data?.transactions || [];
 
   return (
@@ -607,7 +612,8 @@ export default function Transactions() {
           </div>
         </div>
         <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-          <i className="ti ti-plus" aria-hidden="true" /> Add transaction
+          <i className="ti ti-plus" aria-hidden="true" />{" "}
+          {isMobile ? "" : "Add transaction"}
         </button>
       </div>
 
@@ -618,239 +624,510 @@ export default function Transactions() {
           padding: "12px 16px",
           marginBottom: 16,
           display: "flex",
-          gap: 12,
+          gap: 8,
           flexWrap: "wrap",
           alignItems: "center",
         }}
       >
         <select
           className="input"
-          style={{ width: 140 }}
+          style={{ width: isMobile ? "100%" : 140 }}
           value={filters.type}
-          onChange={(e) => setFilters({ ...filters, type: e.target.value })}
+          onChange={(e) =>
+            setFilters({ ...filters, type: e.target.value, categoryId: "" })
+          }
         >
           <option value="">All types</option>
           <option value="income">Income</option>
           <option value="expense">Expense</option>
         </select>
-        <input
-          className="input"
-          type="date"
-          style={{ width: 160 }}
-          value={filters.startDate}
-          onChange={(e) =>
-            setFilters({ ...filters, startDate: e.target.value })
-          }
-        />
-        <input
-          className="input"
-          type="date"
-          style={{ width: 160 }}
-          value={filters.endDate}
-          onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-        />
-        {(filters.type || filters.startDate || filters.endDate) && (
+
+        {!isMobile && (
+          <select
+            className="input"
+            style={{ width: 160 }}
+            value={filters.categoryId || ""}
+            onChange={(e) =>
+              setFilters({ ...filters, categoryId: e.target.value })
+            }
+          >
+            <option value="">All categories</option>
+            {categories
+              ?.filter((c) => !filters.type || c.type === filters.type)
+              .map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+          </select>
+        )}
+        {!isMobile && (
+          <>
+            <input
+              className="input"
+              type="date"
+              style={{ width: 160 }}
+              value={filters.startDate}
+              onChange={(e) =>
+                setFilters({ ...filters, startDate: e.target.value })
+              }
+            />
+            <input
+              className="input"
+              type="date"
+              style={{ width: 160 }}
+              value={filters.endDate}
+              onChange={(e) =>
+                setFilters({ ...filters, endDate: e.target.value })
+              }
+            />
+          </>
+        )}
+        {(filters.type ||
+          filters.startDate ||
+          filters.endDate ||
+          filters.categoryId) && (
           <button
             className="btn btn-secondary"
             style={{ fontSize: 12 }}
-            onClick={() => setFilters({ type: "", startDate: "", endDate: "" })}
+            onClick={() =>
+              setFilters({
+                type: "",
+                startDate: "",
+                endDate: "",
+                categoryId: "",
+              })
+            }
           >
             <i className="ti ti-x" aria-hidden="true" /> Clear
           </button>
         )}
       </div>
 
-      {/* Transaction list */}
-      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-        {/* Table header */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "100px 1fr 120px 100px 80px 80px",
-            padding: "10px 18px",
-            borderBottom: "0.5px solid var(--border-color)",
-            background: "var(--bg-secondary)",
-          }}
-        >
-          {["Date", "Merchant", "Account", "Amount", "Type", ""].map((h) => (
-            <div
-              key={h}
-              style={{
-                fontSize: 11,
-                color: "var(--text-muted)",
-                fontWeight: 500,
-                letterSpacing: 0.5,
-              }}
-            >
-              {h}
-            </div>
-          ))}
-        </div>
-
-        {isLoading ? (
+      {/* ── DESKTOP: Table layout ── */}
+      {!isMobile && (
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
           <div
             style={{
-              padding: 32,
-              textAlign: "center",
-              color: "var(--text-muted)",
+              display: "grid",
+              gridTemplateColumns: "100px 1fr 120px 110px 90px 70px",
+              padding: "10px 18px",
+              borderBottom: "0.5px solid var(--border-color)",
+              background: "var(--bg-secondary)",
             }}
           >
-            Loading...
-          </div>
-        ) : transactions.length === 0 ? (
-          <div style={{ padding: 40, textAlign: "center" }}>
-            <i
-              className="ti ti-receipt-off"
-              style={{ fontSize: 36, color: "var(--text-muted)" }}
-              aria-hidden="true"
-            />
-            <div
-              style={{
-                color: "var(--text-muted)",
-                fontSize: 13,
-                marginTop: 10,
-              }}
-            >
-              No transactions found
-            </div>
-            <button
-              className="btn btn-primary"
-              style={{ marginTop: 12 }}
-              onClick={() => setShowModal(true)}
-            >
-              Add your first transaction
-            </button>
-          </div>
-        ) : (
-          transactions.map((tx) => (
-            <div
-              key={tx.id}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "100px 1fr 120px 100px 80px 80px",
-                padding: "12px 18px",
-                borderBottom: "0.5px solid var(--border-color)",
-                alignItems: "center",
-                transition: "background 0.15s",
-              }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "var(--bg-secondary)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "transparent")
-              }
-            >
-              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                {dayjs(tx.date).format("MMM D, YYYY")}
+            {["Date", "Merchant", "Account", "Amount", "Type", ""].map((h) => (
+              <div
+                key={h}
+                style={{
+                  fontSize: 11,
+                  color: "var(--text-muted)",
+                  fontWeight: 500,
+                  letterSpacing: 0.5,
+                }}
+              >
+                {h}
               </div>
-              <div>
+            ))}
+          </div>
+          {isLoading ? (
+            <div
+              style={{
+                padding: 32,
+                textAlign: "center",
+                color: "var(--text-muted)",
+              }}
+            >
+              Loading...
+            </div>
+          ) : transactions.length === 0 ? (
+            <div style={{ padding: 40, textAlign: "center" }}>
+              <i
+                className="ti ti-receipt-off"
+                style={{ fontSize: 36, color: "var(--text-muted)" }}
+                aria-hidden="true"
+              />
+              <div
+                style={{
+                  color: "var(--text-muted)",
+                  fontSize: 13,
+                  marginTop: 10,
+                }}
+              >
+                No transactions found
+              </div>
+              <button
+                className="btn btn-primary"
+                style={{ marginTop: 12 }}
+                onClick={() => setShowModal(true)}
+              >
+                Add your first transaction
+              </button>
+            </div>
+          ) : (
+            transactions.map((tx) => (
+              <div
+                key={tx.id}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "100px 1fr 120px 110px 90px 70px",
+                  padding: "12px 18px",
+                  borderBottom: "0.5px solid var(--border-color)",
+                  alignItems: "center",
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = "var(--bg-secondary)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = "transparent")
+                }
+              >
+                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                  {dayjs(tx.date).format("MMM D, YYYY")}
+                </div>
+                <div>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    {tx.merchant || "—"}
+                    {tx.category_name && (
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "var(--text-muted)",
+                          marginTop: 1,
+                        }}
+                      >
+                        {tx.category_name}
+                      </div>
+                    )}
+                    {tx.is_split && (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          background: "var(--payroll-bg)",
+                          color: "var(--payroll)",
+                          padding: "1px 6px",
+                          borderRadius: 3,
+                          marginLeft: 6,
+                        }}
+                      >
+                        split
+                      </span>
+                    )}
+                  </div>
+                  {tx.notes && (
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "var(--text-muted)",
+                        marginTop: 1,
+                      }}
+                    >
+                      {tx.notes}
+                    </div>
+                  )}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                  {tx.account_name}
+                </div>
                 <div
                   style={{
                     fontSize: 13,
-                    fontWeight: 500,
-                    color: "var(--text-primary)",
+                    fontWeight: 600,
+                    color:
+                      tx.type === "income" ? "var(--income)" : "var(--expense)",
                   }}
                 >
-                  {tx.merchant || "—"}
-                  {tx.is_split && (
-                    <span
-                      style={{
-                        fontSize: 10,
-                        background: "var(--payroll-bg)",
-                        color: "var(--payroll)",
-                        padding: "1px 6px",
-                        borderRadius: 3,
-                        marginLeft: 6,
-                      }}
-                    >
-                      split
-                    </span>
-                  )}
+                  {tx.type === "income" ? "+" : "-"}
+                  {fmt(tx.total_amount, currency)}
                 </div>
-                {tx.notes && (
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: "var(--text-muted)",
-                      marginTop: 1,
-                    }}
+                <div>
+                  <span
+                    className={`badge badge-${tx.type}`}
+                    style={{ fontSize: 10, textTransform: "capitalize" }}
                   >
-                    {tx.notes}
-                  </div>
-                )}
+                    {tx.type}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 6,
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  <button
+                    onClick={() => {
+                      setEditTx(tx);
+                      setShowModal(true);
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "var(--text-muted)",
+                      padding: 4,
+                    }}
+                    title="Edit"
+                  >
+                    <i
+                      className="ti ti-pencil"
+                      style={{ fontSize: 15 }}
+                      aria-hidden="true"
+                    />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (window.confirm("Delete this transaction?"))
+                        deleteMutation.mutate(tx.id);
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "var(--danger)",
+                      padding: 4,
+                    }}
+                    title="Delete"
+                  >
+                    <i
+                      className="ti ti-trash"
+                      style={{ fontSize: 15 }}
+                      aria-hidden="true"
+                    />
+                  </button>
+                </div>
               </div>
-              <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                {tx.account_name}
-              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* ── MOBILE: Card layout ── */}
+      {isMobile && (
+        <div>
+          {isLoading ? (
+            <div
+              style={{
+                padding: 32,
+                textAlign: "center",
+                color: "var(--text-muted)",
+              }}
+            >
+              Loading...
+            </div>
+          ) : transactions.length === 0 ? (
+            <div className="card" style={{ padding: 40, textAlign: "center" }}>
+              <i
+                className="ti ti-receipt-off"
+                style={{ fontSize: 36, color: "var(--text-muted)" }}
+                aria-hidden="true"
+              />
               <div
                 style={{
+                  color: "var(--text-muted)",
                   fontSize: 13,
-                  fontWeight: 600,
-                  color:
-                    tx.type === "income" ? "var(--income)" : "var(--expense)",
+                  marginTop: 10,
                 }}
               >
-                {tx.type === "income" ? "+" : "-"}
-                {fmt(tx.total_amount, currency)}
+                No transactions found
               </div>
-              <div>
-                <span
-                  className={`badge badge-${tx.type}`}
-                  style={{ fontSize: 10, textTransform: "capitalize" }}
-                >
-                  {tx.type}
-                </span>
-              </div>
-              <div
-                style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}
+              <button
+                className="btn btn-primary"
+                style={{ marginTop: 12 }}
+                onClick={() => setShowModal(true)}
               >
-                <button
-                  onClick={() => handleEdit(tx)}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "var(--text-muted)",
-                    padding: 4,
-                    borderRadius: 4,
-                  }}
-                  title="Edit"
-                >
-                  <i
-                    className="ti ti-pencil"
-                    style={{ fontSize: 15 }}
-                    aria-hidden="true"
-                  />
-                </button>
-                <button
-                  onClick={() => {
-                    if (window.confirm("Delete this transaction?")) {
-                      deleteMutation.mutate(tx.id);
-                    }
-                  }}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "var(--danger)",
-                    padding: 4,
-                    borderRadius: 4,
-                  }}
-                  title="Delete"
-                >
-                  <i
-                    className="ti ti-trash"
-                    style={{ fontSize: 15 }}
-                    aria-hidden="true"
-                  />
-                </button>
-              </div>
+                Add your first transaction
+              </button>
             </div>
-          ))
-        )}
-      </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {transactions.map((tx) => (
+                <div
+                  key={tx.id}
+                  className="card"
+                  style={{ padding: "14px 16px" }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      marginBottom: 8,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        flex: 1,
+                        minWidth: 0,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 8,
+                          background:
+                            tx.type === "income"
+                              ? "var(--income-bg)"
+                              : "var(--expense-bg)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <i
+                          className={`ti ${tx.type === "income" ? "ti-arrow-down-left" : "ti-arrow-up-right"}`}
+                          style={{
+                            fontSize: 16,
+                            color:
+                              tx.type === "income"
+                                ? "var(--income)"
+                                : "var(--expense)",
+                          }}
+                          aria-hidden="true"
+                        />
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 14,
+                            fontWeight: 500,
+                            color: "var(--text-primary)",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {tx.merchant || "No merchant"}
+                          {tx.is_split && (
+                            <span
+                              style={{
+                                fontSize: 10,
+                                background: "var(--payroll-bg)",
+                                color: "var(--payroll)",
+                                padding: "1px 6px",
+                                borderRadius: 3,
+                                marginLeft: 6,
+                              }}
+                            >
+                              split
+                            </span>
+                          )}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "var(--text-muted)",
+                            marginTop: 2,
+                          }}
+                        >
+                          {dayjs(tx.date).format("MMM D, YYYY")} ·{" "}
+                          {tx.account_name}
+                          {tx.category_name && ` · ${tx.category_name}`}
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 600,
+                        color:
+                          tx.type === "income"
+                            ? "var(--income)"
+                            : "var(--expense)",
+                        flexShrink: 0,
+                        marginLeft: 8,
+                      }}
+                    >
+                      {tx.type === "income" ? "+" : "-"}
+                      {fmt(tx.total_amount, currency)}
+                    </div>
+                  </div>
+                  {tx.notes && (
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "var(--text-muted)",
+                        marginBottom: 8,
+                        paddingLeft: 46,
+                      }}
+                    >
+                      {tx.notes}
+                    </div>
+                  )}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      paddingLeft: 46,
+                    }}
+                  >
+                    <span
+                      className={`badge badge-${tx.type}`}
+                      style={{ fontSize: 10, textTransform: "capitalize" }}
+                    >
+                      {tx.type}
+                    </span>
+                    <div style={{ display: "flex", gap: 12 }}>
+                      <button
+                        onClick={() => {
+                          setEditTx(tx);
+                          setShowModal(true);
+                        }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "var(--text-muted)",
+                          padding: "4px 8px",
+                          fontSize: 13,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <i className="ti ti-pencil" aria-hidden="true" /> Edit
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (window.confirm("Delete this transaction?"))
+                            deleteMutation.mutate(tx.id);
+                        }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "var(--danger)",
+                          padding: "4px 8px",
+                          fontSize: 13,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <i className="ti ti-trash" aria-hidden="true" /> Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* Modal */}
       {showModal && (
         <TransactionModal
           onClose={handleClose}
