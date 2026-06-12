@@ -159,6 +159,7 @@ export default function AiChat() {
   const [conversationId, setConversationId] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [panelError, setPanelError] = useState("");
   const bottomRef = useRef();
   const inputRef = useRef();
 
@@ -178,17 +179,28 @@ export default function AiChat() {
     onSuccess: (res) => {
       const data = res.data;
       setConversationId(data.conversationId);
-      setMessages(data.history);
+      // Defensive: never trust the API shape blindly.
+      // If history is missing, keep optimistic messages and append the reply.
+      if (Array.isArray(data.history)) {
+        setMessages(data.history);
+      } else if (typeof data.message === "string") {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: data.message },
+        ]);
+      }
       setIsTyping(false);
       queryClient.invalidateQueries({ queryKey: ["ai-conversations"] });
     },
-    onError: () => {
+    onError: (err) => {
       setIsTyping(false);
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "Sorry, something went wrong. Please try again.",
+          content:
+            err.response?.data?.error ||
+            "Sorry, something went wrong. Please try again.",
         },
       ]);
     },
@@ -218,13 +230,15 @@ export default function AiChat() {
   };
 
   const loadConversation = async (conv) => {
+    setPanelError("");
     try {
       const { data } = await api.get(`/ai/conversations/${conv.id}`);
-      setMessages(data.messages || []);
+      setMessages(Array.isArray(data.messages) ? data.messages : []);
       setConversationId(conv.id);
       setShowHistory(false);
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error("Load conversation failed:", err);
+      setPanelError("Couldn't load that conversation.");
     }
   };
 
@@ -238,12 +252,14 @@ export default function AiChat() {
 
   const deleteConversation = async (id, e) => {
     e.stopPropagation();
+    setPanelError("");
     try {
       await api.delete(`/ai/conversations/${id}`);
       queryClient.invalidateQueries({ queryKey: ["ai-conversations"] });
       if (conversationId === id) startNew();
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error("Delete conversation failed:", err);
+      setPanelError("Couldn't delete that conversation.");
     }
   };
 
@@ -534,6 +550,18 @@ export default function AiChat() {
                 <i className="ti ti-x" aria-hidden="true" />
               </button>
             </div>
+            {panelError && (
+              <div
+                style={{
+                  padding: "8px 16px",
+                  fontSize: 12,
+                  color: "var(--danger)",
+                  borderBottom: "0.5px solid var(--border-color)",
+                }}
+              >
+                {panelError}
+              </div>
+            )}
             <div style={{ overflowY: "auto", flex: 1 }}>
               {!conversations?.length ? (
                 <div
