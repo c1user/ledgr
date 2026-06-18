@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 
 const emptyForm = { name: "", type: "expense", color: "#4F8EF7", parentId: "" };
@@ -18,7 +19,7 @@ const COLOR_PRESETS = [
 ];
 
 // ── Category Modal ────────────────────────────────────────────
-function CategoryModal({ onClose, editCategory, categories }) {
+function CategoryModal({ onClose, editCategory, categories, t }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(
     editCategory
@@ -42,13 +43,13 @@ function CategoryModal({ onClose, editCategory, categories }) {
       onClose();
     },
     onError: (err) =>
-      setError(err.response?.data?.error || "Failed to save category"),
+      setError(err.response?.data?.error || t("categories.saveFailed")),
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
     setError("");
-    if (!form.name) return setError("Category name is required");
+    if (!form.name) return setError(t("categories.errNameRequired"));
     mutation.mutate({
       name: form.name,
       type: form.type,
@@ -94,7 +95,9 @@ function CategoryModal({ onClose, editCategory, categories }) {
               color: "var(--text-primary)",
             }}
           >
-            {editCategory ? "Edit Category" : "New Category"}
+            {editCategory
+              ? t("categories.editTitle")
+              : t("categories.newTitle")}
           </h2>
           <button
             onClick={onClose}
@@ -148,7 +151,7 @@ function CategoryModal({ onClose, editCategory, categories }) {
               style={{ marginRight: 6 }}
               aria-hidden="true"
             />
-            System categories can only have their color changed.
+            {t("categories.systemHint")}
           </div>
         )}
 
@@ -156,14 +159,14 @@ function CategoryModal({ onClose, editCategory, categories }) {
           {/* Name */}
           <div style={{ marginBottom: 14 }}>
             <label className="label" htmlFor="cat-name">
-              Name
+              {t("common.name")}
             </label>
             <input
               id="cat-name"
               className="input"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="e.g. Software Subscriptions"
+              placeholder={t("categories.namePlaceholder")}
               disabled={editCategory?.is_system}
               required
               autoFocus
@@ -172,13 +175,15 @@ function CategoryModal({ onClose, editCategory, categories }) {
 
           {/* Type */}
           <div style={{ marginBottom: 14 }}>
-            <label className="label">Type</label>
+            <label className="label">{t("common.type")}</label>
             <div style={{ display: "flex", gap: 8 }}>
-              {["expense", "income"].map((t) => (
+              {["expense", "income"].map((catType) => (
                 <button
-                  key={t}
+                  key={catType}
                   type="button"
-                  onClick={() => setForm({ ...form, type: t, parentId: "" })}
+                  onClick={() =>
+                    setForm({ ...form, type: catType, parentId: "" })
+                  }
                   disabled={!!editCategory}
                   style={{
                     flex: 1,
@@ -186,31 +191,30 @@ function CategoryModal({ onClose, editCategory, categories }) {
                     borderRadius: 8,
                     border: "0.5px solid",
                     borderColor:
-                      form.type === t
-                        ? t === "income"
+                      form.type === catType
+                        ? catType === "income"
                           ? "var(--income)"
                           : "var(--expense)"
                         : "var(--border-color)",
                     background:
-                      form.type === t
-                        ? t === "income"
+                      form.type === catType
+                        ? catType === "income"
                           ? "var(--income-bg)"
                           : "var(--expense-bg)"
                         : "transparent",
                     color:
-                      form.type === t
-                        ? t === "income"
+                      form.type === catType
+                        ? catType === "income"
                           ? "var(--income)"
                           : "var(--expense)"
                         : "var(--text-muted)",
                     cursor: editCategory ? "not-allowed" : "pointer",
                     fontSize: 13,
                     fontWeight: 500,
-                    textTransform: "capitalize",
                     opacity: editCategory ? 0.6 : 1,
                   }}
                 >
-                  {t}
+                  {t(`common.${catType}`)}
                 </button>
               ))}
             </div>
@@ -218,7 +222,7 @@ function CategoryModal({ onClose, editCategory, categories }) {
 
           {/* Color */}
           <div style={{ marginBottom: 14 }}>
-            <label className="label">Color</label>
+            <label className="label">{t("categories.color")}</label>
             <div
               style={{
                 display: "flex",
@@ -271,7 +275,7 @@ function CategoryModal({ onClose, editCategory, categories }) {
           {!editCategory?.is_system && parentOptions.length > 0 && (
             <div style={{ marginBottom: 24 }}>
               <label className="label" htmlFor="cat-parent">
-                Parent Category
+                {t("categories.parentCategory")}
                 <span
                   style={{
                     color: "var(--text-muted)",
@@ -279,7 +283,7 @@ function CategoryModal({ onClose, editCategory, categories }) {
                     marginLeft: 4,
                   }}
                 >
-                  (optional)
+                  {t("categories.optional")}
                 </span>
               </label>
               <select
@@ -288,7 +292,7 @@ function CategoryModal({ onClose, editCategory, categories }) {
                 value={form.parentId}
                 onChange={(e) => setForm({ ...form, parentId: e.target.value })}
               >
-                <option value="">None — top level</option>
+                <option value="">{t("categories.noneTopLevel")}</option>
                 {parentOptions.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -304,7 +308,7 @@ function CategoryModal({ onClose, editCategory, categories }) {
               onClick={onClose}
               className="btn btn-secondary"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
@@ -312,10 +316,10 @@ function CategoryModal({ onClose, editCategory, categories }) {
               disabled={mutation.isPending}
             >
               {mutation.isPending
-                ? "Saving..."
+                ? t("categories.saving")
                 : editCategory
-                  ? "Save changes"
-                  : "Create category"}
+                  ? t("categories.saveChanges")
+                  : t("categories.createCategory")}
             </button>
           </div>
         </form>
@@ -325,7 +329,7 @@ function CategoryModal({ onClose, editCategory, categories }) {
 }
 
 // ── Category Card ─────────────────────────────────────────────
-function CategoryCard({ category, subcategories, onEdit, onDelete }) {
+function CategoryCard({ category, subcategories, onEdit, onDelete, t }) {
   return (
     <div className="card" style={{ padding: "14px 16px" }}>
       <div
@@ -366,7 +370,7 @@ function CategoryCard({ category, subcategories, onEdit, onDelete }) {
                     fontWeight: 400,
                   }}
                 >
-                  system
+                  {t("categories.system")}
                 </span>
               )}
             </div>
@@ -378,7 +382,7 @@ function CategoryCard({ category, subcategories, onEdit, onDelete }) {
                   marginTop: 1,
                 }}
               >
-                under {category.parent_name}
+                {t("categories.under", { parent: category.parent_name })}
               </div>
             )}
           </div>
@@ -393,7 +397,7 @@ function CategoryCard({ category, subcategories, onEdit, onDelete }) {
               color: "var(--text-muted)",
               padding: 4,
             }}
-            title="Edit"
+            title={t("common.edit")}
           >
             <i
               className="ti ti-pencil"
@@ -411,7 +415,7 @@ function CategoryCard({ category, subcategories, onEdit, onDelete }) {
                 color: "var(--danger)",
                 padding: 4,
               }}
-              title="Delete"
+              title={t("common.delete")}
             >
               <i
                 className="ti ti-trash"
@@ -500,6 +504,7 @@ function CategoryCard({ category, subcategories, onEdit, onDelete }) {
 
 // ── Main Categories Page ──────────────────────────────────────
 export default function Categories() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
   const [editCategory, setEditCategory] = useState(null);
@@ -515,7 +520,7 @@ export default function Categories() {
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["categories"] }),
     onError: (err) =>
-      alert(err.response?.data?.error || "Failed to delete category"),
+      alert(err.response?.data?.error || t("categories.deleteFailed")),
   });
 
   const handleEdit = (cat) => {
@@ -527,7 +532,7 @@ export default function Categories() {
     setEditCategory(null);
   };
   const handleDelete = (cat) => {
-    if (window.confirm(`Delete "${cat.name}"? This cannot be undone.`)) {
+    if (window.confirm(t("categories.confirmDelete", { name: cat.name }))) {
       deleteMutation.mutate(cat.id);
     }
   };
@@ -567,14 +572,18 @@ export default function Categories() {
               marginBottom: 4,
             }}
           >
-            Categories
+            {t("categories.title")}
           </h1>
           <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-            {expenseCount} expense · {incomeCount} income
+            {t("categories.countSummary", {
+              expense: expenseCount,
+              income: incomeCount,
+            })}
           </div>
         </div>
         <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-          <i className="ti ti-plus" aria-hidden="true" /> Add category
+          <i className="ti ti-plus" aria-hidden="true" />{" "}
+          {t("categories.addCategory")}
         </button>
       </div>
 
@@ -587,26 +596,27 @@ export default function Categories() {
           borderBottom: "0.5px solid var(--border-color)",
         }}
       >
-        {["expense", "income"].map((t) => (
+        {["expense", "income"].map((catType) => (
           <button
-            key={t}
-            onClick={() => setActiveTab(t)}
+            key={catType}
+            onClick={() => setActiveTab(catType)}
             style={{
               padding: "8px 20px",
               background: "none",
               border: "none",
               cursor: "pointer",
               fontSize: 13,
-              color: activeTab === t ? "var(--brand)" : "var(--text-muted)",
+              color:
+                activeTab === catType ? "var(--brand)" : "var(--text-muted)",
               borderBottom:
-                activeTab === t
+                activeTab === catType
                   ? "2px solid var(--brand)"
                   : "2px solid transparent",
-              fontWeight: activeTab === t ? 500 : 400,
-              textTransform: "capitalize",
+              fontWeight: activeTab === catType ? 500 : 400,
             }}
           >
-            {t} ({t === "expense" ? expenseCount : incomeCount})
+            {t(`common.${catType}`)} (
+            {catType === "expense" ? expenseCount : incomeCount})
           </button>
         ))}
       </div>
@@ -620,7 +630,7 @@ export default function Categories() {
             color: "var(--text-muted)",
           }}
         >
-          Loading...
+          {t("common.loading")}
         </div>
       ) : topLevel.length === 0 ? (
         <div className="card" style={{ padding: 48, textAlign: "center" }}>
@@ -632,14 +642,16 @@ export default function Categories() {
           <div
             style={{ color: "var(--text-muted)", fontSize: 13, marginTop: 12 }}
           >
-            No {activeTab} categories yet
+            {t("categories.noneYet", {
+              type: t(`common.${activeTab}`).toLowerCase(),
+            })}
           </div>
           <button
             className="btn btn-primary"
             style={{ marginTop: 16 }}
             onClick={() => setShowModal(true)}
           >
-            Add your first category
+            {t("categories.addFirst")}
           </button>
         </div>
       ) : (
@@ -657,6 +669,7 @@ export default function Categories() {
               subcategories={subMap[cat.id]}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              t={t}
             />
           ))}
         </div>
@@ -667,6 +680,7 @@ export default function Categories() {
           onClose={handleClose}
           editCategory={editCategory}
           categories={categories}
+          t={t}
         />
       )}
     </div>

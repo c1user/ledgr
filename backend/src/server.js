@@ -23,6 +23,7 @@ import receiptRoutes from "./routes/receipts.js";
 import employeeRoutes from "./routes/employees.js";
 import payrollRoutes from "./routes/payroll.js";
 import aiRoutes from "./routes/ai.js";
+import reportRoutes from "./routes/reports.js";
 import { generalLimiter, authLimiter } from "./middleware/rateLimiter.js";
 
 dotenv.config();
@@ -121,6 +122,7 @@ app.use("/api/employees", employeeRoutes);
 app.use("/api/payroll", payrollRoutes);
 // aiChatLimiter is applied inside ai.js on the /chat route only
 app.use("/api/ai", aiRoutes);
+app.use("/api/reports", reportRoutes);
 
 // ── Health check — no sensitive info ─────────────────────────
 app.get("/health", (req, res) => {

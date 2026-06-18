@@ -1,12 +1,16 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 
-const fmt = (val, currency = "USD") =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency }).format(
-    val || 0,
-  );
+const makeFmt =
+  (lang) =>
+  (val, currency = "USD") =>
+    new Intl.NumberFormat(lang === "es" ? "es-PR" : "en-US", {
+      style: "currency",
+      currency,
+    }).format(val || 0);
 
 const emptyForm = {
   name: "",
@@ -24,7 +28,7 @@ const accountTypeIcons = {
 };
 
 // ── Account Modal ─────────────────────────────────────────────
-function AccountModal({ onClose, editAccount }) {
+function AccountModal({ onClose, editAccount, t }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(
     editAccount
@@ -49,13 +53,13 @@ function AccountModal({ onClose, editAccount }) {
       onClose();
     },
     onError: (err) =>
-      setError(err.response?.data?.error || "Failed to save account"),
+      setError(err.response?.data?.error || t("accounts.saveFailed")),
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
     setError("");
-    if (!form.name) return setError("Account name is required");
+    if (!form.name) return setError(t("accounts.errNameRequired"));
     mutation.mutate({
       name: form.name,
       type: form.type,
@@ -96,7 +100,7 @@ function AccountModal({ onClose, editAccount }) {
               color: "var(--text-primary)",
             }}
           >
-            {editAccount ? "Edit Account" : "New Account"}
+            {editAccount ? t("accounts.editTitle") : t("accounts.newTitle")}
           </h2>
           <button
             onClick={onClose}
@@ -136,13 +140,13 @@ function AccountModal({ onClose, editAccount }) {
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 14 }}>
             <label className="label" htmlFor="name">
-              Account Name
+              {t("accounts.accountName")}
             </label>
             <input
               id="name"
               className="input"
               type="text"
-              placeholder="e.g. Business Checking"
+              placeholder={t("accounts.namePlaceholder")}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
@@ -152,7 +156,7 @@ function AccountModal({ onClose, editAccount }) {
 
           <div style={{ marginBottom: 14 }}>
             <label className="label" htmlFor="type">
-              Account Type
+              {t("accounts.accountType")}
             </label>
             <select
               id="type"
@@ -160,11 +164,11 @@ function AccountModal({ onClose, editAccount }) {
               value={form.type}
               onChange={(e) => setForm({ ...form, type: e.target.value })}
             >
-              <option value="current">Current / Checking Account</option>
-              <option value="savings">Savings Account</option>
-              <option value="credit">Credit Card</option>
-              <option value="cash">Cash</option>
-              <option value="loan">Loan</option>
+              <option value="current">{t("accounts.typeCurrent")}</option>
+              <option value="savings">{t("accounts.typeSavings")}</option>
+              <option value="credit">{t("accounts.typeCredit")}</option>
+              <option value="cash">{t("accounts.typeCash")}</option>
+              <option value="loan">{t("accounts.typeLoan")}</option>
             </select>
           </div>
 
@@ -178,7 +182,7 @@ function AccountModal({ onClose, editAccount }) {
           >
             <div>
               <label className="label" htmlFor="currentBalance">
-                Opening Balance
+                {t("accounts.openingBalance")}
                 {editAccount && (
                   <span
                     style={{
@@ -187,7 +191,7 @@ function AccountModal({ onClose, editAccount }) {
                       marginLeft: 4,
                     }}
                   >
-                    (current)
+                    {t("accounts.currentParenthetical")}
                   </span>
                 )}
               </label>
@@ -205,7 +209,7 @@ function AccountModal({ onClose, editAccount }) {
             </div>
             <div>
               <label className="label" htmlFor="currency">
-                Currency
+                {t("accounts.currency")}
               </label>
               <select
                 id="currency"
@@ -226,7 +230,7 @@ function AccountModal({ onClose, editAccount }) {
               onClick={onClose}
               className="btn btn-secondary"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
@@ -234,10 +238,10 @@ function AccountModal({ onClose, editAccount }) {
               disabled={mutation.isPending}
             >
               {mutation.isPending
-                ? "Saving..."
+                ? t("accounts.saving")
                 : editAccount
-                  ? "Save changes"
-                  : "Create account"}
+                  ? t("accounts.saveChanges")
+                  : t("accounts.createAccount")}
             </button>
           </div>
         </form>
@@ -248,9 +252,11 @@ function AccountModal({ onClose, editAccount }) {
 
 // ── Main Accounts Page ────────────────────────────────────────
 export default function Accounts() {
+  const { t, i18n } = useTranslation();
   const { business } = useAuthStore();
   const queryClient = useQueryClient();
   const currency = business?.currency || "USD";
+  const fmt = makeFmt(i18n.language);
   const [showModal, setShowModal] = useState(false);
   const [editAccount, setEditAccount] = useState(null);
 
@@ -297,14 +303,15 @@ export default function Accounts() {
               marginBottom: 4,
             }}
           >
-            Accounts
+            {t("accounts.title")}
           </h1>
           <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-            {accounts?.length || 0} accounts
+            {t("accounts.count", { count: accounts?.length || 0 })}
           </div>
         </div>
         <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-          <i className="ti ti-plus" aria-hidden="true" /> Add account
+          <i className="ti ti-plus" aria-hidden="true" />{" "}
+          {t("accounts.addAccount")}
         </button>
       </div>
 
@@ -320,22 +327,22 @@ export default function Accounts() {
         >
           {[
             {
-              label: "Total Balance",
+              label: t("accounts.totalBalance"),
               value: balances.total_balance,
               color: "var(--income)",
             },
             {
-              label: "Bank",
+              label: t("accounts.bank"),
               value: balances.bank_balance,
               color: "var(--payroll)",
             },
             {
-              label: "Credit",
+              label: t("accounts.credit"),
               value: balances.credit_balance,
               color: "var(--expense)",
             },
             {
-              label: "Cash",
+              label: t("accounts.cash"),
               value: balances.cash_balance,
               color: "var(--profit)",
             },
@@ -373,7 +380,7 @@ export default function Accounts() {
             color: "var(--text-muted)",
           }}
         >
-          Loading...
+          {t("common.loading")}
         </div>
       ) : accounts?.length === 0 ? (
         <div className="card" style={{ padding: 48, textAlign: "center" }}>
@@ -385,14 +392,14 @@ export default function Accounts() {
           <div
             style={{ color: "var(--text-muted)", fontSize: 13, marginTop: 12 }}
           >
-            No accounts yet
+            {t("accounts.noneYet")}
           </div>
           <button
             className="btn btn-primary"
             style={{ marginTop: 16 }}
             onClick={() => setShowModal(true)}
           >
-            Add your first account
+            {t("accounts.addFirst")}
           </button>
         </div>
       ) : (
@@ -449,11 +456,10 @@ export default function Accounts() {
                       style={{
                         fontSize: 11,
                         color: "var(--text-muted)",
-                        textTransform: "capitalize",
                         marginTop: 1,
                       }}
                     >
-                      {acc.type} · {acc.currency}
+                      {t(`accountTypes.${acc.type}`, acc.type)} · {acc.currency}
                       {!acc.is_active && (
                         <span
                           style={{
@@ -462,7 +468,7 @@ export default function Accounts() {
                             fontSize: 10,
                           }}
                         >
-                          Inactive
+                          {t("accounts.inactive")}
                         </span>
                       )}
                     </div>
@@ -482,7 +488,7 @@ export default function Accounts() {
                       padding: 4,
                       borderRadius: 4,
                     }}
-                    title="Edit"
+                    title={t("common.edit")}
                   >
                     <i
                       className="ti ti-pencil"
@@ -492,7 +498,7 @@ export default function Accounts() {
                   </button>
                   <button
                     onClick={() => {
-                      if (window.confirm("Deactivate this account?"))
+                      if (window.confirm(t("accounts.confirmDeactivate")))
                         deleteMutation.mutate(acc.id);
                     }}
                     style={{
@@ -503,7 +509,7 @@ export default function Accounts() {
                       padding: 4,
                       borderRadius: 4,
                     }}
-                    title="Deactivate"
+                    title={t("accounts.deactivate")}
                   >
                     <i
                       className="ti ti-trash"
@@ -530,7 +536,7 @@ export default function Accounts() {
                       marginBottom: 4,
                     }}
                   >
-                    Current Balance
+                    {t("accounts.currentBalance")}
                   </div>
                   <div
                     style={{
@@ -553,7 +559,7 @@ export default function Accounts() {
                       marginBottom: 4,
                     }}
                   >
-                    Transactions
+                    {t("accounts.transactions")}
                   </div>
                   <div
                     style={{
@@ -588,7 +594,7 @@ export default function Accounts() {
                         marginBottom: 2,
                       }}
                     >
-                      Total In
+                      {t("accounts.totalIn")}
                     </div>
                     <div
                       style={{
@@ -608,7 +614,7 @@ export default function Accounts() {
                         marginBottom: 2,
                       }}
                     >
-                      Total Out
+                      {t("accounts.totalOut")}
                     </div>
                     <div
                       style={{
@@ -628,7 +634,7 @@ export default function Accounts() {
       )}
 
       {showModal && (
-        <AccountModal onClose={handleClose} editAccount={editAccount} />
+        <AccountModal onClose={handleClose} editAccount={editAccount} t={t} />
       )}
     </div>
   );

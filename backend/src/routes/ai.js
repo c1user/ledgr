@@ -161,6 +161,7 @@ You have access to their real business data below.
 Answer questions accurately based on this data. Be concise and helpful.
 If asked about something not in the data, say so honestly.
 Never make up numbers. Always use the currency ${biz.currency}.
+Respond in the same language the user writes in (English or Spanish). If the user mixes languages, prefer the language of their most recent message.
 Today's date is ${now.toISOString().split("T")[0]}.
 
 SECURITY RULES — FOLLOW THESE ABSOLUTELY:

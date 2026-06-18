@@ -1,15 +1,21 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import dayjs from "dayjs";
 
-const fmt = (val, currency = "USD") =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency }).format(
-    val || 0,
-  );
+// Locale-aware currency formatter. Falls back to en-US number grouping;
+// es-PR uses the same currency symbols so $ stays correct for PR.
+const makeFmt =
+  (lang) =>
+  (val, currency = "USD") =>
+    new Intl.NumberFormat(lang === "es" ? "es-PR" : "en-US", {
+      style: "currency",
+      currency,
+    }).format(val || 0);
 
 // ── KPI Card ─────────────────────────────────────────────────
 function KpiCard({ label, value, color, icon, bg }) {
@@ -59,7 +65,7 @@ function KpiCard({ label, value, color, icon, bg }) {
 }
 
 // ── Custom Tooltip for donut chart ────────────────────────────
-function CustomTooltip({ active, payload, currency }) {
+function CustomTooltip({ active, payload, currency, fmt, t }) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
@@ -102,14 +108,14 @@ function CustomTooltip({ active, payload, currency }) {
         {fmt(d.value, currency)}
       </div>
       <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-        {d.pct}% of expenses
+        {t("dashboard.pctOfExpenses", { pct: d.pct })}
       </div>
     </div>
   );
 }
 
 // ── Spending by category chart ────────────────────────────────
-function SpendingChart({ transactions, currency, navigate }) {
+function SpendingChart({ transactions, currency, navigate, fmt, t }) {
   const [activeIndex, setActiveIndex] = useState(null);
 
   // Aggregate spending by category from transactions this month
@@ -118,14 +124,14 @@ function SpendingChart({ transactions, currency, navigate }) {
     if (tx.type !== "expense") continue;
     if (tx.is_split && tx.splits?.length > 0) {
       for (const split of tx.splits) {
-        const key = split.category_name || "Uncategorized";
+        const key = split.category_name || t("dashboard.uncategorized");
         const color = split.category_color || "#888780";
         if (!categoryMap[key])
           categoryMap[key] = { name: key, value: 0, color };
         categoryMap[key].value += parseFloat(split.amount || 0);
       }
     } else {
-      const key = tx.category_name || "Uncategorized";
+      const key = tx.category_name || t("dashboard.uncategorized");
       const color = tx.category_color || "#888780";
       if (!categoryMap[key]) categoryMap[key] = { name: key, value: 0, color };
       categoryMap[key].value += parseFloat(tx.total_amount || 0);
@@ -151,14 +157,14 @@ function SpendingChart({ transactions, currency, navigate }) {
         <div
           style={{ color: "var(--text-muted)", fontSize: 13, marginTop: 10 }}
         >
-          No expense data yet this month
+          {t("dashboard.noExpenseData")}
         </div>
         <button
           onClick={() => navigate("/transactions")}
           className="btn btn-primary"
           style={{ marginTop: 12 }}
         >
-          Add a transaction
+          {t("dashboard.addTransaction")}
         </button>
       </div>
     );
@@ -192,7 +198,9 @@ function SpendingChart({ transactions, currency, navigate }) {
                 />
               ))}
             </Pie>
-            <Tooltip content={<CustomTooltip currency={currency} />} />
+            <Tooltip
+              content={<CustomTooltip currency={currency} fmt={fmt} t={t} />}
+            />
           </PieChart>
         </ResponsiveContainer>
         {/* Center label */}
@@ -213,7 +221,7 @@ function SpendingChart({ transactions, currency, navigate }) {
               marginBottom: 2,
             }}
           >
-            TOTAL
+            {t("dashboard.total")}
           </div>
           <div
             style={{ fontSize: 16, fontWeight: 700, color: "var(--expense)" }}
@@ -326,9 +334,11 @@ function SpendingChart({ transactions, currency, navigate }) {
 
 // ── Main Dashboard ────────────────────────────────────────────
 export default function Dashboard() {
+  const { t, i18n } = useTranslation();
   const { business } = useAuthStore();
   const navigate = useNavigate();
   const currency = business?.currency || "USD";
+  const fmt = makeFmt(i18n.language);
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
@@ -376,6 +386,9 @@ export default function Dashboard() {
   const expenses = parseFloat(summary?.total_expenses || 0);
   const net = income - expenses;
 
+  // Localized "Month YYYY" — dayjs locale is set globally by setAppLanguage
+  const monthLabel = now.format("MMMM YYYY");
+
   return (
     <div className="fade-in">
       {/* Page header */}
@@ -388,10 +401,10 @@ export default function Dashboard() {
             marginBottom: 4,
           }}
         >
-          Dashboard
+          {t("dashboard.title")}
         </h1>
         <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-          {now.format("MMMM YYYY")} overview
+          {t("dashboard.overview", { month: monthLabel })}
         </div>
       </div>
 
@@ -405,28 +418,28 @@ export default function Dashboard() {
         }}
       >
         <KpiCard
-          label="Revenue"
+          label={t("dashboard.revenue")}
           value={summaryLoading ? "..." : fmt(income, currency)}
           color="var(--income)"
           icon="ti-trending-up"
           bg="var(--income-bg)"
         />
         <KpiCard
-          label="Expenses"
+          label={t("common.expenses")}
           value={summaryLoading ? "..." : fmt(expenses, currency)}
           color="var(--expense)"
           icon="ti-trending-down"
           bg="var(--expense-bg)"
         />
         <KpiCard
-          label="Net Profit"
+          label={t("common.netProfit")}
           value={summaryLoading ? "..." : fmt(net, currency)}
           color={net >= 0 ? "var(--income)" : "var(--expense)"}
           icon="ti-report-money"
           bg={net >= 0 ? "var(--income-bg)" : "var(--expense-bg)"}
         />
         <KpiCard
-          label="Total Balance"
+          label={t("dashboard.totalBalance")}
           value={
             balancesLoading ? "..." : fmt(balances?.total_balance, currency)
           }
@@ -461,7 +474,7 @@ export default function Dashboard() {
                   color: "var(--text-primary)",
                 }}
               >
-                Spending by Category
+                {t("dashboard.spendingByCategory")}
               </div>
               <div
                 style={{
@@ -470,7 +483,7 @@ export default function Dashboard() {
                   marginTop: 2,
                 }}
               >
-                {now.format("MMMM YYYY")} expenses
+                {t("dashboard.monthExpenses", { month: monthLabel })}
               </div>
             </div>
             {txLoading ? (
@@ -481,13 +494,15 @@ export default function Dashboard() {
                   color: "var(--text-muted)",
                 }}
               >
-                Loading...
+                {t("common.loading")}
               </div>
             ) : (
               <SpendingChart
                 transactions={txData?.transactions}
                 currency={currency}
                 navigate={navigate}
+                fmt={fmt}
+                t={t}
               />
             )}
           </div>
@@ -510,14 +525,14 @@ export default function Dashboard() {
                   color: "var(--text-primary)",
                 }}
               >
-                Recent Transactions
+                {t("dashboard.recentTransactions")}
               </div>
               <button
                 onClick={() => navigate("/transactions")}
                 className="btn btn-secondary"
                 style={{ padding: "5px 10px", fontSize: 12 }}
               >
-                View all
+                {t("dashboard.viewAll")}
               </button>
             </div>
             {txLoading ? (
@@ -528,7 +543,7 @@ export default function Dashboard() {
                   color: "var(--text-muted)",
                 }}
               >
-                Loading...
+                {t("common.loading")}
               </div>
             ) : txData?.transactions?.length === 0 ? (
               <div style={{ padding: 32, textAlign: "center" }}>
@@ -544,14 +559,14 @@ export default function Dashboard() {
                     marginTop: 8,
                   }}
                 >
-                  No transactions yet
+                  {t("dashboard.noTransactions")}
                 </div>
                 <button
                   onClick={() => navigate("/transactions")}
                   className="btn btn-primary"
                   style={{ marginTop: 12 }}
                 >
-                  Add your first transaction
+                  {t("dashboard.addFirstTransaction")}
                 </button>
               </div>
             ) : (
@@ -615,7 +630,7 @@ export default function Dashboard() {
                           whiteSpace: "nowrap",
                         }}
                       >
-                        {tx.merchant || "No merchant"}
+                        {tx.merchant || t("dashboard.noMerchant")}
                         {tx.is_split && (
                           <span
                             style={{
@@ -627,7 +642,7 @@ export default function Dashboard() {
                               marginLeft: 6,
                             }}
                           >
-                            split
+                            {t("dashboard.split")}
                           </span>
                         )}
                       </div>
@@ -677,7 +692,7 @@ export default function Dashboard() {
                 color: "var(--text-primary)",
               }}
             >
-              Accounts
+              {t("dashboard.accounts")}
             </div>
             {balancesLoading ? (
               <div
@@ -687,7 +702,7 @@ export default function Dashboard() {
                   fontSize: 13,
                 }}
               >
-                Loading...
+                {t("common.loading")}
               </div>
             ) : accounts?.length === 0 ? (
               <div
@@ -697,7 +712,7 @@ export default function Dashboard() {
                   fontSize: 13,
                 }}
               >
-                No accounts yet
+                {t("dashboard.noAccounts")}
               </div>
             ) : (
               <div>
@@ -725,7 +740,7 @@ export default function Dashboard() {
                           textTransform: "capitalize",
                         }}
                       >
-                        {acc.type}
+                        {t(`accountTypes.${acc.type}`, acc.type)}
                       </div>
                     </div>
                     <div
@@ -790,7 +805,7 @@ export default function Dashboard() {
                     color: "var(--text-primary)",
                   }}
                 >
-                  Ask AI about your finances
+                  {t("dashboard.askAi")}
                 </div>
                 <div
                   style={{
@@ -799,7 +814,7 @@ export default function Dashboard() {
                     marginTop: 1,
                   }}
                 >
-                  "What was my biggest expense this month?"
+                  {t("dashboard.askAiExample")}
                 </div>
               </div>
               <i
@@ -824,7 +839,7 @@ export default function Dashboard() {
                 marginBottom: 12,
               }}
             >
-              Quick Actions
+              {t("dashboard.quickActions")}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <button
@@ -832,22 +847,24 @@ export default function Dashboard() {
                 className="btn btn-secondary"
                 style={{ justifyContent: "flex-start", fontSize: 13 }}
               >
-                <i className="ti ti-plus" aria-hidden="true" /> Add transaction
+                <i className="ti ti-plus" aria-hidden="true" />{" "}
+                {t("dashboard.addTransaction")}
               </button>
               <button
                 onClick={() => navigate("/receipts")}
                 className="btn btn-secondary"
                 style={{ justifyContent: "flex-start", fontSize: 13 }}
               >
-                <i className="ti ti-camera" aria-hidden="true" /> Scan receipt
+                <i className="ti ti-camera" aria-hidden="true" />{" "}
+                {t("dashboard.scanReceipt")}
               </button>
               <button
                 onClick={() => navigate("/payroll")}
                 className="btn btn-secondary"
                 style={{ justifyContent: "flex-start", fontSize: 13 }}
               >
-                <i className="ti ti-report-money" aria-hidden="true" /> Run
-                payroll
+                <i className="ti ti-report-money" aria-hidden="true" />{" "}
+                {t("dashboard.runPayroll")}
               </button>
             </div>
           </div>

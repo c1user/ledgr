@@ -1,12 +1,16 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import dayjs from "dayjs";
 
-const fmt = (val, currency = "USD") =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency }).format(
-    val || 0,
-  );
+const makeFmt =
+  (lang) =>
+  (val, currency = "USD") =>
+    new Intl.NumberFormat(lang === "es" ? "es-PR" : "en-US", {
+      style: "currency",
+      currency,
+    }).format(val || 0);
 
 const statusColors = {
   pending: { bg: "var(--expense-bg)", color: "var(--expense)" },
@@ -15,7 +19,7 @@ const statusColors = {
 };
 
 // ── Upload Zone ───────────────────────────────────────────────
-function UploadZone({ onUploaded }) {
+function UploadZone({ onUploaded, t }) {
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -43,15 +47,11 @@ function UploadZone({ onUploaded }) {
       }, 100);
     } catch (err) {
       if (err.name === "NotAllowedError") {
-        setError(
-          "Camera access was denied. Please allow camera access in your browser settings.",
-        );
+        setError(t("receipts.cameraDenied"));
       } else if (err.name === "NotFoundError") {
-        setError("No camera found on this device.");
+        setError(t("receipts.cameraNotFound"));
       } else {
-        setError(
-          "Could not access camera. Please try uploading a file instead.",
-        );
+        setError(t("receipts.cameraError"));
       }
     }
   };
@@ -102,7 +102,7 @@ function UploadZone({ onUploaded }) {
       stopCamera();
       await uploadFile(file);
     } catch {
-      setError("Failed to process captured photo. Please try again.");
+      setError(t("receipts.captureFailed"));
       setUploading(false);
     }
   };
@@ -119,7 +119,7 @@ function UploadZone({ onUploaded }) {
       });
       onUploaded(data);
     } catch (err) {
-      setError(err.response?.data?.error || "Upload failed. Please try again.");
+      setError(err.response?.data?.error || t("receipts.uploadFailed"));
     } finally {
       setUploading(false);
     }
@@ -134,10 +134,10 @@ function UploadZone({ onUploaded }) {
       "application/pdf",
     ];
     if (!allowed.includes(file.type)) {
-      return setError("Only JPEG, PNG, WEBP, and PDF files are allowed");
+      return setError(t("receipts.errFileType"));
     }
     if (file.size > 10 * 1024 * 1024) {
-      return setError("File must be under 10MB");
+      return setError(t("receipts.errFileSize"));
     }
     await uploadFile(file);
   };
@@ -192,7 +192,9 @@ function UploadZone({ onUploaded }) {
                   color: "var(--text-primary)",
                 }}
               >
-                {capturedImage ? "Review Photo" : "Take Photo"}
+                {capturedImage
+                  ? t("receipts.reviewPhoto")
+                  : t("receipts.takePhotoTitle")}
               </div>
               <button
                 onClick={stopCamera}
@@ -231,7 +233,7 @@ function UploadZone({ onUploaded }) {
               {capturedImage && (
                 <img
                   src={capturedImage}
-                  alt="Captured receipt"
+                  alt={t("receipts.capturedAlt")}
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
               )}
@@ -254,14 +256,15 @@ function UploadZone({ onUploaded }) {
                     className="btn btn-secondary"
                     style={{ flex: 1 }}
                   >
-                    Cancel
+                    {t("common.cancel")}
                   </button>
                   <button
                     onClick={capturePhoto}
                     className="btn btn-primary"
                     style={{ flex: 2 }}
                   >
-                    <i className="ti ti-camera" aria-hidden="true" /> Capture
+                    <i className="ti ti-camera" aria-hidden="true" />{" "}
+                    {t("receipts.capture")}
                   </button>
                 </>
               ) : (
@@ -271,7 +274,8 @@ function UploadZone({ onUploaded }) {
                     className="btn btn-secondary"
                     style={{ flex: 1 }}
                   >
-                    <i className="ti ti-refresh" aria-hidden="true" /> Retake
+                    <i className="ti ti-refresh" aria-hidden="true" />{" "}
+                    {t("receipts.retake")}
                   </button>
                   <button
                     onClick={uploadCapturedPhoto}
@@ -280,11 +284,11 @@ function UploadZone({ onUploaded }) {
                     disabled={uploading}
                   >
                     {uploading ? (
-                      "Processing..."
+                      t("receipts.processing")
                     ) : (
                       <>
-                        <i className="ti ti-sparkles" aria-hidden="true" /> Use
-                        this photo
+                        <i className="ti ti-sparkles" aria-hidden="true" />{" "}
+                        {t("receipts.useThisPhoto")}
                       </>
                     )}
                   </button>
@@ -344,7 +348,7 @@ function UploadZone({ onUploaded }) {
                 marginTop: 10,
               }}
             >
-              Uploading and scanning with AI...
+              {t("receipts.uploadingScanning")}
             </div>
           </>
         ) : (
@@ -363,7 +367,7 @@ function UploadZone({ onUploaded }) {
                 marginBottom: 4,
               }}
             >
-              Add a receipt
+              {t("receipts.addReceipt")}
             </div>
             <div
               style={{
@@ -372,7 +376,7 @@ function UploadZone({ onUploaded }) {
                 marginBottom: 16,
               }}
             >
-              JPEG, PNG, WEBP or PDF · Max 10MB
+              {t("receipts.fileHint")}
             </div>
 
             {/* Action buttons */}
@@ -392,7 +396,8 @@ function UploadZone({ onUploaded }) {
                 className="btn btn-primary"
                 style={{ fontSize: 13 }}
               >
-                <i className="ti ti-camera" aria-hidden="true" /> Take Photo
+                <i className="ti ti-camera" aria-hidden="true" />{" "}
+                {t("receipts.takePhoto")}
               </button>
               <button
                 onClick={(e) => {
@@ -402,7 +407,8 @@ function UploadZone({ onUploaded }) {
                 className="btn btn-secondary"
                 style={{ fontSize: 13 }}
               >
-                <i className="ti ti-upload" aria-hidden="true" /> Upload File
+                <i className="ti ti-upload" aria-hidden="true" />{" "}
+                {t("receipts.uploadFile")}
               </button>
             </div>
           </>
@@ -436,13 +442,7 @@ function UploadZone({ onUploaded }) {
 }
 
 // ── Receipt Detail Modal ──────────────────────────────────────
-function ReceiptModal({
-  receipt,
-  onClose,
-  transactions,
-  accounts,
-  //categories,
-}) {
+function ReceiptModal({ receipt, onClose, transactions, accounts, fmt, t }) {
   const queryClient = useQueryClient();
   const [step, setStep] = useState(1); // 1 = edit data, 2 = choose action
   const [form, setForm] = useState({
@@ -482,7 +482,7 @@ function ReceiptModal({
       onClose();
     },
     onError: (err) =>
-      setError(err.response?.data?.error || "Failed to link receipt"),
+      setError(err.response?.data?.error || t("receipts.linkFailed")),
   });
 
   // Create new transaction from receipt data
@@ -513,7 +513,7 @@ function ReceiptModal({
       onClose();
     },
     onError: (err) =>
-      setError(err.response?.data?.error || "Failed to create transaction"),
+      setError(err.response?.data?.error || t("receipts.createTxFailed")),
   });
 
   const deleteMutation = useMutation({
@@ -531,19 +531,19 @@ function ReceiptModal({
       await reviewMutation.mutateAsync();
       setStep(2);
     } catch {
-      setError("Failed to save receipt data. Please try again.");
+      setError(t("receipts.saveDataFailed"));
     }
   };
 
   const handleConfirmAction = () => {
     setError("");
     if (action === "link") {
-      if (!linkTxId) return setError("Please select a transaction");
+      if (!linkTxId) return setError(t("receipts.errSelectTx"));
       linkMutation.mutate();
     } else if (action === "create") {
-      if (!newTx.accountId) return setError("Please select an account");
+      if (!newTx.accountId) return setError(t("receipts.errSelectAccount"));
       if (!form.total || parseFloat(form.total) <= 0)
-        return setError("Receipt must have a valid total amount");
+        return setError(t("receipts.errValidTotal"));
       createTxMutation.mutate();
     }
   };
@@ -594,13 +594,13 @@ function ReceiptModal({
               }}
             >
               {step === 1
-                ? "Review Receipt Data"
-                : "What would you like to do?"}
+                ? t("receipts.reviewDataTitle")
+                : t("receipts.chooseActionTitle")}
             </h2>
             <div
               style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}
             >
-              Step {step} of 2
+              {t("receipts.stepOfTwo", { step })}
             </div>
           </div>
           <button
@@ -664,7 +664,9 @@ function ReceiptModal({
                   fontWeight: step === s ? 500 : 400,
                 }}
               >
-                {s === 1 ? "Review data" : "Link or create"}
+                {s === 1
+                  ? t("receipts.stepReviewData")
+                  : t("receipts.stepLinkOrCreate")}
               </span>
               {s < 2 && (
                 <div
@@ -721,7 +723,7 @@ function ReceiptModal({
                 }}
               >
                 <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                  AI Confidence
+                  {t("receipts.aiConfidence")}
                 </span>
                 <span
                   style={{
@@ -769,19 +771,19 @@ function ReceiptModal({
                 marginBottom: 12,
               }}
             >
-              Review and correct the AI-extracted data before continuing
+              {t("receipts.reviewHint")}
             </div>
 
             <div style={{ marginBottom: 12 }}>
               <label className="label" htmlFor="r-merchant">
-                Merchant
+                {t("common.merchant")}
               </label>
               <input
                 id="r-merchant"
                 className="input"
                 value={form.merchant}
                 onChange={(e) => setForm({ ...form, merchant: e.target.value })}
-                placeholder="Merchant name"
+                placeholder={t("receipts.merchantPlaceholder")}
                 autoFocus
               />
             </div>
@@ -796,7 +798,7 @@ function ReceiptModal({
             >
               <div>
                 <label className="label" htmlFor="r-date">
-                  Date
+                  {t("common.date")}
                 </label>
                 <input
                   id="r-date"
@@ -808,7 +810,7 @@ function ReceiptModal({
               </div>
               <div>
                 <label className="label" htmlFor="r-total">
-                  Total Amount
+                  {t("receipts.totalAmount")}
                 </label>
                 <input
                   id="r-total"
@@ -832,10 +834,10 @@ function ReceiptModal({
                   marginBottom: 8,
                 }}
               >
-                Line Items{" "}
+                {t("receipts.lineItems")}{" "}
                 {form.lineItems.length === 0 && (
                   <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>
-                    — none detected
+                    {t("receipts.noneDetected")}
                   </span>
                 )}
               </div>
@@ -860,7 +862,7 @@ function ReceiptModal({
                       };
                       setForm({ ...form, lineItems: updated });
                     }}
-                    placeholder="Item description"
+                    placeholder={t("receipts.itemDescription")}
                   />
                   <input
                     className="input"
@@ -914,7 +916,8 @@ function ReceiptModal({
                 className="btn btn-secondary"
                 style={{ fontSize: 12, padding: "5px 10px", marginTop: 4 }}
               >
-                <i className="ti ti-plus" aria-hidden="true" /> Add line item
+                <i className="ti ti-plus" aria-hidden="true" />{" "}
+                {t("receipts.addLineItem")}
               </button>
             </div>
 
@@ -927,24 +930,27 @@ function ReceiptModal({
             >
               <button
                 onClick={() => {
-                  if (window.confirm("Delete this receipt?"))
+                  if (window.confirm(t("receipts.confirmDelete")))
                     deleteMutation.mutate();
                 }}
                 className="btn btn-danger"
                 disabled={receipt.status === "linked"}
               >
-                <i className="ti ti-trash" aria-hidden="true" /> Delete
+                <i className="ti ti-trash" aria-hidden="true" />{" "}
+                {t("common.delete")}
               </button>
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={onClose} className="btn btn-secondary">
-                  Cancel
+                  {t("common.cancel")}
                 </button>
                 <button
                   onClick={handleNextStep}
                   className="btn btn-primary"
                   disabled={reviewMutation.isPending}
                 >
-                  {reviewMutation.isPending ? "Saving..." : "Next →"}
+                  {reviewMutation.isPending
+                    ? t("receipts.saving")
+                    : t("receipts.next")}
                 </button>
               </div>
             </div>
@@ -998,7 +1004,7 @@ function ReceiptModal({
                     marginTop: 8,
                   }}
                 >
-                  Link to existing
+                  {t("receipts.linkToExisting")}
                 </div>
                 <div
                   style={{
@@ -1007,7 +1013,7 @@ function ReceiptModal({
                     marginTop: 4,
                   }}
                 >
-                  Attach to a transaction you already created
+                  {t("receipts.linkToExistingHint")}
                 </div>
               </div>
 
@@ -1049,7 +1055,7 @@ function ReceiptModal({
                     marginTop: 8,
                   }}
                 >
-                  Create new
+                  {t("receipts.createNew")}
                 </div>
                 <div
                   style={{
@@ -1058,7 +1064,7 @@ function ReceiptModal({
                     marginTop: 4,
                   }}
                 >
-                  Create a transaction using the receipt data
+                  {t("receipts.createNewHint")}
                 </div>
               </div>
             </div>
@@ -1079,7 +1085,7 @@ function ReceiptModal({
                   marginBottom: 6,
                 }}
               >
-                Receipt summary
+                {t("receipts.receiptSummary")}
               </div>
               <div
                 style={{
@@ -1096,12 +1102,12 @@ function ReceiptModal({
                       color: "var(--text-primary)",
                     }}
                   >
-                    {form.merchant || "Unknown merchant"}
+                    {form.merchant || t("receipts.unknownMerchant")}
                   </div>
                   <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
                     {form.date
                       ? dayjs(form.date).format("MMM D, YYYY")
-                      : "No date"}
+                      : t("receipts.noDate")}
                   </div>
                 </div>
                 <div
@@ -1111,12 +1117,7 @@ function ReceiptModal({
                     color: "var(--text-primary)",
                   }}
                 >
-                  {form.total
-                    ? new Intl.NumberFormat("en-US", {
-                        style: "currency",
-                        currency: "USD",
-                      }).format(form.total)
-                    : "—"}
+                  {form.total ? fmt(form.total) : "—"}
                 </div>
               </div>
             </div>
@@ -1125,7 +1126,7 @@ function ReceiptModal({
             {action === "link" && (
               <div style={{ marginBottom: 16 }}>
                 <label className="label" htmlFor="linkTx">
-                  Select Transaction
+                  {t("receipts.selectTransaction")}
                 </label>
                 <select
                   id="linkTx"
@@ -1133,15 +1134,12 @@ function ReceiptModal({
                   value={linkTxId}
                   onChange={(e) => setLinkTxId(e.target.value)}
                 >
-                  <option value="">Choose a transaction...</option>
+                  <option value="">{t("receipts.chooseTransaction")}</option>
                   {transactions?.map((tx) => (
                     <option key={tx.id} value={tx.id}>
                       {dayjs(tx.date).format("MMM D")} —{" "}
-                      {tx.merchant || "No merchant"} —{" "}
-                      {new Intl.NumberFormat("en-US", {
-                        style: "currency",
-                        currency: "USD",
-                      }).format(tx.total_amount)}
+                      {tx.merchant || t("dashboard.noMerchant")} —{" "}
+                      {fmt(tx.total_amount)}
                     </option>
                   ))}
                 </select>
@@ -1161,7 +1159,7 @@ function ReceiptModal({
                 >
                   <div>
                     <label className="label" htmlFor="new-account">
-                      Account
+                      {t("common.account")}
                     </label>
                     <select
                       id="new-account"
@@ -1171,7 +1169,7 @@ function ReceiptModal({
                         setNewTx({ ...newTx, accountId: e.target.value })
                       }
                     >
-                      <option value="">Select account</option>
+                      <option value="">{t("receipts.selectAccount")}</option>
                       {accounts?.map((a) => (
                         <option key={a.id} value={a.id}>
                           {a.name}
@@ -1181,7 +1179,7 @@ function ReceiptModal({
                   </div>
                   <div>
                     <label className="label" htmlFor="new-type">
-                      Type
+                      {t("common.type")}
                     </label>
                     <select
                       id="new-type"
@@ -1191,14 +1189,14 @@ function ReceiptModal({
                         setNewTx({ ...newTx, type: e.target.value })
                       }
                     >
-                      <option value="expense">Expense</option>
-                      <option value="income">Income</option>
+                      <option value="expense">{t("common.expense")}</option>
+                      <option value="income">{t("common.income")}</option>
                     </select>
                   </div>
                 </div>
                 <div>
                   <label className="label" htmlFor="new-notes">
-                    Notes (optional)
+                    {t("receipts.notesOptional")}
                   </label>
                   <input
                     id="new-notes"
@@ -1207,7 +1205,7 @@ function ReceiptModal({
                     onChange={(e) =>
                       setNewTx({ ...newTx, notes: e.target.value })
                     }
-                    placeholder="Optional note"
+                    placeholder={t("receipts.notesPlaceholder")}
                   />
                 </div>
               </div>
@@ -1227,7 +1225,7 @@ function ReceiptModal({
                 }}
                 className="btn btn-secondary"
               >
-                ← Back
+                {t("receipts.back")}
               </button>
               <button
                 onClick={handleConfirmAction}
@@ -1235,12 +1233,12 @@ function ReceiptModal({
                 disabled={!action || isProcessing}
               >
                 {isProcessing
-                  ? "Processing..."
+                  ? t("receipts.processing")
                   : action === "link"
-                    ? "Link Receipt"
+                    ? t("receipts.linkReceipt")
                     : action === "create"
-                      ? "Create Transaction"
-                      : "Select an option"}
+                      ? t("receipts.createTransaction")
+                      : t("receipts.selectAnOption")}
               </button>
             </div>
           </div>
@@ -1252,7 +1250,9 @@ function ReceiptModal({
 
 // ── Main Receipts Page ────────────────────────────────────────
 export default function Receipts() {
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
+  const fmt = makeFmt(i18n.language);
   const [selectedReceipt, setSelectedReceipt] = useState(null);
   const [statusFilter, setStatusFilter] = useState("");
 
@@ -1274,15 +1274,13 @@ export default function Receipts() {
     queryFn: () => api.get("/accounts").then((r) => r.data),
   });
 
-  //const { data: categories } = useQuery({
-  //queryKey: ["categories"],
-  //queryFn: () => api.get("/categories").then((r) => r.data),
-  //});
-
   const handleUploaded = (receipt) => {
     queryClient.invalidateQueries({ queryKey: ["receipts"] });
     setSelectedReceipt(receipt);
   };
+
+  // Localized status label (DB stores pending/reviewed/linked)
+  const statusLabel = (s) => t(`receipts.status.${s}`, s);
 
   return (
     <div className="fade-in">
@@ -1304,10 +1302,10 @@ export default function Receipts() {
               marginBottom: 4,
             }}
           >
-            Receipts
+            {t("receipts.title")}
           </h1>
           <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-            {receipts?.length || 0} receipts
+            {t("receipts.count", { count: receipts?.length || 0 })}
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -1328,17 +1326,16 @@ export default function Receipts() {
                 cursor: "pointer",
                 fontSize: 12,
                 fontWeight: statusFilter === s ? 500 : 400,
-                textTransform: "capitalize",
               }}
             >
-              {s || "All"}
+              {s ? statusLabel(s) : t("common.all")}
             </button>
           ))}
         </div>
       </div>
 
       {/* Upload zone */}
-      <UploadZone onUploaded={handleUploaded} />
+      <UploadZone onUploaded={handleUploaded} t={t} />
 
       {/* Receipts grid */}
       {isLoading ? (
@@ -1349,7 +1346,7 @@ export default function Receipts() {
             color: "var(--text-muted)",
           }}
         >
-          Loading...
+          {t("common.loading")}
         </div>
       ) : receipts?.length === 0 ? (
         <div className="card" style={{ padding: 40, textAlign: "center" }}>
@@ -1361,7 +1358,7 @@ export default function Receipts() {
           <div
             style={{ color: "var(--text-muted)", fontSize: 13, marginTop: 10 }}
           >
-            No receipts yet — upload one above
+            {t("receipts.noneYet")}
           </div>
         </div>
       ) : (
@@ -1411,7 +1408,7 @@ export default function Receipts() {
                         color: "var(--text-primary)",
                       }}
                     >
-                      {r.ai_merchant || "Unknown merchant"}
+                      {r.ai_merchant || t("receipts.unknownMerchant")}
                     </div>
                     <div
                       style={{
@@ -1422,7 +1419,7 @@ export default function Receipts() {
                     >
                       {r.ai_date
                         ? dayjs(r.ai_date).format("MMM D, YYYY")
-                        : "No date"}
+                        : t("receipts.noDate")}
                     </div>
                   </div>
                 </div>
@@ -1434,10 +1431,9 @@ export default function Receipts() {
                     fontWeight: 500,
                     background: statusColors[r.status]?.bg,
                     color: statusColors[r.status]?.color,
-                    textTransform: "capitalize",
                   }}
                 >
-                  {r.status}
+                  {statusLabel(r.status)}
                 </span>
               </div>
               <div
@@ -1458,7 +1454,9 @@ export default function Receipts() {
                 </div>
                 <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
                   {r.ai_confidence
-                    ? `${Math.round(r.ai_confidence * 100)}% confidence`
+                    ? t("receipts.confidencePct", {
+                        pct: Math.round(r.ai_confidence * 100),
+                      })
                     : ""}
                 </div>
               </div>
@@ -1482,7 +1480,8 @@ export default function Receipts() {
           onClose={() => setSelectedReceipt(null)}
           transactions={txData?.transactions}
           accounts={accounts}
-          //categories={categories}
+          fmt={fmt}
+          t={t}
         />
       )}
     </div>

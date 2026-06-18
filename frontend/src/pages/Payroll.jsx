@@ -1,12 +1,16 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import dayjs from "dayjs";
 
-const fmt = (val, currency = "USD") =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency }).format(
-    val || 0,
-  );
+const makeFmt =
+  (lang) =>
+  (val, currency = "USD") =>
+    new Intl.NumberFormat(lang === "es" ? "es-PR" : "en-US", {
+      style: "currency",
+      currency,
+    }).format(val || 0);
 
 const emptyEmployee = {
   name: "",
@@ -23,7 +27,7 @@ const emptyEmployee = {
 };
 
 // ── Employee Modal ────────────────────────────────────────────
-function EmployeeModal({ onClose, editEmployee }) {
+function EmployeeModal({ onClose, editEmployee, t }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(
     editEmployee
@@ -54,15 +58,15 @@ function EmployeeModal({ onClose, editEmployee }) {
       onClose();
     },
     onError: (err) =>
-      setError(err.response?.data?.error || "Failed to save employee"),
+      setError(err.response?.data?.error || t("payroll.empSaveFailed")),
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
     setError("");
-    if (!form.name) return setError("Name is required");
+    if (!form.name) return setError(t("payroll.errNameRequired"));
     if (!form.payRate || form.payRate <= 0)
-      return setError("Pay rate must be greater than 0");
+      return setError(t("payroll.errPayRate"));
     mutation.mutate({
       ...form,
       payRate: parseFloat(form.payRate),
@@ -109,7 +113,9 @@ function EmployeeModal({ onClose, editEmployee }) {
               color: "var(--text-primary)",
             }}
           >
-            {editEmployee ? "Edit Employee" : "New Employee"}
+            {editEmployee
+              ? t("payroll.editEmployee")
+              : t("payroll.newEmployee")}
           </h2>
           <button
             onClick={onClose}
@@ -156,7 +162,7 @@ function EmployeeModal({ onClose, editEmployee }) {
               textTransform: "uppercase",
             }}
           >
-            Basic Info
+            {t("payroll.basicInfo")}
           </div>
           <div
             style={{
@@ -168,7 +174,7 @@ function EmployeeModal({ onClose, editEmployee }) {
           >
             <div>
               <label className="label" htmlFor="emp-name">
-                Full Name
+                {t("payroll.fullName")}
               </label>
               <input
                 id="emp-name"
@@ -182,7 +188,7 @@ function EmployeeModal({ onClose, editEmployee }) {
             </div>
             <div>
               <label className="label" htmlFor="emp-email">
-                Email
+                {t("common.email")}
               </label>
               <input
                 id="emp-email"
@@ -204,7 +210,7 @@ function EmployeeModal({ onClose, editEmployee }) {
           >
             <div>
               <label className="label" htmlFor="emp-ssn">
-                SSN Last 4 Digits
+                {t("payroll.ssnLast4")}
               </label>
               <input
                 id="emp-ssn"
@@ -217,7 +223,7 @@ function EmployeeModal({ onClose, editEmployee }) {
             </div>
             <div>
               <label className="label" htmlFor="emp-start">
-                Start Date
+                {t("payroll.startDate")}
               </label>
               <input
                 id="emp-start"
@@ -241,7 +247,7 @@ function EmployeeModal({ onClose, editEmployee }) {
               textTransform: "uppercase",
             }}
           >
-            Pay Info
+            {t("payroll.payInfo")}
           </div>
           <div
             style={{
@@ -253,7 +259,7 @@ function EmployeeModal({ onClose, editEmployee }) {
           >
             <div>
               <label className="label" htmlFor="emp-paytype">
-                Pay Type
+                {t("payroll.payType")}
               </label>
               <select
                 id="emp-paytype"
@@ -261,13 +267,15 @@ function EmployeeModal({ onClose, editEmployee }) {
                 value={form.payType}
                 onChange={(e) => setForm({ ...form, payType: e.target.value })}
               >
-                <option value="salary">Salary (annual)</option>
-                <option value="hourly">Hourly</option>
+                <option value="salary">{t("payroll.payTypeSalary")}</option>
+                <option value="hourly">{t("payroll.payTypeHourly")}</option>
               </select>
             </div>
             <div>
               <label className="label" htmlFor="emp-payrate">
-                {form.payType === "salary" ? "Annual Salary" : "Hourly Rate"}
+                {form.payType === "salary"
+                  ? t("payroll.annualSalary")
+                  : t("payroll.hourlyRate")}
               </label>
               <input
                 id="emp-payrate"
@@ -283,7 +291,7 @@ function EmployeeModal({ onClose, editEmployee }) {
           </div>
           <div style={{ marginBottom: 20 }}>
             <label className="label" htmlFor="emp-freq">
-              Pay Frequency
+              {t("payroll.payFrequency")}
             </label>
             <select
               id="emp-freq"
@@ -293,9 +301,9 @@ function EmployeeModal({ onClose, editEmployee }) {
                 setForm({ ...form, payFrequency: e.target.value })
               }
             >
-              <option value="weekly">Weekly (52x/year)</option>
-              <option value="biweekly">Bi-weekly (26x/year)</option>
-              <option value="monthly">Monthly (12x/year)</option>
+              <option value="weekly">{t("payroll.freqWeekly")}</option>
+              <option value="biweekly">{t("payroll.freqBiweekly")}</option>
+              <option value="monthly">{t("payroll.freqMonthly")}</option>
             </select>
           </div>
 
@@ -308,7 +316,7 @@ function EmployeeModal({ onClose, editEmployee }) {
               textTransform: "uppercase",
             }}
           >
-            Tax Info
+            {t("payroll.taxInfo")}
           </div>
           <div
             style={{
@@ -361,10 +369,10 @@ function EmployeeModal({ onClose, editEmployee }) {
                   color: "var(--text-primary)",
                 }}
               >
-                Federal Tax Exempt
+                {t("payroll.federalExempt")}
               </div>
               <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                Most PR residents are exempt from federal income tax
+                {t("payroll.federalExemptHint")}
               </div>
             </div>
           </div>
@@ -378,7 +386,7 @@ function EmployeeModal({ onClose, editEmployee }) {
           >
             <div>
               <label className="label" htmlFor="emp-pr-rate">
-                PR State Tax Rate
+                {t("payroll.prStateTaxRate")}
               </label>
               <input
                 id="emp-pr-rate"
@@ -395,7 +403,7 @@ function EmployeeModal({ onClose, editEmployee }) {
             </div>
             <div>
               <label className="label" htmlFor="emp-filing">
-                Federal Filing Status
+                {t("payroll.federalFilingStatus")}
               </label>
               <select
                 id="emp-filing"
@@ -406,8 +414,8 @@ function EmployeeModal({ onClose, editEmployee }) {
                 }
                 disabled={form.federalExempt}
               >
-                <option value="single">Single</option>
-                <option value="married">Married</option>
+                <option value="single">{t("payroll.filingSingle")}</option>
+                <option value="married">{t("payroll.filingMarried")}</option>
               </select>
             </div>
           </div>
@@ -418,7 +426,7 @@ function EmployeeModal({ onClose, editEmployee }) {
               onClick={onClose}
               className="btn btn-secondary"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
@@ -426,10 +434,10 @@ function EmployeeModal({ onClose, editEmployee }) {
               disabled={mutation.isPending}
             >
               {mutation.isPending
-                ? "Saving..."
+                ? t("payroll.saving")
                 : editEmployee
-                  ? "Save changes"
-                  : "Add employee"}
+                  ? t("payroll.saveChanges")
+                  : t("payroll.addEmployee")}
             </button>
           </div>
         </form>
@@ -439,7 +447,7 @@ function EmployeeModal({ onClose, editEmployee }) {
 }
 
 // ── Run Payroll Modal ─────────────────────────────────────────
-function RunPayrollModal({ onClose, employees }) {
+function RunPayrollModal({ onClose, employees, t }) {
   const queryClient = useQueryClient();
   const now = dayjs();
   const [form, setForm] = useState({
@@ -458,14 +466,14 @@ function RunPayrollModal({ onClose, employees }) {
       onClose();
     },
     onError: (err) =>
-      setError(err.response?.data?.error || "Failed to run payroll"),
+      setError(err.response?.data?.error || t("payroll.runFailed")),
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
     setError("");
     if (!form.periodStart || !form.periodEnd)
-      return setError("Both dates are required");
+      return setError(t("payroll.errBothDates"));
     mutation.mutate({
       periodStart: form.periodStart,
       periodEnd: form.periodEnd,
@@ -505,7 +513,7 @@ function RunPayrollModal({ onClose, employees }) {
               color: "var(--text-primary)",
             }}
           >
-            Run Payroll
+            {t("payroll.runPayroll")}
           </h2>
           <button
             onClick={onClose}
@@ -553,7 +561,7 @@ function RunPayrollModal({ onClose, employees }) {
           >
             <div>
               <label className="label" htmlFor="period-start">
-                Period Start
+                {t("payroll.periodStart")}
               </label>
               <input
                 id="period-start"
@@ -568,7 +576,7 @@ function RunPayrollModal({ onClose, employees }) {
             </div>
             <div>
               <label className="label" htmlFor="period-end">
-                Period End
+                {t("payroll.periodEnd")}
               </label>
               <input
                 id="period-end"
@@ -593,7 +601,7 @@ function RunPayrollModal({ onClose, employees }) {
                   marginBottom: 8,
                 }}
               >
-                Hours Worked (Hourly Employees)
+                {t("payroll.hoursWorkedHourly")}
               </div>
               {hourlyEmployees.map((emp) => (
                 <div
@@ -628,7 +636,7 @@ function RunPayrollModal({ onClose, employees }) {
                     }
                   />
                   <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                    hrs
+                    {t("payroll.hrs")}
                   </span>
                 </div>
               ))}
@@ -650,11 +658,11 @@ function RunPayrollModal({ onClose, employees }) {
               style={{ marginRight: 6 }}
               aria-hidden="true"
             />
-            Will process{" "}
+            {t("payroll.willProcess")}{" "}
             <strong style={{ color: "var(--text-primary)" }}>
               {employees?.length || 0}
             </strong>{" "}
-            active employees
+            {t("payroll.activeEmployeesLower")}
           </div>
 
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
@@ -663,14 +671,16 @@ function RunPayrollModal({ onClose, employees }) {
               onClick={onClose}
               className="btn btn-secondary"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
               className="btn btn-primary"
               disabled={mutation.isPending}
             >
-              {mutation.isPending ? "Processing..." : "Run Payroll"}
+              {mutation.isPending
+                ? t("payroll.processing")
+                : t("payroll.runPayroll")}
             </button>
           </div>
         </form>
@@ -680,7 +690,7 @@ function RunPayrollModal({ onClose, employees }) {
 }
 
 // ── Payroll Run Detail Modal ──────────────────────────────────
-function PayrollRunModal({ run, onClose }) {
+function PayrollRunModal({ run, onClose, fmt, t }) {
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -703,6 +713,9 @@ function PayrollRunModal({ run, onClose }) {
       onClose();
     },
   });
+
+  // status label: "finalized" | "draft" → localized
+  const statusLabel = t(`payroll.status.${run.status}`, run.status);
 
   return (
     <div
@@ -743,7 +756,7 @@ function PayrollRunModal({ run, onClose }) {
                 color: "var(--text-primary)",
               }}
             >
-              Payroll Run
+              {t("payroll.payrollRun")}
             </h2>
             <div
               style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}
@@ -767,10 +780,9 @@ function PayrollRunModal({ run, onClose }) {
                   run.status === "finalized"
                     ? "var(--income)"
                     : "var(--payroll)",
-                textTransform: "capitalize",
               }}
             >
-              {run.status}
+              {statusLabel}
             </span>
             <button
               onClick={onClose}
@@ -797,17 +809,17 @@ function PayrollRunModal({ run, onClose }) {
         >
           {[
             {
-              label: "Total Gross",
+              label: t("payroll.totalGross"),
               value: run.total_gross,
               color: "var(--text-primary)",
             },
             {
-              label: "Total Taxes",
+              label: t("payroll.totalTaxes"),
               value: run.total_taxes,
               color: "var(--expense)",
             },
             {
-              label: "Total Net",
+              label: t("payroll.totalNet"),
               value: run.total_net,
               color: "var(--income)",
             },
@@ -844,7 +856,7 @@ function PayrollRunModal({ run, onClose }) {
               color: "var(--text-muted)",
             }}
           >
-            Loading payslips...
+            {t("payroll.loadingPayslips")}
           </div>
         ) : (
           <div>
@@ -856,7 +868,7 @@ function PayrollRunModal({ run, onClose }) {
                 marginBottom: 10,
               }}
             >
-              Employee Payslips
+              {t("payroll.employeePayslips")}
             </div>
             {data?.payslips?.map((ps, i) => (
               <div
@@ -891,7 +903,7 @@ function PayrollRunModal({ run, onClose }) {
                       color: "var(--income)",
                     }}
                   >
-                    {fmt(ps.net_pay)} net
+                    {t("payroll.netSuffix", { amount: fmt(ps.net_pay) })}
                   </div>
                 </div>
                 <div
@@ -903,27 +915,27 @@ function PayrollRunModal({ run, onClose }) {
                 >
                   {[
                     {
-                      label: "Gross",
+                      label: t("payroll.gross"),
                       value: ps.gross_pay,
                       color: "var(--text-primary)",
                     },
                     {
-                      label: "Federal",
+                      label: t("payroll.federal"),
                       value: ps.federal_tax,
                       color: "var(--expense)",
                     },
                     {
-                      label: "Soc. Sec.",
+                      label: t("payroll.socSec"),
                       value: ps.social_security,
                       color: "var(--expense)",
                     },
                     {
-                      label: "Medicare",
+                      label: t("payroll.medicare"),
                       value: ps.medicare,
                       color: "var(--expense)",
                     },
                     {
-                      label: "PR Tax",
+                      label: t("payroll.prTax"),
                       value: ps.pr_state_tax,
                       color: "var(--expense)",
                     },
@@ -958,7 +970,7 @@ function PayrollRunModal({ run, onClose }) {
                       marginTop: 8,
                     }}
                   >
-                    Hours worked: {ps.hours_worked}
+                    {t("payroll.hoursWorkedLabel", { hours: ps.hours_worked })}
                   </div>
                 )}
               </div>
@@ -977,18 +989,19 @@ function PayrollRunModal({ run, onClose }) {
           {run.status === "draft" && (
             <button
               onClick={() => {
-                if (window.confirm("Delete this payroll run?"))
+                if (window.confirm(t("payroll.confirmDeleteRun")))
                   deleteMutation.mutate();
               }}
               className="btn btn-danger"
               disabled={deleteMutation.isPending}
             >
-              <i className="ti ti-trash" aria-hidden="true" /> Delete
+              <i className="ti ti-trash" aria-hidden="true" />{" "}
+              {t("common.delete")}
             </button>
           )}
           <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
             <button onClick={onClose} className="btn btn-secondary">
-              Close
+              {t("common.close")}
             </button>
             {run.status === "draft" && (
               <button
@@ -997,8 +1010,8 @@ function PayrollRunModal({ run, onClose }) {
                 disabled={finalizeMutation.isPending}
               >
                 {finalizeMutation.isPending
-                  ? "Finalizing..."
-                  : "Finalize Payroll"}
+                  ? t("payroll.finalizing")
+                  : t("payroll.finalizePayroll")}
               </button>
             )}
           </div>
@@ -1010,7 +1023,9 @@ function PayrollRunModal({ run, onClose }) {
 
 // ── Main Payroll Page ─────────────────────────────────────────
 export default function Payroll() {
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
+  const fmt = makeFmt(i18n.language);
   const [tab, setTab] = useState("employees");
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [showRunModal, setShowRunModal] = useState(false);
@@ -1044,6 +1059,9 @@ export default function Payroll() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["employees"] }),
   });
 
+  // Localized pay frequency label for the cells (DB stores weekly/biweekly/monthly)
+  const freqLabel = (f) => t(`payroll.freqShort.${f}`, f);
+
   return (
     <div className="fade-in">
       {/* Header */}
@@ -1064,10 +1082,12 @@ export default function Payroll() {
               marginBottom: 4,
             }}
           >
-            Payroll
+            {t("payroll.title")}
           </h1>
           <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-            {employees?.length || 0} active employees
+            {t("payroll.activeEmployeeCount", {
+              count: employees?.length || 0,
+            })}
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -1079,14 +1099,14 @@ export default function Payroll() {
             }}
           >
             <i className="ti ti-user-plus" aria-hidden="true" />
-            {!isMobile && " Add Employee"}
+            {!isMobile && ` ${t("payroll.addEmployee")}`}
           </button>
           <button
             className="btn btn-primary"
             onClick={() => setShowRunModal(true)}
           >
             <i className="ti ti-report-money" aria-hidden="true" />
-            {!isMobile && " Run Payroll"}
+            {!isMobile && ` ${t("payroll.runPayroll")}`}
           </button>
         </div>
       </div>
@@ -1103,22 +1123,22 @@ export default function Payroll() {
         >
           {[
             {
-              label: "YTD Gross",
+              label: t("payroll.ytdGross"),
               value: ytd.ytd_gross,
               color: "var(--text-primary)",
             },
             {
-              label: "YTD Taxes",
+              label: t("payroll.ytdTaxes"),
               value: ytd.ytd_taxes,
               color: "var(--expense)",
             },
             {
-              label: "YTD Net Paid",
+              label: t("payroll.ytdNetPaid"),
               value: ytd.ytd_net,
               color: "var(--income)",
             },
             {
-              label: "Payroll Runs",
+              label: t("payroll.payrollRuns"),
               value: ytd.total_runs,
               color: "var(--payroll)",
               isCount: true,
@@ -1157,24 +1177,27 @@ export default function Payroll() {
           borderBottom: "0.5px solid var(--border-color)",
         }}
       >
-        {["employees", "runs"].map((t) => (
+        {["employees", "runs"].map((tabKey) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
+            key={tabKey}
+            onClick={() => setTab(tabKey)}
             style={{
               padding: "8px 16px",
               background: "none",
               border: "none",
               cursor: "pointer",
               fontSize: 13,
-              color: tab === t ? "var(--brand)" : "var(--text-muted)",
+              color: tab === tabKey ? "var(--brand)" : "var(--text-muted)",
               borderBottom:
-                tab === t ? "2px solid var(--brand)" : "2px solid transparent",
-              fontWeight: tab === t ? 500 : 400,
-              textTransform: "capitalize",
+                tab === tabKey
+                  ? "2px solid var(--brand)"
+                  : "2px solid transparent",
+              fontWeight: tab === tabKey ? 500 : 400,
             }}
           >
-            {t === "runs" ? "Payroll Runs" : "Employees"}
+            {tabKey === "runs"
+              ? t("payroll.tabRuns")
+              : t("payroll.tabEmployees")}
           </button>
         ))}
       </div>
@@ -1190,7 +1213,7 @@ export default function Payroll() {
                 color: "var(--text-muted)",
               }}
             >
-              Loading...
+              {t("common.loading")}
             </div>
           ) : employees?.length === 0 ? (
             <div className="card" style={{ padding: 48, textAlign: "center" }}>
@@ -1206,14 +1229,14 @@ export default function Payroll() {
                   marginTop: 12,
                 }}
               >
-                No employees yet
+                {t("payroll.noEmployees")}
               </div>
               <button
                 className="btn btn-primary"
                 style={{ marginTop: 16 }}
                 onClick={() => setShowEmployeeModal(true)}
               >
-                Add your first employee
+                {t("payroll.addFirstEmployee")}
               </button>
             </div>
           ) : isMobile ? (
@@ -1270,7 +1293,9 @@ export default function Payroll() {
                           : "var(--expense)",
                       }}
                     >
-                      {emp.is_active ? "Active" : "Inactive"}
+                      {emp.is_active
+                        ? t("payroll.active")
+                        : t("payroll.inactive")}
                     </span>
                   </div>
                   <div
@@ -1295,7 +1320,7 @@ export default function Payroll() {
                           marginBottom: 2,
                         }}
                       >
-                        Pay Rate
+                        {t("payroll.payRate")}
                       </div>
                       <div
                         style={{
@@ -1305,7 +1330,9 @@ export default function Payroll() {
                         }}
                       >
                         {fmt(emp.pay_rate)}
-                        {emp.pay_type === "hourly" ? "/hr" : "/yr"}
+                        {emp.pay_type === "hourly"
+                          ? t("payroll.perHr")
+                          : t("payroll.perYr")}
                       </div>
                     </div>
                     <div
@@ -1322,17 +1349,16 @@ export default function Payroll() {
                           marginBottom: 2,
                         }}
                       >
-                        Frequency
+                        {t("payroll.frequency")}
                       </div>
                       <div
                         style={{
                           fontSize: 13,
                           fontWeight: 500,
                           color: "var(--text-primary)",
-                          textTransform: "capitalize",
                         }}
                       >
-                        {emp.pay_frequency}
+                        {freqLabel(emp.pay_frequency)}
                       </div>
                     </div>
                   </div>
@@ -1360,11 +1386,16 @@ export default function Payroll() {
                         padding: "4px 8px",
                       }}
                     >
-                      <i className="ti ti-pencil" aria-hidden="true" /> Edit
+                      <i className="ti ti-pencil" aria-hidden="true" />{" "}
+                      {t("common.edit")}
                     </button>
                     <button
                       onClick={() => {
-                        if (window.confirm(`Deactivate ${emp.name}?`))
+                        if (
+                          window.confirm(
+                            t("payroll.confirmDeactivate", { name: emp.name }),
+                          )
+                        )
                           deactivateMutation.mutate(emp.id);
                       }}
                       style={{
@@ -1380,7 +1411,7 @@ export default function Payroll() {
                       }}
                     >
                       <i className="ti ti-user-off" aria-hidden="true" />{" "}
-                      Deactivate
+                      {t("payroll.deactivate")}
                     </button>
                   </div>
                 </div>
@@ -1398,21 +1429,26 @@ export default function Payroll() {
                   background: "var(--bg-secondary)",
                 }}
               >
-                {["Employee", "Type", "Rate", "Frequency", "Status", ""].map(
-                  (h) => (
-                    <div
-                      key={h}
-                      style={{
-                        fontSize: 11,
-                        color: "var(--text-muted)",
-                        fontWeight: 500,
-                        letterSpacing: 0.5,
-                      }}
-                    >
-                      {h}
-                    </div>
-                  ),
-                )}
+                {[
+                  t("payroll.colEmployee"),
+                  t("common.type"),
+                  t("payroll.colRate"),
+                  t("payroll.frequency"),
+                  t("common.status"),
+                  "",
+                ].map((h, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-muted)",
+                      fontWeight: 500,
+                      letterSpacing: 0.5,
+                    }}
+                  >
+                    {h}
+                  </div>
+                ))}
               </div>
               {employees.map((emp) => (
                 <div
@@ -1443,10 +1479,9 @@ export default function Payroll() {
                     style={{
                       fontSize: 12,
                       color: "var(--text-secondary)",
-                      textTransform: "capitalize",
                     }}
                   >
-                    {emp.pay_type}
+                    {t(`payroll.payTypeShort.${emp.pay_type}`, emp.pay_type)}
                   </div>
                   <div
                     style={{
@@ -1456,16 +1491,17 @@ export default function Payroll() {
                     }}
                   >
                     {fmt(emp.pay_rate)}
-                    {emp.pay_type === "hourly" ? "/hr" : "/yr"}
+                    {emp.pay_type === "hourly"
+                      ? t("payroll.perHr")
+                      : t("payroll.perYr")}
                   </div>
                   <div
                     style={{
                       fontSize: 12,
                       color: "var(--text-secondary)",
-                      textTransform: "capitalize",
                     }}
                   >
-                    {emp.pay_frequency}
+                    {freqLabel(emp.pay_frequency)}
                   </div>
                   <div>
                     <span
@@ -1482,7 +1518,9 @@ export default function Payroll() {
                           : "var(--expense)",
                       }}
                     >
-                      {emp.is_active ? "Active" : "Inactive"}
+                      {emp.is_active
+                        ? t("payroll.active")
+                        : t("payroll.inactive")}
                     </span>
                   </div>
                   <div
@@ -1504,7 +1542,7 @@ export default function Payroll() {
                         color: "var(--text-muted)",
                         padding: 4,
                       }}
-                      title="Edit"
+                      title={t("common.edit")}
                     >
                       <i
                         className="ti ti-pencil"
@@ -1514,7 +1552,11 @@ export default function Payroll() {
                     </button>
                     <button
                       onClick={() => {
-                        if (window.confirm(`Deactivate ${emp.name}?`))
+                        if (
+                          window.confirm(
+                            t("payroll.confirmDeactivate", { name: emp.name }),
+                          )
+                        )
                           deactivateMutation.mutate(emp.id);
                       }}
                       style={{
@@ -1524,7 +1566,7 @@ export default function Payroll() {
                         color: "var(--danger)",
                         padding: 4,
                       }}
-                      title="Deactivate"
+                      title={t("payroll.deactivate")}
                     >
                       <i
                         className="ti ti-user-off"
@@ -1551,7 +1593,7 @@ export default function Payroll() {
                 color: "var(--text-muted)",
               }}
             >
-              Loading...
+              {t("common.loading")}
             </div>
           ) : payrollRuns?.length === 0 ? (
             <div className="card" style={{ padding: 48, textAlign: "center" }}>
@@ -1567,14 +1609,14 @@ export default function Payroll() {
                   marginTop: 12,
                 }}
               >
-                No payroll runs yet
+                {t("payroll.noRuns")}
               </div>
               <button
                 className="btn btn-primary"
                 style={{ marginTop: 16 }}
                 onClick={() => setShowRunModal(true)}
               >
-                Run your first payroll
+                {t("payroll.runFirst")}
               </button>
             </div>
           ) : isMobile ? (
@@ -1613,8 +1655,10 @@ export default function Payroll() {
                           marginTop: 2,
                         }}
                       >
-                        Run on {dayjs(run.run_date).format("MMM D, YYYY")} ·{" "}
-                        {run.employee_count} employees
+                        {t("payroll.runOn", {
+                          date: dayjs(run.run_date).format("MMM D, YYYY"),
+                        })}{" "}
+                        · {t("payroll.empCount", { count: run.employee_count })}
                       </div>
                     </div>
                     <span
@@ -1631,10 +1675,9 @@ export default function Payroll() {
                           run.status === "finalized"
                             ? "var(--income)"
                             : "var(--payroll)",
-                        textTransform: "capitalize",
                       }}
                     >
-                      {run.status}
+                      {t(`payroll.status.${run.status}`, run.status)}
                     </span>
                   </div>
                   <div
@@ -1646,17 +1689,17 @@ export default function Payroll() {
                   >
                     {[
                       {
-                        label: "Gross",
+                        label: t("payroll.gross"),
                         value: run.total_gross,
                         color: "var(--text-primary)",
                       },
                       {
-                        label: "Taxes",
+                        label: t("payroll.taxes"),
                         value: run.total_taxes,
                         color: "var(--expense)",
                       },
                       {
-                        label: "Net",
+                        label: t("payroll.net"),
                         value: run.total_net,
                         color: "var(--income)",
                       },
@@ -1705,21 +1748,26 @@ export default function Payroll() {
                   background: "var(--bg-secondary)",
                 }}
               >
-                {["Period", "Run Date", "Gross", "Net", "Status", ""].map(
-                  (h) => (
-                    <div
-                      key={h}
-                      style={{
-                        fontSize: 11,
-                        color: "var(--text-muted)",
-                        fontWeight: 500,
-                        letterSpacing: 0.5,
-                      }}
-                    >
-                      {h}
-                    </div>
-                  ),
-                )}
+                {[
+                  t("payroll.colPeriod"),
+                  t("payroll.colRunDate"),
+                  t("payroll.gross"),
+                  t("payroll.net"),
+                  t("common.status"),
+                  "",
+                ].map((h, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-muted)",
+                      fontWeight: 500,
+                      letterSpacing: 0.5,
+                    }}
+                  >
+                    {h}
+                  </div>
+                ))}
               </div>
               {payrollRuns.map((run) => (
                 <div
@@ -1781,14 +1829,13 @@ export default function Payroll() {
                           run.status === "finalized"
                             ? "var(--income)"
                             : "var(--payroll)",
-                        textTransform: "capitalize",
                       }}
                     >
-                      {run.status}
+                      {t(`payroll.status.${run.status}`, run.status)}
                     </span>
                   </div>
                   <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                    {run.employee_count} emp
+                    {t("payroll.empShort", { count: run.employee_count })}
                   </div>
                 </div>
               ))}
@@ -1804,18 +1851,22 @@ export default function Payroll() {
             setEditEmployee(null);
           }}
           editEmployee={editEmployee}
+          t={t}
         />
       )}
       {showRunModal && (
         <RunPayrollModal
           onClose={() => setShowRunModal(false)}
           employees={employees}
+          t={t}
         />
       )}
       {selectedRun && (
         <PayrollRunModal
           run={selectedRun}
           onClose={() => setSelectedRun(null)}
+          fmt={fmt}
+          t={t}
         />
       )}
     </div>

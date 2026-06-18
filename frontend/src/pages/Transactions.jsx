@@ -1,13 +1,17 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import dayjs from "dayjs";
 
-const fmt = (val, currency = "USD") =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency }).format(
-    val || 0,
-  );
+const makeFmt =
+  (lang) =>
+  (val, currency = "USD") =>
+    new Intl.NumberFormat(lang === "es" ? "es-PR" : "en-US", {
+      style: "currency",
+      currency,
+    }).format(val || 0);
 
 const emptyForm = {
   accountId: "",
@@ -20,7 +24,7 @@ const emptyForm = {
   splits: [],
 };
 
-function SplitEditor({ splits, setSplits, totalAmount, categories }) {
+function SplitEditor({ splits, setSplits, totalAmount, categories, fmt, t }) {
   const remaining =
     parseFloat(totalAmount || 0) -
     splits.reduce((s, r) => s + parseFloat(r.amount || 0), 0);
@@ -53,7 +57,7 @@ function SplitEditor({ splits, setSplits, totalAmount, categories }) {
             value={split.categoryId}
             onChange={(e) => updateSplit(i, "categoryId", e.target.value)}
           >
-            <option value="">Select category</option>
+            <option value="">{t("transactions.selectCategory")}</option>
             {categories?.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -103,7 +107,8 @@ function SplitEditor({ splits, setSplits, totalAmount, categories }) {
           className="btn btn-secondary"
           style={{ fontSize: 12, padding: "5px 10px" }}
         >
-          <i className="ti ti-plus" aria-hidden="true" /> Add split line
+          <i className="ti ti-plus" aria-hidden="true" />{" "}
+          {t("transactions.addSplitLine")}
         </button>
         <div
           style={{
@@ -114,15 +119,15 @@ function SplitEditor({ splits, setSplits, totalAmount, categories }) {
           }}
         >
           {Math.abs(remaining) < 0.01
-            ? "✓ Splits balanced"
-            : `Remaining: ${fmt(remaining)}`}
+            ? t("transactions.splitsBalanced")
+            : t("transactions.remaining", { amount: fmt(remaining) })}
         </div>
       </div>
     </div>
   );
 }
 
-function TransactionModal({ onClose, accounts, categories, editTx }) {
+function TransactionModal({ onClose, accounts, categories, editTx, fmt, t }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(
     editTx
@@ -159,17 +164,17 @@ function TransactionModal({ onClose, accounts, categories, editTx }) {
       onClose();
     },
     onError: (err) =>
-      setError(err.response?.data?.error || "Failed to save transaction"),
+      setError(err.response?.data?.error || t("transactions.saveFailed")),
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
     setError("");
-    if (!form.accountId) return setError("Please select an account");
+    if (!form.accountId) return setError(t("transactions.errSelectAccount"));
     if (!form.totalAmount || form.totalAmount <= 0)
-      return setError("Enter a valid amount");
+      return setError(t("transactions.errValidAmount"));
     if (useSplit && form.splits.length === 0)
-      return setError("Add at least one split line or disable split mode");
+      return setError(t("transactions.errAddSplit"));
     mutation.mutate({
       accountId: form.accountId,
       date: form.date,
@@ -220,7 +225,7 @@ function TransactionModal({ onClose, accounts, categories, editTx }) {
               color: "var(--text-primary)",
             }}
           >
-            {editTx ? "Edit Transaction" : "New Transaction"}
+            {editTx ? t("transactions.editTitle") : t("transactions.newTitle")}
           </h2>
           <button
             onClick={onClose}
@@ -259,46 +264,45 @@ function TransactionModal({ onClose, accounts, categories, editTx }) {
 
         <form onSubmit={handleSubmit}>
           <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-            {["expense", "income"].map((t) => (
+            {["expense", "income"].map((txType) => (
               <button
-                key={t}
+                key={txType}
                 type="button"
-                onClick={() => setForm({ ...form, type: t })}
+                onClick={() => setForm({ ...form, type: txType })}
                 style={{
                   flex: 1,
                   padding: "8px",
                   borderRadius: 8,
                   border: "0.5px solid",
                   borderColor:
-                    form.type === t
-                      ? t === "income"
+                    form.type === txType
+                      ? txType === "income"
                         ? "var(--income)"
                         : "var(--expense)"
                       : "var(--border-color)",
                   background:
-                    form.type === t
-                      ? t === "income"
+                    form.type === txType
+                      ? txType === "income"
                         ? "var(--income-bg)"
                         : "var(--expense-bg)"
                       : "transparent",
                   color:
-                    form.type === t
-                      ? t === "income"
+                    form.type === txType
+                      ? txType === "income"
                         ? "var(--income)"
                         : "var(--expense)"
                       : "var(--text-muted)",
                   cursor: "pointer",
                   fontSize: 13,
                   fontWeight: 500,
-                  textTransform: "capitalize",
                 }}
               >
                 <i
-                  className={`ti ${t === "income" ? "ti-arrow-down-left" : "ti-arrow-up-right"}`}
+                  className={`ti ${txType === "income" ? "ti-arrow-down-left" : "ti-arrow-up-right"}`}
                   style={{ marginRight: 6 }}
                   aria-hidden="true"
                 />
-                {t}
+                {t(`common.${txType}`)}
               </button>
             ))}
           </div>
@@ -313,7 +317,7 @@ function TransactionModal({ onClose, accounts, categories, editTx }) {
           >
             <div>
               <label className="label" htmlFor="totalAmount">
-                Amount
+                {t("common.amount")}
               </label>
               <input
                 id="totalAmount"
@@ -331,7 +335,7 @@ function TransactionModal({ onClose, accounts, categories, editTx }) {
             </div>
             <div>
               <label className="label" htmlFor="date">
-                Date
+                {t("common.date")}
               </label>
               <input
                 id="date"
@@ -346,13 +350,13 @@ function TransactionModal({ onClose, accounts, categories, editTx }) {
 
           <div style={{ marginBottom: 14 }}>
             <label className="label" htmlFor="merchant">
-              Merchant / Description
+              {t("transactions.merchantDescription")}
             </label>
             <input
               id="merchant"
               className="input"
               type="text"
-              placeholder="e.g. Office Depot"
+              placeholder={t("transactions.merchantPlaceholder")}
               value={form.merchant}
               onChange={(e) => setForm({ ...form, merchant: e.target.value })}
             />
@@ -360,7 +364,7 @@ function TransactionModal({ onClose, accounts, categories, editTx }) {
 
           <div style={{ marginBottom: 14 }}>
             <label className="label" htmlFor="accountId">
-              Account
+              {t("common.account")}
             </label>
             <select
               id="accountId"
@@ -369,7 +373,7 @@ function TransactionModal({ onClose, accounts, categories, editTx }) {
               onChange={(e) => setForm({ ...form, accountId: e.target.value })}
               required
             >
-              <option value="">Select account</option>
+              <option value="">{t("transactions.selectAccount")}</option>
               {accounts?.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name}
@@ -382,7 +386,7 @@ function TransactionModal({ onClose, accounts, categories, editTx }) {
           {!useSplit && (
             <div style={{ marginBottom: 14 }}>
               <label className="label" htmlFor="categoryId">
-                Category
+                {t("common.category")}
               </label>
               <select
                 id="categoryId"
@@ -392,7 +396,7 @@ function TransactionModal({ onClose, accounts, categories, editTx }) {
                   setForm({ ...form, categoryId: e.target.value })
                 }
               >
-                <option value="">Select a category</option>
+                <option value="">{t("transactions.selectACategory")}</option>
                 {categories
                   ?.filter((c) => c.type === form.type)
                   .map((c) => (
@@ -406,13 +410,13 @@ function TransactionModal({ onClose, accounts, categories, editTx }) {
 
           <div style={{ marginBottom: 14 }}>
             <label className="label" htmlFor="notes">
-              Notes
+              {t("common.notes")}
             </label>
             <input
               id="notes"
               className="input"
               type="text"
-              placeholder="Optional note"
+              placeholder={t("transactions.notesPlaceholder")}
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
             />
@@ -432,7 +436,7 @@ function TransactionModal({ onClose, accounts, categories, editTx }) {
             <button
               type="button"
               onClick={() => setUseSplit(!useSplit)}
-              aria-label="Toggle split"
+              aria-label={t("transactions.toggleSplit")}
               style={{
                 width: 36,
                 height: 20,
@@ -466,10 +470,10 @@ function TransactionModal({ onClose, accounts, categories, editTx }) {
                   color: "var(--text-primary)",
                 }}
               >
-                Split transaction
+                {t("transactions.splitTransaction")}
               </div>
               <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                Divide this amount across multiple categories
+                {t("transactions.splitDescription")}
               </div>
             </div>
           </div>
@@ -491,13 +495,15 @@ function TransactionModal({ onClose, accounts, categories, editTx }) {
                   marginBottom: 8,
                 }}
               >
-                Split breakdown
+                {t("transactions.splitBreakdown")}
               </div>
               <SplitEditor
                 splits={form.splits}
                 setSplits={(splits) => setForm({ ...form, splits })}
                 totalAmount={form.totalAmount}
                 categories={categories}
+                fmt={fmt}
+                t={t}
               />
             </div>
           )}
@@ -508,7 +514,7 @@ function TransactionModal({ onClose, accounts, categories, editTx }) {
               onClick={onClose}
               className="btn btn-secondary"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
@@ -516,10 +522,10 @@ function TransactionModal({ onClose, accounts, categories, editTx }) {
               disabled={mutation.isPending}
             >
               {mutation.isPending
-                ? "Saving..."
+                ? t("transactions.saving")
                 : editTx
-                  ? "Save changes"
-                  : "Add transaction"}
+                  ? t("transactions.saveChanges")
+                  : t("transactions.addTransaction")}
             </button>
           </div>
         </form>
@@ -529,9 +535,11 @@ function TransactionModal({ onClose, accounts, categories, editTx }) {
 }
 
 export default function Transactions() {
+  const { t, i18n } = useTranslation();
   const { business } = useAuthStore();
   const queryClient = useQueryClient();
   const currency = business?.currency || "USD";
+  const fmt = makeFmt(i18n.language);
   const [showModal, setShowModal] = useState(false);
   const [editTx, setEditTx] = useState(null);
   const [filters, setFilters] = useState({
@@ -605,15 +613,15 @@ export default function Transactions() {
               marginBottom: 4,
             }}
           >
-            Transactions
+            {t("transactions.title")}
           </h1>
           <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-            {data?.total || 0} total transactions
+            {t("transactions.totalCount", { count: data?.total || 0 })}
           </div>
         </div>
         <button className="btn btn-primary" onClick={() => setShowModal(true)}>
           <i className="ti ti-plus" aria-hidden="true" />{" "}
-          {isMobile ? "" : "Add transaction"}
+          {isMobile ? "" : t("transactions.addTransaction")}
         </button>
       </div>
 
@@ -637,9 +645,9 @@ export default function Transactions() {
             setFilters({ ...filters, type: e.target.value, categoryId: "" })
           }
         >
-          <option value="">All types</option>
-          <option value="income">Income</option>
-          <option value="expense">Expense</option>
+          <option value="">{t("transactions.allTypes")}</option>
+          <option value="income">{t("common.income")}</option>
+          <option value="expense">{t("common.expense")}</option>
         </select>
 
         {!isMobile && (
@@ -651,7 +659,7 @@ export default function Transactions() {
               setFilters({ ...filters, categoryId: e.target.value })
             }
           >
-            <option value="">All categories</option>
+            <option value="">{t("transactions.allCategories")}</option>
             {categories
               ?.filter((c) => !filters.type || c.type === filters.type)
               .map((c) => (
@@ -699,7 +707,8 @@ export default function Transactions() {
               })
             }
           >
-            <i className="ti ti-x" aria-hidden="true" /> Clear
+            <i className="ti ti-x" aria-hidden="true" />{" "}
+            {t("transactions.clear")}
           </button>
         )}
       </div>
@@ -716,9 +725,16 @@ export default function Transactions() {
               background: "var(--bg-secondary)",
             }}
           >
-            {["Date", "Merchant", "Account", "Amount", "Type", ""].map((h) => (
+            {[
+              t("common.date"),
+              t("common.merchant"),
+              t("common.account"),
+              t("common.amount"),
+              t("common.type"),
+              "",
+            ].map((h, idx) => (
               <div
-                key={h}
+                key={idx}
                 style={{
                   fontSize: 11,
                   color: "var(--text-muted)",
@@ -738,7 +754,7 @@ export default function Transactions() {
                 color: "var(--text-muted)",
               }}
             >
-              Loading...
+              {t("common.loading")}
             </div>
           ) : transactions.length === 0 ? (
             <div style={{ padding: 40, textAlign: "center" }}>
@@ -754,14 +770,14 @@ export default function Transactions() {
                   marginTop: 10,
                 }}
               >
-                No transactions found
+                {t("transactions.noneFound")}
               </div>
               <button
                 className="btn btn-primary"
                 style={{ marginTop: 12 }}
                 onClick={() => setShowModal(true)}
               >
-                Add your first transaction
+                {t("transactions.addFirst")}
               </button>
             </div>
           ) : (
@@ -817,7 +833,7 @@ export default function Transactions() {
                           marginLeft: 6,
                         }}
                       >
-                        split
+                        {t("transactions.split")}
                       </span>
                     )}
                   </div>
@@ -850,9 +866,9 @@ export default function Transactions() {
                 <div>
                   <span
                     className={`badge badge-${tx.type}`}
-                    style={{ fontSize: 10, textTransform: "capitalize" }}
+                    style={{ fontSize: 10 }}
                   >
-                    {tx.type}
+                    {t(`common.${tx.type}`)}
                   </span>
                 </div>
                 <div
@@ -874,7 +890,7 @@ export default function Transactions() {
                       color: "var(--text-muted)",
                       padding: 4,
                     }}
-                    title="Edit"
+                    title={t("common.edit")}
                   >
                     <i
                       className="ti ti-pencil"
@@ -884,7 +900,7 @@ export default function Transactions() {
                   </button>
                   <button
                     onClick={() => {
-                      if (window.confirm("Delete this transaction?"))
+                      if (window.confirm(t("transactions.confirmDelete")))
                         deleteMutation.mutate(tx.id);
                     }}
                     style={{
@@ -894,7 +910,7 @@ export default function Transactions() {
                       color: "var(--danger)",
                       padding: 4,
                     }}
-                    title="Delete"
+                    title={t("common.delete")}
                   >
                     <i
                       className="ti ti-trash"
@@ -920,7 +936,7 @@ export default function Transactions() {
                 color: "var(--text-muted)",
               }}
             >
-              Loading...
+              {t("common.loading")}
             </div>
           ) : transactions.length === 0 ? (
             <div className="card" style={{ padding: 40, textAlign: "center" }}>
@@ -936,14 +952,14 @@ export default function Transactions() {
                   marginTop: 10,
                 }}
               >
-                No transactions found
+                {t("transactions.noneFound")}
               </div>
               <button
                 className="btn btn-primary"
                 style={{ marginTop: 12 }}
                 onClick={() => setShowModal(true)}
               >
-                Add your first transaction
+                {t("transactions.addFirst")}
               </button>
             </div>
           ) : (
@@ -1009,7 +1025,7 @@ export default function Transactions() {
                             whiteSpace: "nowrap",
                           }}
                         >
-                          {tx.merchant || "No merchant"}
+                          {tx.merchant || t("dashboard.noMerchant")}
                           {tx.is_split && (
                             <span
                               style={{
@@ -1021,7 +1037,7 @@ export default function Transactions() {
                                 marginLeft: 6,
                               }}
                             >
-                              split
+                              {t("transactions.split")}
                             </span>
                           )}
                         </div>
@@ -1076,9 +1092,9 @@ export default function Transactions() {
                   >
                     <span
                       className={`badge badge-${tx.type}`}
-                      style={{ fontSize: 10, textTransform: "capitalize" }}
+                      style={{ fontSize: 10 }}
                     >
-                      {tx.type}
+                      {t(`common.${tx.type}`)}
                     </span>
                     <div style={{ display: "flex", gap: 12 }}>
                       <button
@@ -1098,11 +1114,12 @@ export default function Transactions() {
                           gap: 4,
                         }}
                       >
-                        <i className="ti ti-pencil" aria-hidden="true" /> Edit
+                        <i className="ti ti-pencil" aria-hidden="true" />{" "}
+                        {t("common.edit")}
                       </button>
                       <button
                         onClick={() => {
-                          if (window.confirm("Delete this transaction?"))
+                          if (window.confirm(t("transactions.confirmDelete")))
                             deleteMutation.mutate(tx.id);
                         }}
                         style={{
@@ -1117,7 +1134,8 @@ export default function Transactions() {
                           gap: 4,
                         }}
                       >
-                        <i className="ti ti-trash" aria-hidden="true" /> Delete
+                        <i className="ti ti-trash" aria-hidden="true" />{" "}
+                        {t("common.delete")}
                       </button>
                     </div>
                   </div>
@@ -1134,7 +1152,8 @@ export default function Transactions() {
           accounts={accounts}
           categories={categories}
           editTx={editTx}
-          currency={currency}
+          fmt={fmt}
+          t={t}
         />
       )}
     </div>

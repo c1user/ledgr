@@ -111,7 +111,7 @@ router.post("/register", async (req, res) => {
     const userResult = await client.query(
       `INSERT INTO users (business_id, name, email, role, password_hash)
        VALUES ($1, $2, $3, 'owner', $4)
-       RETURNING id, business_id, name, email, role`,
+       RETURNING id, business_id, name, email, role, language`,
       [business.id, safeName, email.toLowerCase().trim(), passwordHash],
     );
     const user = userResult.rows[0];
@@ -147,6 +147,7 @@ router.post("/register", async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        language: user.language,
       },
       business: {
         id: business.id,
@@ -181,7 +182,7 @@ router.post("/login", async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT u.id, u.business_id, u.name, u.email, u.role, u.password_hash,
+      `SELECT u.id, u.business_id, u.name, u.email, u.role, u.password_hash, u.language,
               b.name AS business_name, b.plan, b.currency
        FROM users u
        JOIN businesses b ON b.id = u.business_id
@@ -217,6 +218,7 @@ router.post("/login", async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        language: user.language,
       },
       business: {
         id: user.business_id,
@@ -235,7 +237,7 @@ router.post("/login", async (req, res) => {
 router.get("/me", requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT u.id, u.business_id, u.name, u.email, u.role, u.last_login,
+      `SELECT u.id, u.business_id, u.name, u.email, u.role, u.last_login, u.language,
               b.name AS business_name, b.plan, b.currency, b.tax_id
        FROM users u
        JOIN businesses b ON b.id = u.business_id
@@ -256,6 +258,7 @@ router.get("/me", requireAuth, async (req, res) => {
         email: user.email,
         role: user.role,
         lastLogin: user.last_login,
+        language: user.language,
       },
       business: {
         id: user.business_id,
@@ -268,6 +271,28 @@ router.get("/me", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("Me error:", err.message);
     return res.status(500).json({ error: "Failed to fetch user" });
+  }
+});
+
+// ── PATCH /api/auth/language ──────────────────────────────────
+// Update the current user's UI language preference
+router.patch("/language", requireAuth, async (req, res) => {
+  const { language } = req.body;
+
+  // Strict allowlist — never trust client input for a CHECK-constrained column
+  if (language !== "en" && language !== "es") {
+    return res.status(400).json({ error: "Language must be 'en' or 'es'" });
+  }
+
+  try {
+    await pool.query("UPDATE users SET language = $1 WHERE id = $2", [
+      language,
+      req.user.userId,
+    ]);
+    return res.json({ language });
+  } catch (err) {
+    console.error("Update language error:", err.message);
+    return res.status(500).json({ error: "Failed to update language" });
   }
 });
 

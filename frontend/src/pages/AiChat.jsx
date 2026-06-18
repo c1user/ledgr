@@ -1,17 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation, Trans } from "react-i18next";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import dayjs from "dayjs";
 
-const SUGGESTED_QUESTIONS = [
-  "What was my biggest expense this month?",
-  "Am I profitable this year?",
-  "How much did I spend on utilities?",
-  "What is my total payroll cost this year?",
-  "Compare my income vs expenses this month",
-  "Which account has the highest balance?",
-];
+const SUGGESTED_KEYS = ["q1", "q2", "q3", "q4", "q5", "q6"];
 
 // ── Message bubble ────────────────────────────────────────────
 function Message({ msg }) {
@@ -152,6 +146,7 @@ function TypingIndicator() {
 
 // ── Main AI Chat Page ─────────────────────────────────────────
 export default function AiChat() {
+  const { t } = useTranslation();
   const { business } = useAuthStore();
   const queryClient = useQueryClient();
   const [messages, setMessages] = useState([]);
@@ -180,7 +175,6 @@ export default function AiChat() {
       const data = res.data;
       setConversationId(data.conversationId);
       // Defensive: never trust the API shape blindly.
-      // If history is missing, keep optimistic messages and append the reply.
       if (Array.isArray(data.history)) {
         setMessages(data.history);
       } else if (typeof data.message === "string") {
@@ -198,9 +192,7 @@ export default function AiChat() {
         ...prev,
         {
           role: "assistant",
-          content:
-            err.response?.data?.error ||
-            "Sorry, something went wrong. Please try again.",
+          content: err.response?.data?.error || t("aichat.genericError"),
         },
       ]);
     },
@@ -211,7 +203,6 @@ export default function AiChat() {
     if (!text || isTyping) return;
     setInput("");
     setIsTyping(true);
-    // Optimistically add user message
     setMessages((prev) => [...prev, { role: "user", content: text }]);
     sendMutation.mutate({ message: text, conversationId });
     inputRef.current?.focus();
@@ -238,7 +229,7 @@ export default function AiChat() {
       setShowHistory(false);
     } catch (err) {
       console.error("Load conversation failed:", err);
-      setPanelError("Couldn't load that conversation.");
+      setPanelError(t("aichat.loadError"));
     }
   };
 
@@ -259,7 +250,7 @@ export default function AiChat() {
       if (conversationId === id) startNew();
     } catch (err) {
       console.error("Delete conversation failed:", err);
-      setPanelError("Couldn't delete that conversation.");
+      setPanelError(t("aichat.deleteError"));
     }
   };
 
@@ -291,14 +282,16 @@ export default function AiChat() {
               marginBottom: 4,
             }}
           >
-            AI Assistant
+            {t("aichat.title")}
           </h1>
           <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-            Ask anything about{" "}
-            <strong style={{ color: "var(--text-secondary)" }}>
-              {business?.name}
-            </strong>
-            's finances
+            <Trans
+              i18nKey="aichat.subtitle"
+              values={{ name: business?.name }}
+              components={{
+                strong: <strong style={{ color: "var(--text-secondary)" }} />,
+              }}
+            />
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -306,10 +299,12 @@ export default function AiChat() {
             className="btn btn-secondary"
             onClick={() => setShowHistory(!showHistory)}
           >
-            <i className="ti ti-history" aria-hidden="true" /> History
+            <i className="ti ti-history" aria-hidden="true" />{" "}
+            {t("aichat.history")}
           </button>
           <button className="btn btn-secondary" onClick={startNew}>
-            <i className="ti ti-plus" aria-hidden="true" /> New chat
+            <i className="ti ti-plus" aria-hidden="true" />{" "}
+            {t("aichat.newChat")}
           </button>
         </div>
       </div>
@@ -371,7 +366,7 @@ export default function AiChat() {
                     marginBottom: 6,
                   }}
                 >
-                  Ask about your finances
+                  {t("aichat.emptyTitle")}
                 </div>
                 <div
                   style={{
@@ -381,8 +376,7 @@ export default function AiChat() {
                     maxWidth: 360,
                   }}
                 >
-                  I have access to your real transaction, payroll, and account
-                  data. Ask me anything.
+                  {t("aichat.emptySubtitle")}
                 </div>
                 <div
                   style={{
@@ -393,35 +387,38 @@ export default function AiChat() {
                     maxWidth: 500,
                   }}
                 >
-                  {SUGGESTED_QUESTIONS.map((q) => (
-                    <button
-                      key={q}
-                      onClick={() => handleSuggestion(q)}
-                      style={{
-                        padding: "10px 12px",
-                        borderRadius: 8,
-                        border: "0.5px solid var(--border-color)",
-                        background: "var(--bg-secondary)",
-                        color: "var(--text-secondary)",
-                        cursor: "pointer",
-                        fontSize: 12,
-                        textAlign: "left",
-                        lineHeight: 1.4,
-                        transition: "all 0.15s",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = "var(--brand)";
-                        e.currentTarget.style.color = "var(--brand)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor =
-                          "var(--border-color)";
-                        e.currentTarget.style.color = "var(--text-secondary)";
-                      }}
-                    >
-                      {q}
-                    </button>
-                  ))}
+                  {SUGGESTED_KEYS.map((key) => {
+                    const q = t(`aichat.suggested.${key}`);
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => handleSuggestion(q)}
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: 8,
+                          border: "0.5px solid var(--border-color)",
+                          background: "var(--bg-secondary)",
+                          color: "var(--text-secondary)",
+                          cursor: "pointer",
+                          fontSize: 12,
+                          textAlign: "left",
+                          lineHeight: 1.4,
+                          transition: "all 0.15s",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = "var(--brand)";
+                          e.currentTarget.style.color = "var(--brand)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor =
+                            "var(--border-color)";
+                          e.currentTarget.style.color = "var(--text-secondary)";
+                        }}
+                      >
+                        {q}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ) : (
@@ -451,7 +448,7 @@ export default function AiChat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask about your finances... (Enter to send)"
+              placeholder={t("aichat.inputPlaceholder")}
               rows={1}
               style={{
                 flex: 1,
@@ -506,8 +503,7 @@ export default function AiChat() {
               textAlign: "center",
             }}
           >
-            AI responses are based on your actual business data · Shift+Enter
-            for new line
+            {t("aichat.footer")}
           </div>
         </div>
 
@@ -536,7 +532,7 @@ export default function AiChat() {
                 alignItems: "center",
               }}
             >
-              Past Conversations
+              {t("aichat.pastConversations")}
               <button
                 onClick={() => setShowHistory(false)}
                 style={{
@@ -572,7 +568,7 @@ export default function AiChat() {
                     fontSize: 13,
                   }}
                 >
-                  No past conversations
+                  {t("aichat.noPastConversations")}
                 </div>
               ) : (
                 conversations.map((conv) => (
@@ -607,7 +603,7 @@ export default function AiChat() {
                           marginBottom: 3,
                         }}
                       >
-                        {conv.first_message || "New conversation"}
+                        {conv.first_message || t("aichat.newConversation")}
                       </div>
                       <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
                         {dayjs(conv.updated_at).format("MMM D, YYYY")}

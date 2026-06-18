@@ -1,21 +1,26 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import useAuthStore from "../store/authStore";
 import useThemeStore from "../store/themeStore";
+import LanguageToggle from "../components/LanguageToggle";
+import { setAppLanguage } from "../i18n";
 
 const navItems = [
-  { to: "/dashboard", icon: "ti-layout-dashboard", label: "Dashboard" },
-  { to: "/transactions", icon: "ti-arrows-up-down", label: "Transactions" },
-  { to: "/categories", icon: "ti-tag", label: "Categories" },
-  { to: "/accounts", icon: "ti-building-bank", label: "Accounts" },
-  { to: "/receipts", icon: "ti-receipt", label: "Receipts" },
-  { to: "/payroll", icon: "ti-users", label: "Payroll" },
-  { to: "/ai", icon: "ti-sparkles", label: "AI Chat" },
+  { to: "/dashboard", icon: "ti-layout-dashboard", label: "nav.dashboard" },
+  { to: "/transactions", icon: "ti-arrows-up-down", label: "nav.transactions" },
+  { to: "/categories", icon: "ti-folders", label: "nav.categories" },
+  { to: "/accounts", icon: "ti-building-bank", label: "nav.accounts" },
+  { to: "/receipts", icon: "ti-receipt", label: "nav.receipts" },
+  { to: "/payroll", icon: "ti-users", label: "nav.payroll" },
+  { to: "/ai", icon: "ti-sparkles", label: "nav.aiChat" },
+  { to: "/reports", icon: "ti-chart-bar", label: "nav.reports" },
 ];
 
 const MOBILE_BREAKPOINT = 768;
 
 export default function AppLayout() {
+  const { t, i18n } = useTranslation();
   const { user, business, logout } = useAuthStore();
   const { theme } = useThemeStore();
   const navigate = useNavigate();
@@ -26,6 +31,11 @@ export default function AppLayout() {
   // Sidebar open state — collapsed by default on mobile
   const [sidebarOpen, setSidebarOpen] = useState(() => !isMobile());
   const [mobile, setMobile] = useState(() => isMobile());
+
+  // Apply the user's saved language on login and on page refresh
+  useEffect(() => {
+    if (user?.language) setAppLanguage(user.language);
+  }, [user?.language]);
 
   // Track window resize
   useEffect(() => {
@@ -40,16 +50,15 @@ export default function AppLayout() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Close sidebar on mobile when route changes
-  const prevPathname = useRef(location.pathname);
-  useEffect(() => {
-    if (mobile && location.pathname !== prevPathname.current) {
-      prevPathname.current = location.pathname;
-      const timer = setTimeout(() => setSidebarOpen(false), 0);
-      return () => clearTimeout(timer);
-    }
-    prevPathname.current = location.pathname;
-  }, [location.pathname, mobile]);
+  // Close sidebar on mobile when the route changes.
+  // State is adjusted during render (guarded by a previous-value check)
+  // instead of in an effect, per https://react.dev/learn/you-might-not-need-an-effect
+  // — this also catches browser back/forward navigation, not just link clicks.
+  const [prevPath, setPrevPath] = useState(location.pathname);
+  if (prevPath !== location.pathname) {
+    setPrevPath(location.pathname);
+    if (mobile) setSidebarOpen(false);
+  }
 
   const handleLogout = () => {
     logout();
@@ -100,8 +109,7 @@ export default function AppLayout() {
                 height: "100vh",
                 zIndex: 100,
                 transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
-                width: "100vw",
-                borderRight: "none",
+                width: 220,
               }
             : {}),
         }}
@@ -118,7 +126,7 @@ export default function AppLayout() {
           }}
         >
           {sidebarOpen && (
-            <div style={{ flex: 1 }}>
+            <div>
               <div
                 style={{
                   color: "var(--brand)",
@@ -136,31 +144,15 @@ export default function AppLayout() {
                   marginTop: 1,
                 }}
               >
-                {business?.name || "My Business"}
+                {business?.name || t("nav.myBusiness")}
               </div>
             </div>
           )}
-          {mobile && sidebarOpen && (
-            <button
-              onClick={() => setSidebarOpen(false)}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "var(--text-muted)",
-                fontSize: 22,
-                display: "flex",
-                alignItems: "center",
-                marginLeft: "auto",
-              }}
-              aria-label="Close menu"
-            >
-              <i className="ti ti-x" aria-hidden="true" />
-            </button>
-          )}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+            aria-label={
+              sidebarOpen ? t("nav.collapseSidebar") : t("nav.expandSidebar")
+            }
             style={{
               background: "none",
               border: "none",
@@ -186,7 +178,7 @@ export default function AppLayout() {
         <nav
           style={{
             flex: 1,
-            padding: mobile ? "20px 0" : "10px 0",
+            padding: "10px 0",
             overflowY: "auto",
             overflowX: "hidden",
           }}
@@ -195,17 +187,12 @@ export default function AppLayout() {
             <NavLink
               key={item.to}
               to={item.to}
-              title={!sidebarOpen ? item.label : undefined}
+              title={!sidebarOpen ? t(item.label) : undefined}
               style={({ isActive }) => ({
                 display: "flex",
                 alignItems: "center",
                 gap: sidebarOpen ? 10 : 0,
-                padding: mobile
-                  ? "16px 28px"
-                  : sidebarOpen
-                    ? "10px 20px"
-                    : "10px 0",
-                fontSize: mobile ? 17 : 13,
+                padding: sidebarOpen ? "10px 20px" : "10px 0",
                 justifyContent: sidebarOpen ? "flex-start" : "center",
                 color: isActive ? "var(--brand)" : "var(--text-secondary)",
                 background: isActive ? "var(--brand-light)" : "transparent",
@@ -213,7 +200,7 @@ export default function AppLayout() {
                   ? "2px solid var(--brand)"
                   : "2px solid transparent",
                 textDecoration: "none",
-                // fontSize: 13,
+                fontSize: 13,
                 fontWeight: isActive ? 500 : 400,
                 transition: "all 0.15s",
                 whiteSpace: "nowrap",
@@ -225,7 +212,7 @@ export default function AppLayout() {
                 style={{ fontSize: 18, flexShrink: 0 }}
                 aria-hidden="true"
               />
-              {sidebarOpen && <span>{item.label}</span>}
+              {sidebarOpen && <span>{t(item.label)}</span>}
             </NavLink>
           ))}
         </nav>
@@ -262,7 +249,7 @@ export default function AppLayout() {
                   style={{ fontSize: 15 }}
                   aria-hidden="true"
                 />
-                {theme === "dark" ? "Dark mode" : "Light mode"}
+                {theme === "dark" ? t("nav.darkMode") : t("nav.lightMode")}
               </div>
               <button
                 onClick={() => {
@@ -274,7 +261,7 @@ export default function AppLayout() {
                   );
                   useThemeStore.setState({ theme: next });
                 }}
-                aria-label="Toggle theme"
+                aria-label={t("nav.toggleTheme")}
                 style={{
                   width: 36,
                   height: 20,
@@ -313,7 +300,7 @@ export default function AppLayout() {
                 );
                 useThemeStore.setState({ theme: next });
               }}
-              title="Toggle theme"
+              title={t("nav.toggleTheme")}
               style={{
                 width: "100%",
                 background: "none",
@@ -392,7 +379,7 @@ export default function AppLayout() {
           {/* Logout */}
           <button
             onClick={handleLogout}
-            title={!sidebarOpen ? "Sign out" : undefined}
+            title={!sidebarOpen ? t("nav.signOut") : undefined}
             style={{
               display: "flex",
               alignItems: "center",
@@ -414,7 +401,7 @@ export default function AppLayout() {
               style={{ fontSize: sidebarOpen ? 14 : 18 }}
               aria-hidden="true"
             />
-            {sidebarOpen && "Sign out"}
+            {sidebarOpen && t("nav.signOut")}
           </button>
         </div>
       </aside>
@@ -439,7 +426,7 @@ export default function AppLayout() {
           {mobile && (
             <button
               onClick={() => setSidebarOpen(true)}
-              aria-label="Open menu"
+              aria-label={t("nav.openMenu")}
               style={{
                 background: "none",
                 border: "none",
@@ -477,12 +464,15 @@ export default function AppLayout() {
               textAlign: mobile ? "right" : "left",
             }}
           >
-            {new Date().toLocaleDateString("en-US", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
+            {new Date().toLocaleDateString(
+              i18n.language === "es" ? "es-PR" : "en-US",
+              {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              },
+            )}
           </div>
 
           <div
@@ -493,6 +483,7 @@ export default function AppLayout() {
               flexShrink: 0,
             }}
           >
+            <LanguageToggle />
             <span
               style={{
                 fontSize: 11,
