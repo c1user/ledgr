@@ -9,6 +9,7 @@ import { setAppLanguage } from "../i18n";
 const navItems = [
   { to: "/dashboard", icon: "ti-layout-dashboard", label: "nav.dashboard" },
   { to: "/transactions", icon: "ti-arrows-up-down", label: "nav.transactions" },
+  { to: "/rules", icon: "ti-filter-cog", label: "nav.rules" },
   { to: "/categories", icon: "ti-folders", label: "nav.categories" },
   { to: "/accounts", icon: "ti-building-bank", label: "nav.accounts" },
   { to: "/chart-of-accounts", icon: "ti-list-tree", label: "nav.chartOfAccounts" },

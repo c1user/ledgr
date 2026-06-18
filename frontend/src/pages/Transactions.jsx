@@ -836,6 +836,20 @@ export default function Transactions() {
                         {t("transactions.split")}
                       </span>
                     )}
+                    {!tx.is_split && tx.applied_rule_id && (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          background: "var(--income-bg)",
+                          color: "var(--income)",
+                          padding: "1px 6px",
+                          borderRadius: 3,
+                          marginLeft: 6,
+                        }}
+                      >
+                        {t("transactions.autoCategorized")}
+                      </span>
+                    )}
                   </div>
                   {tx.notes && (
                     <div
@@ -1038,6 +1052,20 @@ export default function Transactions() {
                               }}
                             >
                               {t("transactions.split")}
+                            </span>
+                          )}
+                          {!tx.is_split && tx.applied_rule_id && (
+                            <span
+                              style={{
+                                fontSize: 10,
+                                background: "var(--income-bg)",
+                                color: "var(--income)",
+                                padding: "1px 6px",
+                                borderRadius: 3,
+                                marginLeft: 6,
+                              }}
+                            >
+                              {t("transactions.autoCategorized")}
                             </span>
                           )}
                         </div>

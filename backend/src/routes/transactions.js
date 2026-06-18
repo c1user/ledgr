@@ -1,6 +1,7 @@
 import express from "express";
 import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { applyRules } from "../services/categorizationEngine.js";
 
 const router = express.Router();
 
@@ -34,6 +35,7 @@ router.get("/", async (req, res) => {
         t.plaid_tx_id,
         t.created_at,
         t.category_id,
+        t.applied_rule_id,
         a.name AS account_name,
         u.name AS created_by_name,
         r.id AS receipt_id,
@@ -248,11 +250,21 @@ router.post("/", async (req, res) => {
 
     const isSplit = !!(splits && splits.length > 0);
 
+    // Auto-categorize: run rules when no category or splits provided
+    let appliedRuleId = null;
+    if (!isSplit && !categoryId) {
+      const match = await applyRules(client, { merchant, notes }, businessId, type);
+      if (match) {
+        categoryId = match.category_id;
+        appliedRuleId = match.rule_id;
+      }
+    }
+
     // Insert transaction
     const txResult = await client.query(
       `INSERT INTO transactions
-        (business_id, account_id, created_by, date, merchant, total_amount, type, is_split, receipt_id, notes, category_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        (business_id, account_id, created_by, date, merchant, total_amount, type, is_split, receipt_id, notes, category_id, applied_rule_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *`,
       [
         businessId,
@@ -266,6 +278,7 @@ router.post("/", async (req, res) => {
         receiptId || null,
         notes || null,
         !isSplit ? categoryId || null : null,
+        appliedRuleId,
       ],
     );
     const transaction = txResult.rows[0];
