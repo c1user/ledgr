@@ -382,6 +382,13 @@ export default function Dashboard() {
     queryFn: () => api.get("/accounts").then((r) => r.data),
   });
 
+  const currentMonth = `${now.year()}-${String(now.month() + 1).padStart(2, "0")}`;
+  const { data: budgetSummary = [] } = useQuery({
+    queryKey: ["budget-summary", currentMonth],
+    queryFn: () =>
+      api.get(`/budgets/summary?month=${currentMonth}`).then((r) => r.data),
+  });
+
   const income = parseFloat(summary?.total_income || 0);
   const expenses = parseFloat(summary?.total_expenses || 0);
   const net = income - expenses;
@@ -760,6 +767,64 @@ export default function Dashboard() {
               </div>
             )}
           </div>
+
+          {/* Budget overview widget */}
+          {budgetSummary.length > 0 && (() => {
+            const totalBudget = budgetSummary.reduce((s, r) => s + parseFloat(r.budget_amount), 0);
+            const totalActual = budgetSummary.reduce((s, r) => s + parseFloat(r.actual_amount), 0);
+            const pct = totalBudget > 0 ? Math.min((totalActual / totalBudget) * 100, 100) : 0;
+            const over = totalActual > totalBudget;
+            return (
+              <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+                <div
+                  style={{
+                    padding: "14px 18px",
+                    borderBottom: "0.5px solid var(--border-color)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <span style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)" }}>
+                    {t("budget.title")}
+                  </span>
+                  <span
+                    onClick={() => navigate("/budget")}
+                    style={{ fontSize: 11, color: "var(--brand)", cursor: "pointer" }}
+                  >
+                    {t("budget.viewAll")} →
+                  </span>
+                </div>
+                <div style={{ padding: "12px 18px" }}>
+                  {/* Total bar */}
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>
+                    <span>{fmt(totalActual, currency)} {t("budget.totalSpent").toLowerCase()}</span>
+                    <span>{fmt(totalBudget, currency)}</span>
+                  </div>
+                  <div style={{ height: 6, background: "var(--border-color)", borderRadius: 3, marginBottom: 12, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${pct}%`, background: over ? "var(--error, #e53e3e)" : "var(--brand)", borderRadius: 3, transition: "width 0.3s" }} />
+                  </div>
+                  {/* Top categories */}
+                  {budgetSummary.slice(0, 4).map((r) => {
+                    const a = parseFloat(r.actual_amount);
+                    const b = parseFloat(r.budget_amount);
+                    const p = b > 0 ? Math.min((a / b) * 100, 100) : 0;
+                    const o = a > b;
+                    return (
+                      <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: r.color || "var(--brand)", flexShrink: 0 }} />
+                        <span style={{ fontSize: 12, color: "var(--text-secondary)", minWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</span>
+                        <div style={{ flex: 1, height: 4, background: "var(--border-color)", borderRadius: 2, overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${p}%`, background: o ? "var(--error, #e53e3e)" : "var(--brand)", borderRadius: 2 }} />
+                        </div>
+                        <span style={{ fontSize: 11, color: o ? "var(--error, #e53e3e)" : "var(--text-muted)", whiteSpace: "nowrap" }}>{Math.round(p)}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* AI prompt bar */}
           <div

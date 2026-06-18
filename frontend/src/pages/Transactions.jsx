@@ -21,6 +21,7 @@ const emptyForm = {
   type: "expense",
   notes: "",
   categoryId: "",
+  vendorId: "",
   splits: [],
 };
 
@@ -127,7 +128,7 @@ function SplitEditor({ splits, setSplits, totalAmount, categories, fmt, t }) {
   );
 }
 
-function TransactionModal({ onClose, accounts, categories, editTx, fmt, t }) {
+function TransactionModal({ onClose, accounts, categories, vendors, editTx, fmt, t }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(
     editTx
@@ -139,6 +140,7 @@ function TransactionModal({ onClose, accounts, categories, editTx, fmt, t }) {
           type: editTx.type,
           notes: editTx.notes || "",
           categoryId: editTx.category_id || "",
+          vendorId: editTx.vendor_id || "",
           splits:
             editTx.splits?.map((s) => ({
               categoryId: s.category_id,
@@ -183,6 +185,7 @@ function TransactionModal({ onClose, accounts, categories, editTx, fmt, t }) {
       type: form.type,
       notes: form.notes || undefined,
       categoryId: !useSplit ? form.categoryId || undefined : undefined,
+      vendorId: form.vendorId || undefined,
       splits: useSplit ? form.splits : [],
     });
   };
@@ -346,6 +349,34 @@ function TransactionModal({ onClose, accounts, categories, editTx, fmt, t }) {
                 required
               />
             </div>
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <label className="label" htmlFor="vendorId">
+              {t("transactions.vendor")}
+            </label>
+            <select
+              id="vendorId"
+              className="input"
+              value={form.vendorId}
+              onChange={(e) => {
+                const vid = e.target.value;
+                const vendor = vendors?.find((v) => v.id === vid);
+                setForm({
+                  ...form,
+                  vendorId: vid,
+                  merchant: vendor && !form.merchant ? vendor.name : form.merchant,
+                });
+              }}
+            >
+              <option value="">{t("transactions.selectVendor")}</option>
+              {vendors?.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name}
+                  {v.is_1099_eligible ? " · 1099" : ""}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div style={{ marginBottom: 14 }}>
@@ -575,6 +606,10 @@ export default function Transactions() {
   const { data: categories } = useQuery({
     queryKey: ["categories"],
     queryFn: () => api.get("/categories").then((r) => r.data),
+  });
+  const { data: vendors } = useQuery({
+    queryKey: ["vendors"],
+    queryFn: () => api.get("/vendors").then((r) => r.data),
   });
 
   const deleteMutation = useMutation({
@@ -820,6 +855,21 @@ export default function Transactions() {
                         }}
                       >
                         {tx.category_name}
+                      </div>
+                    )}
+                    {tx.vendor_name && (
+                      <div style={{ marginTop: 2 }}>
+                        <span
+                          style={{
+                            fontSize: 10,
+                            background: "var(--brand-light)",
+                            color: "var(--brand)",
+                            padding: "1px 6px",
+                            borderRadius: 3,
+                          }}
+                        >
+                          {tx.vendor_name}
+                        </span>
                       </div>
                     )}
                     {tx.is_split && (
@@ -1179,6 +1229,7 @@ export default function Transactions() {
           onClose={handleClose}
           accounts={accounts}
           categories={categories}
+          vendors={vendors}
           editTx={editTx}
           fmt={fmt}
           t={t}

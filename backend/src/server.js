@@ -25,6 +25,8 @@ import payrollRoutes from "./routes/payroll.js";
 import aiRoutes from "./routes/ai.js";
 import reportRoutes from "./routes/reports.js";
 import rulesRoutes from "./routes/rules.js";
+import vendorRoutes from "./routes/vendors.js";
+import budgetRoutes from "./routes/budgets.js";
 import { generalLimiter, authLimiter } from "./middleware/rateLimiter.js";
 
 dotenv.config();
@@ -125,6 +127,8 @@ app.use("/api/payroll", payrollRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/rules", rulesRoutes);
+app.use("/api/vendors", vendorRoutes);
+app.use("/api/budgets", budgetRoutes);
 
 // ── Health check — no sensitive info ─────────────────────────
 app.get("/health", (req, res) => {

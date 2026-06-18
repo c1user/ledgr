@@ -17,6 +17,8 @@ import ProfitLoss from "./pages/ProfitLoss";
 import TaxSummary from "./pages/TaxSummary";
 import ChartOfAccounts from "./pages/ChartOfAccounts";
 import Rules from "./pages/Rules";
+import Vendors from "./pages/Vendors";
+import Budget from "./pages/Budget";
 
 // Layout
 import AppLayout from "./components/AppLayout";
@@ -64,6 +66,8 @@ export default function App() {
           <Route path="tax-summary" element={<TaxSummary />} />
           <Route path="chart-of-accounts" element={<ChartOfAccounts />} />
           <Route path="rules" element={<Rules />} />
+          <Route path="vendors" element={<Vendors />} />
+          <Route path="budget" element={<Budget />} />
         </Route>
 
         {/* Catch all */}

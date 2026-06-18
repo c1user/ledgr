@@ -36,12 +36,14 @@ router.get("/", async (req, res) => {
         t.created_at,
         t.category_id,
         t.applied_rule_id,
+        t.vendor_id,
         a.name AS account_name,
         u.name AS created_by_name,
         r.id AS receipt_id,
         r.status AS receipt_status,
         cat.name AS category_name,
         cat.color AS category_color,
+        v.name AS vendor_name,
         COALESCE(
           json_agg(
             json_build_object(
@@ -62,6 +64,7 @@ router.get("/", async (req, res) => {
       LEFT JOIN transaction_splits ts ON ts.transaction_id = t.id
       LEFT JOIN categories sc ON sc.id = ts.category_id
       LEFT JOIN categories cat ON cat.id = t.category_id
+      LEFT JOIN vendors v ON v.id = t.vendor_id
       WHERE t.business_id = $1
     `;
 
@@ -99,7 +102,7 @@ router.get("/", async (req, res) => {
     }
 
     query += `
-      GROUP BY t.id, a.name, u.name, r.id, r.status, cat.name, cat.color
+      GROUP BY t.id, a.name, u.name, r.id, r.status, cat.name, cat.color, v.name
       ORDER BY t.date DESC, t.created_at DESC
       LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
     `;
@@ -195,6 +198,7 @@ router.post("/", async (req, res) => {
     notes,
     receiptId,
     categoryId,
+    vendorId,
     splits,
   } = req.body;
 
@@ -263,8 +267,8 @@ router.post("/", async (req, res) => {
     // Insert transaction
     const txResult = await client.query(
       `INSERT INTO transactions
-        (business_id, account_id, created_by, date, merchant, total_amount, type, is_split, receipt_id, notes, category_id, applied_rule_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        (business_id, account_id, created_by, date, merchant, total_amount, type, is_split, receipt_id, notes, category_id, applied_rule_id, vendor_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [
         businessId,
@@ -279,6 +283,7 @@ router.post("/", async (req, res) => {
         notes || null,
         !isSplit ? categoryId || null : null,
         appliedRuleId,
+        vendorId || null,
       ],
     );
     const transaction = txResult.rows[0];
@@ -365,6 +370,7 @@ router.put("/:id", async (req, res) => {
     notes,
     accountId,
     categoryId,
+    vendorId,
     splits,
   } = req.body;
 
@@ -416,8 +422,9 @@ router.put("/:id", async (req, res) => {
         notes        = COALESCE($5, notes),
         account_id   = COALESCE($6, account_id),
         is_split     = $7,
-        category_id  = CASE WHEN $7 = true THEN NULL ELSE COALESCE($8, category_id) END
-       WHERE id = $9 AND business_id = $10
+        category_id  = CASE WHEN $7 = true THEN NULL ELSE COALESCE($8, category_id) END,
+        vendor_id    = COALESCE($9, vendor_id)
+       WHERE id = $10 AND business_id = $11
        RETURNING *`,
       [
         date,
@@ -428,6 +435,7 @@ router.put("/:id", async (req, res) => {
         accountId,
         isSplit,
         categoryId || null,
+        vendorId || null,
         id,
         businessId,
       ],
