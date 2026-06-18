@@ -11,6 +11,7 @@ const navItems = [
   { to: "/transactions", icon: "ti-arrows-up-down", label: "nav.transactions" },
   { to: "/categories", icon: "ti-folders", label: "nav.categories" },
   { to: "/accounts", icon: "ti-building-bank", label: "nav.accounts" },
+  { to: "/chart-of-accounts", icon: "ti-list-tree", label: "nav.chartOfAccounts" },
   { to: "/receipts", icon: "ti-receipt", label: "nav.receipts" },
   { to: "/payroll", icon: "ti-users", label: "nav.payroll" },
   { to: "/ai", icon: "ti-sparkles", label: "nav.aiChat" },

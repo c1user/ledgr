@@ -15,6 +15,7 @@ import Payroll from "./pages/Payroll";
 import AiChat from "./pages/AiChat";
 import ProfitLoss from "./pages/ProfitLoss";
 import TaxSummary from "./pages/TaxSummary";
+import ChartOfAccounts from "./pages/ChartOfAccounts";
 
 // Layout
 import AppLayout from "./components/AppLayout";
@@ -60,6 +61,7 @@ export default function App() {
           <Route path="ai" element={<AiChat />} />
           <Route path="reports" element={<ProfitLoss />} />
           <Route path="tax-summary" element={<TaxSummary />} />
+          <Route path="chart-of-accounts" element={<ChartOfAccounts />} />
         </Route>
 
         {/* Catch all */}
