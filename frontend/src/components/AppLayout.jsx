@@ -15,6 +15,7 @@ const navItems = [
   { to: "/payroll", icon: "ti-users", label: "nav.payroll" },
   { to: "/ai", icon: "ti-sparkles", label: "nav.aiChat" },
   { to: "/reports", icon: "ti-chart-bar", label: "nav.reports" },
+  { to: "/tax-summary", icon: "ti-receipt-tax", label: "nav.taxSummary" },
 ];
 
 const MOBILE_BREAKPOINT = 768;
