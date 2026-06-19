@@ -19,6 +19,8 @@ import ChartOfAccounts from "./pages/ChartOfAccounts";
 import Rules from "./pages/Rules";
 import Vendors from "./pages/Vendors";
 import Budget from "./pages/Budget";
+import TimeTracking from "./pages/TimeTracking";
+import Inventory from "./pages/Inventory";
 
 // Layout
 import AppLayout from "./components/AppLayout";
@@ -68,6 +70,8 @@ export default function App() {
           <Route path="rules" element={<Rules />} />
           <Route path="vendors" element={<Vendors />} />
           <Route path="budget" element={<Budget />} />
+          <Route path="time" element={<TimeTracking />} />
+          <Route path="inventory" element={<Inventory />} />
         </Route>
 
         {/* Catch all */}

@@ -37,6 +37,11 @@ router.get("/", async (req, res) => {
         t.category_id,
         t.applied_rule_id,
         t.vendor_id,
+        t.original_currency,
+        t.original_amount,
+        t.exchange_rate,
+        t.product_id,
+        t.qty,
         a.name AS account_name,
         u.name AS created_by_name,
         r.id AS receipt_id,
@@ -200,6 +205,11 @@ router.post("/", async (req, res) => {
     categoryId,
     vendorId,
     splits,
+    originalCurrency,
+    originalAmount,
+    exchangeRate,
+    productId,
+    qty,
   } = req.body;
 
   // Validation
@@ -267,8 +277,8 @@ router.post("/", async (req, res) => {
     // Insert transaction
     const txResult = await client.query(
       `INSERT INTO transactions
-        (business_id, account_id, created_by, date, merchant, total_amount, type, is_split, receipt_id, notes, category_id, applied_rule_id, vendor_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        (business_id, account_id, created_by, date, merchant, total_amount, type, is_split, receipt_id, notes, category_id, applied_rule_id, vendor_id, original_currency, original_amount, exchange_rate, product_id, qty)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
        RETURNING *`,
       [
         businessId,
@@ -284,9 +294,48 @@ router.post("/", async (req, res) => {
         !isSplit ? categoryId || null : null,
         appliedRuleId,
         vendorId || null,
+        originalCurrency || null,
+        originalAmount || null,
+        exchangeRate || 1,
+        productId || null,
+        qty ? parseFloat(qty) : null,
       ],
     );
     const transaction = txResult.rows[0];
+
+    // Auto inventory movement when product_id + qty is set
+    if (productId && qty) {
+      const qtyNum = parseFloat(qty);
+      if (qtyNum > 0) {
+        const movementType = type === "income" ? "sale" : "receive";
+        const prodRes = await client.query(
+          "SELECT qty_on_hand, unit_cost, valuation_method FROM products WHERE id = $1 AND business_id = $2",
+          [productId, businessId],
+        );
+        if (prodRes.rows.length > 0) {
+          const prod = prodRes.rows[0];
+          const oldCost = parseFloat(prod.unit_cost);
+          const delta = movementType === "sale" ? -qtyNum : qtyNum;
+          let newCost = oldCost;
+          if (movementType === "receive" && prod.valuation_method === "avg") {
+            const oldQty = parseFloat(prod.qty_on_hand);
+            const newQty = oldQty + qtyNum;
+            const perUnit = parseFloat(totalAmount) / qtyNum;
+            if (newQty > 0) newCost = (oldQty * oldCost + qtyNum * perUnit) / newQty;
+          }
+          await client.query(
+            `INSERT INTO inventory_movements
+               (business_id, product_id, movement_type, quantity, unit_cost, transaction_id)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [businessId, productId, movementType, qtyNum, oldCost, transaction.id],
+          );
+          await client.query(
+            "UPDATE products SET qty_on_hand = qty_on_hand + $1, unit_cost = $2 WHERE id = $3 AND business_id = $4",
+            [delta, newCost, productId, businessId],
+          );
+        }
+      }
+    }
 
     // Insert splits if provided
     if (isSplit) {
@@ -372,6 +421,9 @@ router.put("/:id", async (req, res) => {
     categoryId,
     vendorId,
     splits,
+    originalCurrency,
+    originalAmount,
+    exchangeRate,
   } = req.body;
 
   const client = await pool.connect();
@@ -415,15 +467,18 @@ router.put("/:id", async (req, res) => {
     // Update transaction
     const updatedTx = await client.query(
       `UPDATE transactions SET
-        date         = COALESCE($1, date),
-        merchant     = COALESCE($2, merchant),
-        total_amount = COALESCE($3, total_amount),
-        type         = COALESCE($4, type),
-        notes        = COALESCE($5, notes),
-        account_id   = COALESCE($6, account_id),
-        is_split     = $7,
-        category_id  = CASE WHEN $7 = true THEN NULL ELSE COALESCE($8, category_id) END,
-        vendor_id    = COALESCE($9, vendor_id)
+        date              = COALESCE($1, date),
+        merchant          = COALESCE($2, merchant),
+        total_amount      = COALESCE($3, total_amount),
+        type              = COALESCE($4, type),
+        notes             = COALESCE($5, notes),
+        account_id        = COALESCE($6, account_id),
+        is_split          = $7,
+        category_id       = CASE WHEN $7 = true THEN NULL ELSE COALESCE($8, category_id) END,
+        vendor_id         = COALESCE($9, vendor_id),
+        original_currency = COALESCE($12, original_currency),
+        original_amount   = COALESCE($13, original_amount),
+        exchange_rate     = COALESCE($14, exchange_rate)
        WHERE id = $10 AND business_id = $11
        RETURNING *`,
       [
@@ -438,6 +493,9 @@ router.put("/:id", async (req, res) => {
         vendorId || null,
         id,
         businessId,
+        originalCurrency || null,
+        originalAmount || null,
+        exchangeRate || null,
       ],
     );
     const tx = updatedTx.rows[0];

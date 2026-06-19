@@ -75,11 +75,31 @@ router.get("/pl", async (req, res) => {
     ORDER BY DATE_TRUNC('month', date) ASC
   `;
 
+  // FX summary: transactions recorded in a foreign currency, grouped by currency
+  const fxSummarySql = `
+    SELECT
+      original_currency                        AS currency,
+      COUNT(*)::INT                            AS count,
+      SUM(original_amount)::NUMERIC(12,2)      AS original_total,
+      SUM(total_amount)::NUMERIC(12,2)         AS converted_total,
+      b.currency                               AS base_currency
+    FROM transactions t
+    JOIN businesses b ON b.id = t.business_id
+    WHERE t.business_id = $1
+      AND t.original_currency IS NOT NULL
+      AND t.original_currency != b.currency
+      AND t.date >= $2::date
+      AND t.date <= $3::date
+    GROUP BY t.original_currency, b.currency
+    ORDER BY converted_total DESC
+  `;
+
   try {
-    const [incomeResult, expenseResult, trendResult] = await Promise.all([
+    const [incomeResult, expenseResult, trendResult, fxResult] = await Promise.all([
       pool.query(categoryBreakdownSql, [businessId, startDate, endDate, "income"]),
       pool.query(categoryBreakdownSql, [businessId, startDate, endDate, "expense"]),
       pool.query(trendSql, [businessId, startDate, endDate]),
+      pool.query(fxSummarySql, [businessId, startDate, endDate]),
     ]);
 
     const incomeCategories = incomeResult.rows;
@@ -101,6 +121,7 @@ router.get("/pl", async (req, res) => {
       total_expenses: parseFloat(totalExpenses.toFixed(2)),
       net_income: parseFloat((totalIncome - totalExpenses).toFixed(2)),
       monthly_trend: trendResult.rows,
+      fx_currencies: fxResult.rows,
     });
   } catch (err) {
     console.error("P&L report error:", err);

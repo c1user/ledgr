@@ -349,6 +349,86 @@ function PLStatement({ data, startDate, endDate, fmt, currency, t }) {
   );
 }
 
+// ── FX Currency Summary ───────────────────────────────────────
+function FXSummary({ currencies, baseCurrency, fmt, t }) {
+  if (!currencies || currencies.length === 0) return null;
+  return (
+    <div className="card" style={{ padding: "20px", marginTop: 16 }}>
+      <div
+        style={{
+          fontSize: 13,
+          fontWeight: 600,
+          color: "var(--text-primary)",
+          marginBottom: 12,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+        }}
+      >
+        <i className="ti ti-currency-dollar" style={{ fontSize: 16 }} aria-hidden="true" />
+        {t("fx.fxSectionTitle")}
+      </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "auto 1fr auto auto",
+          columnGap: 16,
+          rowGap: 0,
+          alignItems: "center",
+          fontSize: 12,
+          color: "var(--text-muted)",
+          fontWeight: 600,
+          letterSpacing: 0.5,
+          textTransform: "uppercase",
+          paddingBottom: 6,
+          borderBottom: "1.5px solid var(--border-color)",
+          marginBottom: 4,
+        }}
+      >
+        <span>{t("fx.fxCurrencyCol")}</span>
+        <span />
+        <span style={{ textAlign: "right" }}>{t("fx.fxOriginalCol")}</span>
+        <span style={{ textAlign: "right" }}>{t("fx.fxConvertedCol", { base: baseCurrency })}</span>
+      </div>
+      {currencies.map((row) => (
+        <div
+          key={row.currency}
+          style={{
+            display: "grid",
+            gridTemplateColumns: "auto 1fr auto auto",
+            columnGap: 16,
+            alignItems: "center",
+            padding: "8px 0",
+            borderBottom: "0.5px solid var(--border-color)",
+          }}
+        >
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              background: "var(--brand-light)",
+              color: "var(--brand)",
+              padding: "2px 8px",
+              borderRadius: 4,
+            }}
+          >
+            {row.currency}
+          </span>
+          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+            {row.count} {t("fx.fxTransactions")}
+          </span>
+          <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)", textAlign: "right" }}>
+            {fmt(parseFloat(row.original_total), row.currency)}
+          </span>
+          <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)", textAlign: "right" }}>
+            {fmt(parseFloat(row.converted_total), baseCurrency)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────
 export default function ProfitLoss() {
   const { t, i18n } = useTranslation();
@@ -439,30 +519,38 @@ export default function ProfitLoss() {
               {t("reports.noData")}
             </div>
           ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "minmax(280px, 1fr) minmax(280px, 1.2fr)",
-                gap: 16,
-                alignItems: "start",
-              }}
-              className="pl-grid"
-            >
-              <PLStatement
-                data={data}
-                startDate={startDate}
-                endDate={endDate}
+            <>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(280px, 1fr) minmax(280px, 1.2fr)",
+                  gap: 16,
+                  alignItems: "start",
+                }}
+                className="pl-grid"
+              >
+                <PLStatement
+                  data={data}
+                  startDate={startDate}
+                  endDate={endDate}
+                  fmt={fmt}
+                  currency={currency}
+                  t={t}
+                />
+                <TrendChart
+                  data={data.monthly_trend}
+                  fmt={fmt}
+                  currency={currency}
+                  t={t}
+                />
+              </div>
+              <FXSummary
+                currencies={data.fx_currencies}
+                baseCurrency={currency}
                 fmt={fmt}
-                currency={currency}
                 t={t}
               />
-              <TrendChart
-                data={data.monthly_trend}
-                fmt={fmt}
-                currency={currency}
-                t={t}
-              />
-            </div>
+            </>
           )}
         </>
       )}

@@ -27,6 +27,11 @@ import reportRoutes from "./routes/reports.js";
 import rulesRoutes from "./routes/rules.js";
 import vendorRoutes from "./routes/vendors.js";
 import budgetRoutes from "./routes/budgets.js";
+import fxRoutes from "./routes/fx.js";
+import projectRoutes from "./routes/projects.js";
+import timeEntryRoutes from "./routes/timeEntries.js";
+import productRoutes from "./routes/products.js";
+import inventoryRoutes from "./routes/inventory.js";
 import { generalLimiter, authLimiter } from "./middleware/rateLimiter.js";
 
 dotenv.config();
@@ -129,6 +134,11 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/rules", rulesRoutes);
 app.use("/api/vendors", vendorRoutes);
 app.use("/api/budgets", budgetRoutes);
+app.use("/api/fx-rates", fxRoutes);
+app.use("/api/projects", projectRoutes);
+app.use("/api/time-entries", timeEntryRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/inventory", inventoryRoutes);
 
 // ── Health check — no sensitive info ─────────────────────────
 app.get("/health", (req, res) => {

@@ -13,7 +13,15 @@ const makeFmt =
       currency,
     }).format(val || 0);
 
-const emptyForm = {
+// ECB-backed currencies supported by the Frankfurter rate API
+const CURRENCIES = [
+  "AUD", "BGN", "BRL", "CAD", "CHF", "CNY", "CZK", "DKK",
+  "EUR", "GBP", "HKD", "HUF", "IDR", "ILS", "INR", "ISK",
+  "JPY", "KRW", "MXN", "MYR", "NOK", "NZD", "PHP", "PLN",
+  "RON", "SEK", "SGD", "THB", "TRY", "USD", "ZAR",
+];
+
+const makeEmptyForm = (baseCurrency) => ({
   accountId: "",
   date: dayjs().format("YYYY-MM-DD"),
   merchant: "",
@@ -23,7 +31,10 @@ const emptyForm = {
   categoryId: "",
   vendorId: "",
   splits: [],
-};
+  currency: baseCurrency || "USD",
+  originalAmount: "",
+  exchangeRate: "1",
+});
 
 function SplitEditor({ splits, setSplits, totalAmount, categories, fmt, t }) {
   const remaining =
@@ -128,30 +139,55 @@ function SplitEditor({ splits, setSplits, totalAmount, categories, fmt, t }) {
   );
 }
 
-function TransactionModal({ onClose, accounts, categories, vendors, editTx, fmt, t }) {
+function TransactionModal({ onClose, accounts, categories, vendors, editTx, fmt, t, baseCurrency }) {
   const queryClient = useQueryClient();
-  const [form, setForm] = useState(
-    editTx
-      ? {
-          accountId: editTx.account_id,
-          date: dayjs(editTx.date).format("YYYY-MM-DD"),
-          merchant: editTx.merchant || "",
-          totalAmount: editTx.total_amount,
-          type: editTx.type,
-          notes: editTx.notes || "",
-          categoryId: editTx.category_id || "",
-          vendorId: editTx.vendor_id || "",
-          splits:
-            editTx.splits?.map((s) => ({
-              categoryId: s.category_id,
-              amount: s.amount,
-              notes: s.notes || "",
-            })) || [],
-        }
-      : emptyForm,
-  );
+  const [form, setForm] = useState(() => {
+    if (editTx) {
+      return {
+        accountId: editTx.account_id,
+        date: dayjs(editTx.date).format("YYYY-MM-DD"),
+        merchant: editTx.merchant || "",
+        totalAmount: String(editTx.total_amount),
+        type: editTx.type,
+        notes: editTx.notes || "",
+        categoryId: editTx.category_id || "",
+        vendorId: editTx.vendor_id || "",
+        splits:
+          editTx.splits?.map((s) => ({
+            categoryId: s.category_id,
+            amount: s.amount,
+            notes: s.notes || "",
+          })) || [],
+        currency: editTx.original_currency || baseCurrency,
+        originalAmount: String(editTx.original_amount || editTx.total_amount),
+        exchangeRate: String(editTx.exchange_rate || 1),
+      };
+    }
+    return makeEmptyForm(baseCurrency);
+  });
   const [useSplit, setUseSplit] = useState(editTx ? editTx.is_split : false);
   const [error, setError] = useState("");
+  const [rateStatus, setRateStatus] = useState("idle"); // "idle" | "loading" | "error"
+
+  const isFx = form.currency && form.currency !== baseCurrency;
+
+  // Auto-fetch exchange rate when the currency or date changes
+  useEffect(() => {
+    if (!isFx) {
+      setForm((f) => ({ ...f, exchangeRate: "1" }));
+      setRateStatus("idle");
+      return;
+    }
+    setRateStatus("loading");
+    api
+      .get(`/fx-rates?base=${form.currency}&target=${baseCurrency}&date=${form.date}`)
+      .then((r) => {
+        setForm((f) => ({ ...f, exchangeRate: String(r.data.rate) }));
+        setRateStatus("idle");
+      })
+      .catch(() => setRateStatus("error"));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.currency, form.date, baseCurrency]);
 
   const mutation = useMutation({
     mutationFn: (data) =>
@@ -173,21 +209,42 @@ function TransactionModal({ onClose, accounts, categories, vendors, editTx, fmt,
     e.preventDefault();
     setError("");
     if (!form.accountId) return setError(t("transactions.errSelectAccount"));
-    if (!form.totalAmount || form.totalAmount <= 0)
-      return setError(t("transactions.errValidAmount"));
+
+    // For FX transactions, validate original amount; otherwise validate totalAmount
+    if (isFx && !useSplit) {
+      if (!form.originalAmount || parseFloat(form.originalAmount) <= 0)
+        return setError(t("transactions.errValidAmount"));
+    } else {
+      if (!form.totalAmount || parseFloat(form.totalAmount) <= 0)
+        return setError(t("transactions.errValidAmount"));
+    }
     if (useSplit && form.splits.length === 0)
       return setError(t("transactions.errAddSplit"));
-    mutation.mutate({
+
+    const totalAmount =
+      isFx && !useSplit
+        ? parseFloat(form.originalAmount) * parseFloat(form.exchangeRate || 1)
+        : parseFloat(form.totalAmount);
+
+    const payload = {
       accountId: form.accountId,
       date: form.date,
       merchant: form.merchant || undefined,
-      totalAmount: parseFloat(form.totalAmount),
+      totalAmount,
       type: form.type,
       notes: form.notes || undefined,
       categoryId: !useSplit ? form.categoryId || undefined : undefined,
       vendorId: form.vendorId || undefined,
       splits: useSplit ? form.splits : [],
-    });
+    };
+
+    if (isFx && !useSplit) {
+      payload.originalCurrency = form.currency;
+      payload.originalAmount = parseFloat(form.originalAmount);
+      payload.exchangeRate = parseFloat(form.exchangeRate || 1);
+    }
+
+    mutation.mutate(payload);
   };
 
   return (
@@ -310,17 +367,40 @@ function TransactionModal({ onClose, accounts, categories, vendors, editTx, fmt,
             ))}
           </div>
 
+          {/* Currency + Amount + Date */}
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr",
+              gridTemplateColumns: "120px 1fr 1fr",
               gap: 12,
-              marginBottom: 14,
+              marginBottom: isFx ? 8 : 14,
             }}
           >
             <div>
+              <label className="label" htmlFor="currency">
+                {t("fx.currency")}
+              </label>
+              <select
+                id="currency"
+                className="input"
+                value={form.currency}
+                onChange={(e) =>
+                  setForm({ ...form, currency: e.target.value, originalAmount: "" })
+                }
+                disabled={useSplit}
+              >
+                {CURRENCIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label className="label" htmlFor="totalAmount">
-                {t("common.amount")}
+                {isFx
+                  ? t("fx.originalAmount", { currency: form.currency })
+                  : t("common.amount")}
               </label>
               <input
                 id="totalAmount"
@@ -329,9 +409,11 @@ function TransactionModal({ onClose, accounts, categories, vendors, editTx, fmt,
                 placeholder="0.00"
                 step="0.01"
                 min="0"
-                value={form.totalAmount}
+                value={isFx ? form.originalAmount : form.totalAmount}
                 onChange={(e) =>
-                  setForm({ ...form, totalAmount: e.target.value })
+                  isFx
+                    ? setForm({ ...form, originalAmount: e.target.value })
+                    : setForm({ ...form, totalAmount: e.target.value })
                 }
                 required
               />
@@ -350,6 +432,88 @@ function TransactionModal({ onClose, accounts, categories, vendors, editTx, fmt,
               />
             </div>
           </div>
+
+          {/* Exchange rate row — only shown for foreign currencies */}
+          {isFx && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 12,
+                marginBottom: 14,
+                padding: "10px 12px",
+                background: "var(--bg-secondary)",
+                borderRadius: 8,
+              }}
+            >
+              <div>
+                <label className="label" htmlFor="exchangeRate">
+                  {t("fx.rateLabel", {
+                    from: form.currency,
+                    to: baseCurrency,
+                  })}
+                  {rateStatus === "loading" && (
+                    <span
+                      style={{
+                        marginLeft: 6,
+                        fontSize: 10,
+                        color: "var(--text-muted)",
+                      }}
+                    >
+                      {t("fx.autoFetching")}
+                    </span>
+                  )}
+                </label>
+                <input
+                  id="exchangeRate"
+                  className="input"
+                  type="number"
+                  placeholder="1.000000"
+                  step="0.000001"
+                  min="0.000001"
+                  value={form.exchangeRate}
+                  onChange={(e) =>
+                    setForm({ ...form, exchangeRate: e.target.value })
+                  }
+                />
+                {rateStatus === "error" && (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "var(--text-muted)",
+                      marginTop: 3,
+                    }}
+                  >
+                    {t("fx.fetchError")}
+                  </div>
+                )}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "var(--text-muted)",
+                    marginBottom: 4,
+                  }}
+                >
+                  {t("fx.convertedTotal", { base: baseCurrency })}
+                </div>
+                <div
+                  style={{
+                    fontSize: 15,
+                    fontWeight: 600,
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  {fmt(
+                    parseFloat(form.originalAmount || 0) *
+                      parseFloat(form.exchangeRate || 1),
+                    baseCurrency,
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div style={{ marginBottom: 14 }}>
             <label className="label" htmlFor="vendorId">
@@ -536,6 +700,11 @@ function TransactionModal({ onClose, accounts, categories, vendors, editTx, fmt,
                 fmt={fmt}
                 t={t}
               />
+              {useSplit && isFx && (
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                  {t("fx.splitFxWarning")}
+                </div>
+              )}
             </div>
           )}
 
@@ -926,6 +1095,18 @@ export default function Transactions() {
                 >
                   {tx.type === "income" ? "+" : "-"}
                   {fmt(tx.total_amount, currency)}
+                  {tx.original_currency && tx.original_currency !== currency && (
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: "var(--text-muted)",
+                        fontWeight: 400,
+                        marginTop: 2,
+                      }}
+                    >
+                      {fmt(tx.original_amount, tx.original_currency)}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <span
@@ -1134,18 +1315,35 @@ export default function Transactions() {
                     </div>
                     <div
                       style={{
-                        fontSize: 15,
-                        fontWeight: 600,
-                        color:
-                          tx.type === "income"
-                            ? "var(--income)"
-                            : "var(--expense)",
                         flexShrink: 0,
                         marginLeft: 8,
+                        textAlign: "right",
                       }}
                     >
-                      {tx.type === "income" ? "+" : "-"}
-                      {fmt(tx.total_amount, currency)}
+                      <div
+                        style={{
+                          fontSize: 15,
+                          fontWeight: 600,
+                          color:
+                            tx.type === "income"
+                              ? "var(--income)"
+                              : "var(--expense)",
+                        }}
+                      >
+                        {tx.type === "income" ? "+" : "-"}
+                        {fmt(tx.total_amount, currency)}
+                      </div>
+                      {tx.original_currency && tx.original_currency !== currency && (
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: "var(--text-muted)",
+                            marginTop: 1,
+                          }}
+                        >
+                          {fmt(tx.original_amount, tx.original_currency)}
+                        </div>
+                      )}
                     </div>
                   </div>
                   {tx.notes && (
@@ -1233,6 +1431,7 @@ export default function Transactions() {
           editTx={editTx}
           fmt={fmt}
           t={t}
+          baseCurrency={currency}
         />
       )}
     </div>

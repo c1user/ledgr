@@ -3,6 +3,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import useAuthStore from "../store/authStore";
 import useThemeStore from "../store/themeStore";
+import useInventoryStore from "../store/inventoryStore";
 import LanguageToggle from "../components/LanguageToggle";
 import { setAppLanguage } from "../i18n";
 
@@ -12,6 +13,8 @@ const navItems = [
   { to: "/rules", icon: "ti-filter-cog", label: "nav.rules" },
   { to: "/vendors", icon: "ti-users", label: "nav.vendors" },
   { to: "/budget", icon: "ti-wallet", label: "nav.budget" },
+  { to: "/time", icon: "ti-clock", label: "nav.timeTracking" },
+  { to: "/inventory", icon: "ti-box", label: "nav.inventory" },
   { to: "/categories", icon: "ti-folders", label: "nav.categories" },
   { to: "/accounts", icon: "ti-building-bank", label: "nav.accounts" },
   { to: "/chart-of-accounts", icon: "ti-list-tree", label: "nav.chartOfAccounts" },
@@ -28,6 +31,7 @@ export default function AppLayout() {
   const { t, i18n } = useTranslation();
   const { user, business, logout } = useAuthStore();
   const { theme } = useThemeStore();
+  const reorderCount = useInventoryStore((s) => s.reorderCount);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -218,6 +222,11 @@ export default function AppLayout() {
                 aria-hidden="true"
               />
               {sidebarOpen && <span>{t(item.label)}</span>}
+              {sidebarOpen && item.to === "/inventory" && reorderCount > 0 && (
+                <span style={{ marginLeft: "auto", background: "#e53e3e", color: "#fff", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 8, lineHeight: "16px" }}>
+                  {reorderCount}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
