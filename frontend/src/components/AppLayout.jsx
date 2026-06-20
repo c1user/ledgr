@@ -12,12 +12,17 @@ const navItems = [
   { to: "/transactions", icon: "ti-arrows-up-down", label: "nav.transactions" },
   { to: "/rules", icon: "ti-filter-cog", label: "nav.rules" },
   { to: "/vendors", icon: "ti-users", label: "nav.vendors" },
+  { to: "/balance-sheet", icon: "ti-scale", label: "nav.balanceSheet" },
   { to: "/budget", icon: "ti-wallet", label: "nav.budget" },
   { to: "/time", icon: "ti-clock", label: "nav.timeTracking" },
   { to: "/inventory", icon: "ti-box", label: "nav.inventory" },
   { to: "/categories", icon: "ti-folders", label: "nav.categories" },
   { to: "/accounts", icon: "ti-building-bank", label: "nav.accounts" },
-  { to: "/chart-of-accounts", icon: "ti-list-tree", label: "nav.chartOfAccounts" },
+  {
+    to: "/chart-of-accounts",
+    icon: "ti-list-tree",
+    label: "nav.chartOfAccounts",
+  },
   { to: "/receipts", icon: "ti-receipt", label: "nav.receipts" },
   { to: "/payroll", icon: "ti-users", label: "nav.payroll" },
   { to: "/ai", icon: "ti-sparkles", label: "nav.aiChat" },
@@ -223,7 +228,18 @@ export default function AppLayout() {
               />
               {sidebarOpen && <span>{t(item.label)}</span>}
               {sidebarOpen && item.to === "/inventory" && reorderCount > 0 && (
-                <span style={{ marginLeft: "auto", background: "#e53e3e", color: "#fff", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 8, lineHeight: "16px" }}>
+                <span
+                  style={{
+                    marginLeft: "auto",
+                    background: "#e53e3e",
+                    color: "#fff",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    padding: "1px 6px",
+                    borderRadius: 8,
+                    lineHeight: "16px",
+                  }}
+                >
                   {reorderCount}
                 </span>
               )}

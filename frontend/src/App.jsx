@@ -21,6 +21,7 @@ import Vendors from "./pages/Vendors";
 import Budget from "./pages/Budget";
 import TimeTracking from "./pages/TimeTracking";
 import Inventory from "./pages/Inventory";
+import BalanceSheet from "./pages/BalanceSheet";
 
 // Layout
 import AppLayout from "./components/AppLayout";
@@ -72,6 +73,7 @@ export default function App() {
           <Route path="budget" element={<Budget />} />
           <Route path="time" element={<TimeTracking />} />
           <Route path="inventory" element={<Inventory />} />
+          <Route path="balance-sheet" element={<BalanceSheet />} />
         </Route>
 
         {/* Catch all */}

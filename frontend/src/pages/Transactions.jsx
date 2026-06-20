@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import api from "../lib/api";
@@ -15,10 +15,37 @@ const makeFmt =
 
 // ECB-backed currencies supported by the Frankfurter rate API
 const CURRENCIES = [
-  "AUD", "BGN", "BRL", "CAD", "CHF", "CNY", "CZK", "DKK",
-  "EUR", "GBP", "HKD", "HUF", "IDR", "ILS", "INR", "ISK",
-  "JPY", "KRW", "MXN", "MYR", "NOK", "NZD", "PHP", "PLN",
-  "RON", "SEK", "SGD", "THB", "TRY", "USD", "ZAR",
+  "AUD",
+  "BGN",
+  "BRL",
+  "CAD",
+  "CHF",
+  "CNY",
+  "CZK",
+  "DKK",
+  "EUR",
+  "GBP",
+  "HKD",
+  "HUF",
+  "IDR",
+  "ILS",
+  "INR",
+  "ISK",
+  "JPY",
+  "KRW",
+  "MXN",
+  "MYR",
+  "NOK",
+  "NZD",
+  "PHP",
+  "PLN",
+  "RON",
+  "SEK",
+  "SGD",
+  "THB",
+  "TRY",
+  "USD",
+  "ZAR",
 ];
 
 const makeEmptyForm = (baseCurrency) => ({
@@ -139,22 +166,38 @@ function SplitEditor({ splits, setSplits, totalAmount, categories, fmt, t }) {
   );
 }
 
-function TransactionModal({ onClose, accounts, categories, vendors, editTx, fmt, t, baseCurrency }) {
+function TransactionModal({
+  onClose,
+  accounts,
+  ledgerAccounts,
+  categories,
+  vendors,
+  editTx,
+  fmt,
+  t,
+  baseCurrency,
+}) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(() => {
     if (editTx) {
       return {
-        accountId: editTx.account_id,
+        accountId: editTx.funding_coa_id
+          ? `coa:${editTx.funding_coa_id}`
+          : editTx.account_id
+            ? `acct:${editTx.account_id}`
+            : "",
         date: dayjs(editTx.date).format("YYYY-MM-DD"),
         merchant: editTx.merchant || "",
         totalAmount: String(editTx.total_amount),
         type: editTx.type,
         notes: editTx.notes || "",
-        categoryId: editTx.category_id || "",
+        // Single-category txs no longer keep category_id on the header — the
+        // category is the lone revenue/expense line in the ledger-derived splits.
+        categoryId: (!editTx.is_split && editTx.splits?.[0]?.account_id) || "",
         vendorId: editTx.vendor_id || "",
         splits:
           editTx.splits?.map((s) => ({
-            categoryId: s.category_id,
+            categoryId: s.account_id,
             amount: s.amount,
             notes: s.notes || "",
           })) || [],
@@ -180,13 +223,15 @@ function TransactionModal({ onClose, accounts, categories, vendors, editTx, fmt,
     }
     setRateStatus("loading");
     api
-      .get(`/fx-rates?base=${form.currency}&target=${baseCurrency}&date=${form.date}`)
+      .get(
+        `/fx-rates?base=${form.currency}&target=${baseCurrency}&date=${form.date}`,
+      )
       .then((r) => {
         setForm((f) => ({ ...f, exchangeRate: String(r.data.rate) }));
         setRateStatus("idle");
       })
       .catch(() => setRateStatus("error"));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.currency, form.date, baseCurrency]);
 
   const mutation = useMutation({
@@ -226,8 +271,15 @@ function TransactionModal({ onClose, accounts, categories, vendors, editTx, fmt,
         ? parseFloat(form.originalAmount) * parseFloat(form.exchangeRate || 1)
         : parseFloat(form.totalAmount);
 
+    // form.accountId is a prefixed value: "acct:<id>" (operational bank
+    // account) or "coa:<id>" (asset/liability ledger account).
+    const isLedgerFunded = form.accountId.startsWith("coa:");
+    const fundingId = form.accountId.replace(/^(coa|acct):/, "");
+
     const payload = {
-      accountId: form.accountId,
+      ...(isLedgerFunded
+        ? { fundingCoaId: fundingId }
+        : { accountId: fundingId }),
       date: form.date,
       merchant: form.merchant || undefined,
       totalAmount,
@@ -385,7 +437,11 @@ function TransactionModal({ onClose, accounts, categories, vendors, editTx, fmt,
                 className="input"
                 value={form.currency}
                 onChange={(e) =>
-                  setForm({ ...form, currency: e.target.value, originalAmount: "" })
+                  setForm({
+                    ...form,
+                    currency: e.target.value,
+                    originalAmount: "",
+                  })
                 }
                 disabled={useSplit}
               >
@@ -488,7 +544,13 @@ function TransactionModal({ onClose, accounts, categories, vendors, editTx, fmt,
                   </div>
                 )}
               </div>
-              <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "flex-end",
+                }}
+              >
                 <div
                   style={{
                     fontSize: 12,
@@ -529,7 +591,8 @@ function TransactionModal({ onClose, accounts, categories, vendors, editTx, fmt,
                 setForm({
                   ...form,
                   vendorId: vid,
-                  merchant: vendor && !form.merchant ? vendor.name : form.merchant,
+                  merchant:
+                    vendor && !form.merchant ? vendor.name : form.merchant,
                 });
               }}
             >
@@ -569,11 +632,24 @@ function TransactionModal({ onClose, accounts, categories, vendors, editTx, fmt,
               required
             >
               <option value="">{t("transactions.selectAccount")}</option>
-              {accounts?.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
+              {accounts?.length > 0 && (
+                <optgroup label={t("transactions.bankAccounts")}>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={`acct:${a.id}`}>
+                      {a.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {ledgerAccounts?.length > 0 && (
+                <optgroup label={t("transactions.ledgerAccounts")}>
+                  {ledgerAccounts.map((a) => (
+                    <option key={a.id} value={`coa:${a.id}`}>
+                      {a.code ? `${a.code} · ${a.name}` : a.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </div>
 
@@ -701,7 +777,13 @@ function TransactionModal({ onClose, accounts, categories, vendors, editTx, fmt,
                 t={t}
               />
               {useSplit && isFx && (
-                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-muted)",
+                    marginTop: 4,
+                  }}
+                >
                   {t("fx.splitFxWarning")}
                 </div>
               )}
@@ -772,14 +854,73 @@ export default function Transactions() {
     queryKey: ["accounts"],
     queryFn: () => api.get("/accounts").then((r) => r.data),
   });
-  const { data: categories } = useQuery({
-    queryKey: ["categories"],
-    queryFn: () => api.get("/categories").then((r) => r.data),
+  // "Categories" now come from the chart of accounts. Flatten revenue +
+  // expense accounts (and any sub-accounts) into the shape the form, filter,
+  // and split editor already expect: { id, name, type, color }.
+  const { data: coaGroups } = useQuery({
+    queryKey: ["chart-of-accounts"],
+    queryFn: () => api.get("/chart-of-accounts").then((r) => r.data),
   });
+  const categories = useMemo(() => {
+    if (!coaGroups) return [];
+    const out = [];
+    const walk = (acc, type) => {
+      out.push({
+        id: acc.id,
+        name: acc.name_key ? t(acc.name_key) : acc.name,
+        type,
+        color: acc.color,
+      });
+      acc.children?.forEach((c) => walk(c, type));
+    };
+    for (const g of coaGroups) {
+      if (g.account_type === "revenue")
+        g.accounts.forEach((a) => walk(a, "income"));
+      else if (g.account_type === "expense")
+        g.accounts.forEach((a) => walk(a, "expense"));
+    }
+    return out;
+  }, [coaGroups, t]);
+
+  // Asset & liability ledger accounts that can fund a transaction, alongside
+  // operational bank accounts. Exclude the COA "twin" of each operational
+  // account — that's already represented by the bank account itself.
+  const ledgerAccounts = useMemo(() => {
+    if (!coaGroups) return [];
+    const twinIds = new Set(
+      (accounts || []).map((a) => a.coa_account_id).filter(Boolean),
+    );
+    const out = [];
+    const walk = (acc) => {
+      if (!twinIds.has(acc.id))
+        out.push({
+          id: acc.id,
+          name: acc.name_key ? t(acc.name_key) : acc.name,
+          code: acc.code,
+        });
+      acc.children?.forEach(walk);
+    };
+    for (const g of coaGroups) {
+      if (g.account_type === "asset" || g.account_type === "liability")
+        g.accounts.forEach(walk);
+    }
+    return out;
+  }, [coaGroups, accounts, t]);
   const { data: vendors } = useQuery({
     queryKey: ["vendors"],
     queryFn: () => api.get("/vendors").then((r) => r.data),
   });
+
+  // A non-split transaction's category is the single revenue/expense line.
+  const catName = (tx) => {
+    const s = tx.splits?.[0];
+    return s ? (s.name_key ? t(s.name_key) : s.name) : null;
+  };
+  // Funding account label — ledger accounts carry a name_key (i18n);
+  // operational accounts carry a plain name.
+  const acctName = (tx) =>
+    tx.account_name_key ? t(tx.account_name_key) : tx.account_name;
+  //const catColor = (tx) => tx.splits?.[0]?.color || null;
 
   const deleteMutation = useMutation({
     mutationFn: (id) => api.delete(`/transactions/${id}`),
@@ -1015,7 +1156,7 @@ export default function Transactions() {
                     }}
                   >
                     {tx.merchant || "—"}
-                    {tx.category_name && (
+                    {catName(tx) && (
                       <div
                         style={{
                           fontSize: 11,
@@ -1023,7 +1164,7 @@ export default function Transactions() {
                           marginTop: 1,
                         }}
                       >
-                        {tx.category_name}
+                        {catName(tx)}
                       </div>
                     )}
                     {tx.vendor_name && (
@@ -1083,7 +1224,7 @@ export default function Transactions() {
                   )}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                  {tx.account_name}
+                  {acctName(tx)}
                 </div>
                 <div
                   style={{
@@ -1095,18 +1236,19 @@ export default function Transactions() {
                 >
                   {tx.type === "income" ? "+" : "-"}
                   {fmt(tx.total_amount, currency)}
-                  {tx.original_currency && tx.original_currency !== currency && (
-                    <div
-                      style={{
-                        fontSize: 10,
-                        color: "var(--text-muted)",
-                        fontWeight: 400,
-                        marginTop: 2,
-                      }}
-                    >
-                      {fmt(tx.original_amount, tx.original_currency)}
-                    </div>
-                  )}
+                  {tx.original_currency &&
+                    tx.original_currency !== currency && (
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color: "var(--text-muted)",
+                          fontWeight: 400,
+                          marginTop: 2,
+                        }}
+                      >
+                        {fmt(tx.original_amount, tx.original_currency)}
+                      </div>
+                    )}
                 </div>
                 <div>
                   <span
@@ -1308,8 +1450,8 @@ export default function Transactions() {
                           }}
                         >
                           {dayjs(tx.date).format("MMM D, YYYY")} ·{" "}
-                          {tx.account_name}
-                          {tx.category_name && ` · ${tx.category_name}`}
+                          {acctName(tx)}
+                          {catName(tx) && ` · ${catName(tx)}`}
                         </div>
                       </div>
                     </div>
@@ -1333,17 +1475,18 @@ export default function Transactions() {
                         {tx.type === "income" ? "+" : "-"}
                         {fmt(tx.total_amount, currency)}
                       </div>
-                      {tx.original_currency && tx.original_currency !== currency && (
-                        <div
-                          style={{
-                            fontSize: 10,
-                            color: "var(--text-muted)",
-                            marginTop: 1,
-                          }}
-                        >
-                          {fmt(tx.original_amount, tx.original_currency)}
-                        </div>
-                      )}
+                      {tx.original_currency &&
+                        tx.original_currency !== currency && (
+                          <div
+                            style={{
+                              fontSize: 10,
+                              color: "var(--text-muted)",
+                              marginTop: 1,
+                            }}
+                          >
+                            {fmt(tx.original_amount, tx.original_currency)}
+                          </div>
+                        )}
                     </div>
                   </div>
                   {tx.notes && (
@@ -1426,6 +1569,7 @@ export default function Transactions() {
         <TransactionModal
           onClose={handleClose}
           accounts={accounts}
+          ledgerAccounts={ledgerAccounts}
           categories={categories}
           vendors={vendors}
           editTx={editTx}

@@ -16,6 +16,11 @@ const emptyForm = {
   is_1099_eligible: false,
 };
 
+// The category comes from the ledger now: system categories carry a name_key
+// (resolved via i18n), custom ones a plain name.
+const txCategoryName = (tx, t) =>
+  tx.category_name_key ? t(tx.category_name_key) : tx.category_name;
+
 const makeFmt = (lang) => (val) =>
   new Intl.NumberFormat(lang === "es" ? "es-PR" : "en-US", {
     style: "currency",
@@ -541,7 +546,7 @@ function VendorDrawer({ vendor, onClose, onEdit, onDelete, fmt, t }) {
                     </div>
                     <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1 }}>
                       {dayjs(tx.date).format("MMM D, YYYY")}
-                      {tx.category_name && ` · ${tx.category_name}`}
+                      {txCategoryName(tx, t) && ` · ${txCategoryName(tx, t)}`}
                     </div>
                   </div>
                   <div

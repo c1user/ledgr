@@ -22,6 +22,7 @@
     "openMenu": "Open menu",
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
+    "balanceSheet": "Balance Sheet",
     "toggleTheme": "Toggle theme"
   },
   "common": {
@@ -168,6 +169,8 @@
     "merchantDescription": "Merchant / Description",
     "merchantPlaceholder": "e.g. Office Depot",
     "selectAccount": "Select account",
+    "bankAccounts": "Bank accounts",
+    "ledgerAccounts": "Ledger accounts",
     "selectACategory": "Select a category",
     "selectCategory": "Select category",
     "notesPlaceholder": "Optional note",
@@ -345,6 +348,8 @@
   },
   "coa": {
     "title": "Chart of Accounts",
+    "subtitle": "All ledger accounts and their balances",
+    "allTypes": "ALL TYPES",
     "assets": "ASSETS",
     "totalAssets": "Total Assets",
     "liabilities": "LIABILITIES",
@@ -361,6 +366,28 @@
     "print": "Print",
     "loading": "Loading...",
     "error": "Failed to load chart of accounts",
+    "accounts": {
+      "cash": "Cash",
+      "accounts_receivable": "Accounts receivable",
+      "inventory_asset": "Inventory asset",
+      "other_current_asset": "Other current asset",
+      "accounts_payable": "Accounts payable",
+      "credit_card_payable": "Credit card payable",
+      "sales_tax_payable": "Sales tax payable",
+      "payroll_liabilities": "Payroll liabilities",
+      "owner_equity": "Owner's equity",
+      "retained_earnings": "Retained earnings",
+      "sales_revenue": "Sales revenue",
+      "consulting_revenue": "Consulting revenue",
+      "other_income": "Other income",
+      "payroll_expense": "Payroll expense",
+      "rent": "Rent",
+      "utilities": "Utilities",
+      "supplies": "Supplies",
+      "marketing": "Marketing",
+      "cogs": "Cost of goods sold",
+      "other_expense": "Other expense"
+    },
     "noAccounts": "No accounts yet"
   },
   "tax": {
@@ -688,5 +715,17 @@
     "expenseSection": "Expense Budgets",
     "incomeSection": "Income Targets",
     "viewAll": "View budget"
+  },
+  "balanceSheet": {
+    "title": "Balance Sheet",
+    "asOf": "As of",
+    "currentEarnings": "Current period earnings",
+    "totalEquity": "Total Equity",
+    "totalLiabilitiesEquity": "Total Liabilities & Equity",
+    "balanced": "Balanced — assets equal liabilities plus equity",
+    "notBalanced": "Out of balance by {{amount}}",
+    "print": "Print",
+    "loading": "Loading…",
+    "error": "Failed to load balance sheet"
   }
 }

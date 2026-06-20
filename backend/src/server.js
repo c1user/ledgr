@@ -33,6 +33,8 @@ import timeEntryRoutes from "./routes/timeEntries.js";
 import productRoutes from "./routes/products.js";
 import inventoryRoutes from "./routes/inventory.js";
 import { generalLimiter, authLimiter } from "./middleware/rateLimiter.js";
+import chartOfAccountsRoutes from "./routes/chartOfAccounts.js";
+import ledgerRoutes from "./routes/ledger.js";
 
 dotenv.config();
 
@@ -139,6 +141,8 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/time-entries", timeEntryRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/inventory", inventoryRoutes);
+app.use("/api/chart-of-accounts", chartOfAccountsRoutes);
+app.use("/api/ledger", ledgerRoutes);
 
 // ── Health check — no sensitive info ─────────────────────────
 app.get("/health", (req, res) => {

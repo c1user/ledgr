@@ -114,26 +114,40 @@ function CustomTooltip({ active, payload, currency, fmt, t }) {
   );
 }
 
+// The category of a transaction now lives in its ledger-derived `splits`
+// array (each line carries a `name_key` that needs i18n resolution, like the
+// Transactions page) — there is no flat `category_name` field anymore.
+function txCategoryName(tx, t) {
+  const s = tx.splits?.[0];
+  if (!s) return null;
+  return s.name_key ? t(s.name_key) : s.name;
+}
+
 // ── Spending by category chart ────────────────────────────────
 function SpendingChart({ transactions, currency, navigate, fmt, t }) {
   const [activeIndex, setActiveIndex] = useState(null);
 
-  // Aggregate spending by category from transactions this month
+  // Aggregate spending by category. Categories come from the ledger-derived
+  // splits (name_key → i18n), covering both single-category and split txs.
   const categoryMap = {};
   for (const tx of transactions || []) {
     if (tx.type !== "expense") continue;
-    if (tx.is_split && tx.splits?.length > 0) {
-      for (const split of tx.splits) {
-        const key = split.category_name || t("dashboard.uncategorized");
-        const color = split.category_color || "#888780";
+    const splits = tx.splits?.length ? tx.splits : null;
+    if (splits) {
+      for (const split of splits) {
+        const key =
+          (split.name_key ? t(split.name_key) : split.name) ||
+          t("dashboard.uncategorized");
+        const color = split.color || "#888780";
         if (!categoryMap[key])
           categoryMap[key] = { name: key, value: 0, color };
         categoryMap[key].value += parseFloat(split.amount || 0);
       }
     } else {
-      const key = tx.category_name || t("dashboard.uncategorized");
-      const color = tx.category_color || "#888780";
-      if (!categoryMap[key]) categoryMap[key] = { name: key, value: 0, color };
+      // No ledger lines (shouldn't normally happen) — keep the chart total honest.
+      const key = t("dashboard.uncategorized");
+      if (!categoryMap[key])
+        categoryMap[key] = { name: key, value: 0, color: "#888780" };
       categoryMap[key].value += parseFloat(tx.total_amount || 0);
     }
   }
@@ -661,8 +675,10 @@ export default function Dashboard() {
                         }}
                       >
                         {dayjs(tx.date).format("MMM D, YYYY")} ·{" "}
-                        {tx.account_name}
-                        {tx.category_name && ` · ${tx.category_name}`}
+                        {tx.account_name_key
+                          ? t(tx.account_name_key)
+                          : tx.account_name}
+                        {txCategoryName(tx, t) && ` · ${txCategoryName(tx, t)}`}
                       </div>
                     </div>
                     <div

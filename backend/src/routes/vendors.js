@@ -105,13 +105,28 @@ router.get("/:id/transactions", async (req, res) => {
   const { year } = req.query;
 
   try {
+    // Category now lives in the ledger (journal entry lines), not on
+    // transactions.category_id. Pull the primary revenue/expense line as the
+    // category. System categories carry a name_key (resolve via i18n on the
+    // client); custom ones carry a plain name.
     let q = `
       SELECT t.id, t.date, t.merchant, t.total_amount, t.type, t.notes,
-        t.category_id, cat.name AS category_name, cat.color AS category_color,
-        a.name AS account_name
+        a.name AS account_name,
+        cat.name_key AS category_name_key,
+        cat.name AS category_name,
+        cat.color AS category_color
       FROM transactions t
-      LEFT JOIN categories cat ON cat.id = t.category_id
       LEFT JOIN accounts a ON a.id = t.account_id
+      LEFT JOIN LATERAL (
+        SELECT coa.name_key, coa.name, coa.color
+        FROM journal_entries je
+        JOIN journal_entry_lines jel ON jel.journal_entry_id = je.id
+        JOIN chart_of_accounts coa ON coa.id = jel.account_id
+          AND coa.account_type IN ('revenue', 'expense')
+        WHERE je.source_type = 'transaction' AND je.source_id = t.id
+        ORDER BY jel.id
+        LIMIT 1
+      ) cat ON TRUE
       WHERE t.vendor_id = $1 AND t.business_id = $2
     `;
     const params = [id, businessId];

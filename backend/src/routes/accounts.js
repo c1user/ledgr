@@ -1,6 +1,12 @@
 import express from "express";
 import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
+import {
+  createAccountCoa,
+  ACCOUNT_TYPES,
+  ASSET_ACCOUNT_TYPES,
+} from "../services/coaSeed.js";
+import { postJournalEntry } from "../services/ledger.js";
 
 const router = express.Router();
 
@@ -22,6 +28,7 @@ router.get("/", async (req, res) => {
         a.currency,
         a.is_active,
         a.plaid_account_id,
+        a.coa_account_id,
         a.created_at,
         -- Total income for this account
         COALESCE(SUM(CASE WHEN t.type = 'income' THEN t.total_amount ELSE 0 END), 0) AS total_income,
@@ -115,9 +122,9 @@ router.post("/", async (req, res) => {
     return res.status(400).json({ error: "name and type are required" });
   }
 
-  if (!["savings", "current", "credit", "cash", "loan"].includes(type)) {
+  if (!ACCOUNT_TYPES.includes(type)) {
     return res.status(400).json({
-      error: "type must be savings, current, credit, cash, or loan",
+      error: `type must be one of: ${ACCOUNT_TYPES.join(", ")}`,
     });
   }
 
@@ -133,12 +140,59 @@ router.post("/", async (req, res) => {
       });
     }
 
-    const result = await pool.query(
-      `INSERT INTO accounts (business_id, name, type, currency, current_balance)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [businessId, name, type, currency || "USD", currentBalance || 0],
-    );
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const result = await client.query(
+        `INSERT INTO accounts (business_id, name, type, currency, current_balance)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING *`,
+        [businessId, name, type, currency || "USD", currentBalance || 0],
+      );
+      const account = result.rows[0];
+
+      // Ledger identity for this account (asset or liability).
+      const coaId = await createAccountCoa(client, businessId, account);
+
+      // Opening balance → opening journal entry against Owner's equity (code 3000).
+      const opening = parseFloat(currentBalance || 0);
+      if (opening !== 0) {
+        const eq = await client.query(
+          "SELECT id FROM chart_of_accounts WHERE business_id = $1 AND code = '3000'",
+          [businessId],
+        );
+        const equityId = eq.rows[0].id;
+        const isAsset = ASSET_ACCOUNT_TYPES.includes(type);
+        const lines = isAsset
+          ? [
+              { accountId: coaId, debit: Math.abs(opening) },
+              { accountId: equityId, credit: Math.abs(opening) },
+            ]
+          : [
+              { accountId: equityId, debit: Math.abs(opening) },
+              { accountId: coaId, credit: Math.abs(opening) },
+            ];
+        await postJournalEntry(client, {
+          businessId,
+          date: new Date().toISOString().slice(0, 10),
+          description: `Opening balance: ${name}`,
+          sourceType: "opening_balance",
+          sourceId: account.id,
+          createdBy: req.user.userId,
+          lines,
+        });
+      }
+
+      await client.query("COMMIT");
+      return res.status(201).json(account);
+    } catch (err) {
+      await client.query("ROLLBACK");
+      console.error("Create account error:", err);
+      return res.status(500).json({ error: "Failed to create account" });
+    } finally {
+      client.release();
+    }
 
     return res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -154,9 +208,9 @@ router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const { name, type, currency, isActive } = req.body;
 
-  if (type && !["bank", "credit", "cash", "loan"].includes(type)) {
+  if (type && !ACCOUNT_TYPES.includes(type)) {
     return res.status(400).json({
-      error: "type must be bank, credit, cash, or loan",
+      error: `type must be one of: ${ACCOUNT_TYPES.join(", ")}`,
     });
   }
 
@@ -251,7 +305,8 @@ router.get("/summary/balances", async (req, res) => {
     const result = await pool.query(
       `SELECT
         SUM(current_balance) AS total_balance,
-        SUM(CASE WHEN type = 'bank' THEN current_balance ELSE 0 END) AS bank_balance,
+        -- "Bank" groups the savings + current account types (there is no 'bank' type)
+        SUM(CASE WHEN type IN ('savings', 'current') THEN current_balance ELSE 0 END) AS bank_balance,
         SUM(CASE WHEN type = 'credit' THEN current_balance ELSE 0 END) AS credit_balance,
         SUM(CASE WHEN type = 'cash' THEN current_balance ELSE 0 END) AS cash_balance,
         COUNT(*) AS account_count

@@ -14,6 +14,7 @@ import jwt from "jsonwebtoken";
 import validator from "validator";
 import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { seedChartOfAccounts } from "../services/coaSeed.js";
 
 const router = express.Router();
 
@@ -116,25 +117,8 @@ router.post("/register", async (req, res) => {
     );
     const user = userResult.rows[0];
 
-    const defaultCategories = [
-      { name: "Revenue", type: "income", color: "#00C896" },
-      { name: "Consulting", type: "income", color: "#5DCAA5" },
-      { name: "Other Income", type: "income", color: "#9FE1CB" },
-      { name: "Payroll", type: "expense", color: "#4F8EF7" },
-      { name: "Utilities", type: "expense", color: "#A259FF" },
-      { name: "Rent", type: "expense", color: "#F7934C" },
-      { name: "Supplies", type: "expense", color: "#F7C948" },
-      { name: "Marketing", type: "expense", color: "#E24B4A" },
-      { name: "Other Expense", type: "expense", color: "#888780" },
-    ];
-
-    for (const cat of defaultCategories) {
-      await client.query(
-        `INSERT INTO categories (business_id, name, type, color, is_system)
-         VALUES ($1, $2, $3, $4, TRUE)`,
-        [business.id, cat.name, cat.type, cat.color],
-      );
-    }
+    // Seed the standard chart of accounts (i18n keys, not English strings)
+    await seedChartOfAccounts(client, business.id);
 
     await client.query("COMMIT");
 

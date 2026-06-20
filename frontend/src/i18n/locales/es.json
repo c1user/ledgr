@@ -22,6 +22,7 @@
     "openMenu": "Abrir menú",
     "collapseSidebar": "Colapsar barra lateral",
     "expandSidebar": "Expandir barra lateral",
+    "balanceSheet": "Balance General",
     "toggleTheme": "Cambiar tema"
   },
   "common": {
@@ -168,6 +169,8 @@
     "merchantDescription": "Comercio / Descripción",
     "merchantPlaceholder": "ej. Office Depot",
     "selectAccount": "Selecciona una cuenta",
+    "bankAccounts": "Cuentas bancarias",
+    "ledgerAccounts": "Cuentas contables",
     "selectACategory": "Selecciona una categoría",
     "selectCategory": "Selecciona categoría",
     "notesPlaceholder": "Nota opcional",
@@ -345,6 +348,8 @@
   },
   "coa": {
     "title": "Plan de cuentas",
+    "subtitle": "Todas las cuentas contables y sus saldos",
+    "allTypes": "TODOS LOS TIPOS",
     "assets": "ACTIVOS",
     "totalAssets": "Total de activos",
     "liabilities": "PASIVOS",
@@ -361,6 +366,28 @@
     "print": "Imprimir",
     "loading": "Cargando...",
     "error": "Error al cargar el plan de cuentas",
+    "accounts": {
+      "cash": "Effectivo",
+      "accounts_receivable": "Cuentas por cobrar",
+      "inventory_asset": "Inventario",
+      "other_current_asset": "Otros activos corrientes",
+      "accounts_payable": "Cuentas por pagar",
+      "credit_card_payable": "TarjetaS de crédito por pagar",
+      "sales_tax_payable": "IVU por pagar",
+      "payroll_liabilities": "Obligaciones de nómina",
+      "owner_equity": "Capital del propietario",
+      "retained_earnings": "Ganancias retenidas",
+      "sales_revenue": "Ingresos de ventas",
+      "consulting_revenue": "Ingresos de consultoría",
+      "other_income": "Otros ingresos",
+      "payroll_expense": "Gastos de nómina",
+      "rent": "Alquiler",
+      "utilities": "Servicios públicos",
+      "supplies": "Suministros",
+      "marketing": "Mercadeo",
+      "cogs": "Costo de bienes vendidos",
+      "other_expense": "Otros gastos"
+    },
     "noAccounts": "Aún no hay cuentas"
   },
   "tax": {
@@ -688,5 +715,17 @@
     "expenseSection": "Presupuestos de gastos",
     "incomeSection": "Metas de ingresos",
     "viewAll": "Ver presupuesto"
+  },
+  "balanceSheet": {
+    "title": "Balance General",
+    "asOf": "Al",
+    "currentEarnings": "Ganancias del período",
+    "totalEquity": "Capital total",
+    "totalLiabilitiesEquity": "Total Pasivos y Capital",
+    "balanced": "Cuadrado — los activos igualan pasivos más capital",
+    "notBalanced": "Descuadre de {{amount}}",
+    "print": "Imprimir",
+    "loading": "Cargando…",
+    "error": "No se pudo cargar el balance general"
   }
 }
