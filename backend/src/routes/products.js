@@ -14,12 +14,13 @@ router.get("/", async (req, res) => {
         p.id, p.name, p.sku, p.description, p.unit_cost, p.sell_price,
         p.qty_on_hand, p.reorder_point, p.valuation_method, p.is_active,
         p.category_id, p.created_at,
+        c.name_key AS category_name_key,
         c.name  AS category_name,
         c.color AS category_color,
         (p.qty_on_hand * p.unit_cost)::numeric AS stock_value,
         (p.reorder_point > 0 AND p.qty_on_hand <= p.reorder_point)::bool AS needs_reorder
        FROM products p
-       LEFT JOIN categories c ON c.id = p.category_id
+       LEFT JOIN chart_of_accounts c ON c.id = p.category_id
        WHERE p.business_id = $1
        ORDER BY p.name ASC`,
       [businessId],
@@ -56,9 +57,9 @@ router.get("/:id", async (req, res) => {
   try {
     const [productRes, movementsRes] = await Promise.all([
       pool.query(
-        `SELECT p.*, c.name AS category_name, c.color AS category_color
+        `SELECT p.*, c.name_key AS category_name_key, c.name AS category_name, c.color AS category_color
          FROM products p
-         LEFT JOIN categories c ON c.id = p.category_id
+         LEFT JOIN chart_of_accounts c ON c.id = p.category_id
          WHERE p.id = $1 AND p.business_id = $2`,
         [id, businessId],
       ),

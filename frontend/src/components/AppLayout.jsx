@@ -7,27 +7,59 @@ import useInventoryStore from "../store/inventoryStore";
 import LanguageToggle from "../components/LanguageToggle";
 import { setAppLanguage } from "../i18n";
 
-const navItems = [
-  { to: "/dashboard", icon: "ti-layout-dashboard", label: "nav.dashboard" },
-  { to: "/transactions", icon: "ti-arrows-up-down", label: "nav.transactions" },
-  { to: "/rules", icon: "ti-filter-cog", label: "nav.rules" },
-  { to: "/vendors", icon: "ti-users", label: "nav.vendors" },
-  { to: "/balance-sheet", icon: "ti-scale", label: "nav.balanceSheet" },
-  { to: "/budget", icon: "ti-wallet", label: "nav.budget" },
-  { to: "/time", icon: "ti-clock", label: "nav.timeTracking" },
-  { to: "/inventory", icon: "ti-box", label: "nav.inventory" },
-  { to: "/categories", icon: "ti-folders", label: "nav.categories" },
-  { to: "/accounts", icon: "ti-building-bank", label: "nav.accounts" },
+// Sidebar nav, organized into labelled sections. Groups without a `label`
+// (dashboard at the top, AI/settings at the bottom) render as ungrouped rows.
+const navGroups = [
   {
-    to: "/chart-of-accounts",
-    icon: "ti-list-tree",
-    label: "nav.chartOfAccounts",
+    items: [
+      { to: "/dashboard", icon: "ti-layout-dashboard", label: "nav.dashboard" },
+      { to: "/sales", icon: "ti-file-invoice", label: "nav.sales" },
+    ],
   },
-  { to: "/receipts", icon: "ti-receipt", label: "nav.receipts" },
-  { to: "/payroll", icon: "ti-users", label: "nav.payroll" },
-  { to: "/ai", icon: "ti-sparkles", label: "nav.aiChat" },
-  { to: "/reports", icon: "ti-chart-bar", label: "nav.reports" },
-  { to: "/tax-summary", icon: "ti-receipt-tax", label: "nav.taxSummary" },
+  {
+    label: "nav.groupExpenses",
+    items: [
+      { to: "/vendors", icon: "ti-users", label: "nav.vendors" },
+      { to: "/receipts", icon: "ti-receipt", label: "nav.receipts" },
+      { to: "/payroll", icon: "ti-businessplan", label: "nav.payroll" },
+    ],
+  },
+  {
+    label: "nav.groupBanking",
+    items: [
+      {
+        to: "/transactions",
+        icon: "ti-arrows-up-down",
+        label: "nav.transactions",
+      },
+      { to: "/accounts", icon: "ti-building-bank", label: "nav.accounts" },
+    ],
+  },
+  {
+    label: "nav.groupAccounting",
+    items: [
+      {
+        to: "/chart-of-accounts",
+        icon: "ti-list-tree",
+        label: "nav.chartOfAccounts",
+      },
+      { to: "/budget", icon: "ti-wallet", label: "nav.budget" },
+      { to: "/reports", icon: "ti-chart-bar", label: "nav.reports" },
+    ],
+  },
+  {
+    label: "nav.groupOperations",
+    items: [
+      { to: "/projects", icon: "ti-briefcase", label: "nav.projects" },
+      { to: "/inventory", icon: "ti-box", label: "nav.inventory" },
+    ],
+  },
+  {
+    items: [
+      { to: "/ai", icon: "ti-sparkles", label: "nav.aiChat" },
+      { to: "/settings", icon: "ti-settings", label: "nav.businessProfile" },
+    ],
+  },
 ];
 
 const MOBILE_BREAKPOINT = 768;
@@ -197,53 +229,84 @@ export default function AppLayout() {
             overflowX: "hidden",
           }}
         >
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              title={!sidebarOpen ? t(item.label) : undefined}
-              style={({ isActive }) => ({
-                display: "flex",
-                alignItems: "center",
-                gap: sidebarOpen ? 10 : 0,
-                padding: sidebarOpen ? "10px 20px" : "10px 0",
-                justifyContent: sidebarOpen ? "flex-start" : "center",
-                color: isActive ? "var(--brand)" : "var(--text-secondary)",
-                background: isActive ? "var(--brand-light)" : "transparent",
-                borderLeft: isActive
-                  ? "2px solid var(--brand)"
-                  : "2px solid transparent",
-                textDecoration: "none",
-                fontSize: 13,
-                fontWeight: isActive ? 500 : 400,
-                transition: "all 0.15s",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-              })}
-            >
-              <i
-                className={`ti ${item.icon}`}
-                style={{ fontSize: 18, flexShrink: 0 }}
-                aria-hidden="true"
-              />
-              {sidebarOpen && <span>{t(item.label)}</span>}
-              {sidebarOpen && item.to === "/inventory" && reorderCount > 0 && (
-                <span
-                  style={{
-                    marginLeft: "auto",
-                    background: "#e53e3e",
-                    color: "#fff",
-                    fontSize: 10,
-                    fontWeight: 700,
-                    padding: "1px 6px",
-                    borderRadius: 8,
-                    lineHeight: "16px",
-                  }}
+          {navGroups.map((group, groupIndex) => (
+            <div key={group.label || `group-${groupIndex}`}>
+              {/* Section header (expanded) or a divider (collapsed) */}
+              {group.label &&
+                (sidebarOpen ? (
+                  <div
+                    style={{
+                      padding: "14px 20px 4px",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      letterSpacing: 0.8,
+                      textTransform: "uppercase",
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    {t(group.label)}
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      height: 1,
+                      background: "var(--border-color)",
+                      margin: "8px 12px",
+                    }}
+                  />
+                ))}
+
+              {group.items.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  title={!sidebarOpen ? t(item.label) : undefined}
+                  style={({ isActive }) => ({
+                    display: "flex",
+                    alignItems: "center",
+                    gap: sidebarOpen ? 10 : 0,
+                    padding: sidebarOpen ? "10px 20px" : "10px 0",
+                    justifyContent: sidebarOpen ? "flex-start" : "center",
+                    color: isActive ? "var(--brand)" : "var(--text-secondary)",
+                    background: isActive ? "var(--brand-light)" : "transparent",
+                    borderLeft: isActive
+                      ? "2px solid var(--brand)"
+                      : "2px solid transparent",
+                    textDecoration: "none",
+                    fontSize: 13,
+                    fontWeight: isActive ? 500 : 400,
+                    transition: "all 0.15s",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                  })}
                 >
-                  {reorderCount}
-                </span>
-              )}
-            </NavLink>
+                  <i
+                    className={`ti ${item.icon}`}
+                    style={{ fontSize: 18, flexShrink: 0 }}
+                    aria-hidden="true"
+                  />
+                  {sidebarOpen && <span>{t(item.label)}</span>}
+                  {sidebarOpen &&
+                    item.to === "/inventory" &&
+                    reorderCount > 0 && (
+                      <span
+                        style={{
+                          marginLeft: "auto",
+                          background: "#e53e3e",
+                          color: "#fff",
+                          fontSize: 10,
+                          fontWeight: 700,
+                          padding: "1px 6px",
+                          borderRadius: 8,
+                          lineHeight: "16px",
+                        }}
+                      >
+                        {reorderCount}
+                      </span>
+                    )}
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
 

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import dayjs from "dayjs";
+import Papa from "papaparse";
 
 const makeFmt =
   (lang) =>
@@ -61,6 +62,8 @@ const makeEmptyForm = (baseCurrency) => ({
   currency: baseCurrency || "USD",
   originalAmount: "",
   exchangeRate: "1",
+  withholdingAmount: "",
+  projectId: "",
 });
 
 function SplitEditor({ splits, setSplits, totalAmount, categories, fmt, t }) {
@@ -172,6 +175,7 @@ function TransactionModal({
   ledgerAccounts,
   categories,
   vendors,
+  projects,
   editTx,
   fmt,
   t,
@@ -204,15 +208,26 @@ function TransactionModal({
         currency: editTx.original_currency || baseCurrency,
         originalAmount: String(editTx.original_amount || editTx.total_amount),
         exchangeRate: String(editTx.exchange_rate || 1),
+        withholdingAmount: editTx.withholding_amount
+          ? String(editTx.withholding_amount)
+          : "",
+        projectId: editTx.project_id || "",
       };
     }
     return makeEmptyForm(baseCurrency);
   });
   const [useSplit, setUseSplit] = useState(editTx ? editTx.is_split : false);
+  const [useWithholding, setUseWithholding] = useState(
+    editTx ? Number(editTx.withholding_amount) > 0 : false,
+  );
   const [error, setError] = useState("");
   const [rateStatus, setRateStatus] = useState("idle"); // "idle" | "loading" | "error"
 
   const isFx = form.currency && form.currency !== baseCurrency;
+  const selectedVendor = vendors?.find((v) => v.id === form.vendorId);
+  const showWithholding = form.type === "expense" && !!form.vendorId;
+  const grossForWh = parseFloat(form.totalAmount || 0);
+  const netToVendor = grossForWh - parseFloat(form.withholdingAmount || 0);
 
   // Auto-fetch exchange rate when the currency or date changes
   useEffect(() => {
@@ -287,7 +302,12 @@ function TransactionModal({
       notes: form.notes || undefined,
       categoryId: !useSplit ? form.categoryId || undefined : undefined,
       vendorId: form.vendorId || undefined,
+      projectId: form.projectId || undefined,
       splits: useSplit ? form.splits : [],
+      withholdingAmount:
+        form.type === "expense" && useWithholding
+          ? parseFloat(form.withholdingAmount || 0)
+          : 0,
     };
 
     if (isFx && !useSplit) {
@@ -606,6 +626,27 @@ function TransactionModal({
             </select>
           </div>
 
+          {projects?.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <label className="label" htmlFor="projectId">
+                {t("transactions.project")}
+              </label>
+              <select
+                id="projectId"
+                className="input"
+                value={form.projectId}
+                onChange={(e) => setForm({ ...form, projectId: e.target.value })}
+              >
+                <option value="">{t("transactions.selectProject")}</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div style={{ marginBottom: 14 }}>
             <label className="label" htmlFor="merchant">
               {t("transactions.merchantDescription")}
@@ -676,6 +717,120 @@ function TransactionModal({
                     </option>
                   ))}
               </select>
+            </div>
+          )}
+
+          {/* §1062.03 service withholding — expense payments to a vendor */}
+          {showWithholding && (
+            <div
+              style={{
+                marginBottom: 14,
+                padding: "10px 14px",
+                background: "var(--bg-secondary)",
+                borderRadius: 8,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !useWithholding;
+                    setUseWithholding(next);
+                    if (next && !form.withholdingAmount) {
+                      setForm((f) => ({
+                        ...f,
+                        withholdingAmount: (
+                          parseFloat(f.totalAmount || 0) * 0.1
+                        ).toFixed(2),
+                      }));
+                    }
+                  }}
+                  aria-label={t("transactions.withholdingToggle")}
+                  style={{
+                    width: 36,
+                    height: 20,
+                    borderRadius: 10,
+                    background: useWithholding
+                      ? "var(--brand)"
+                      : "var(--border-color)",
+                    border: "none",
+                    cursor: "pointer",
+                    position: "relative",
+                    flexShrink: 0,
+                    transition: "background 0.2s",
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 3,
+                      left: useWithholding ? 18 : 3,
+                      width: 14,
+                      height: 14,
+                      background: "#fff",
+                      borderRadius: "50%",
+                      transition: "left 0.2s",
+                    }}
+                  />
+                </button>
+                <div>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    {t("transactions.withholdingToggle")}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                    {selectedVendor?.withholding_exempt
+                      ? t("transactions.withholdingWaiverOnFile")
+                      : t("transactions.withholdingHint")}
+                  </div>
+                </div>
+              </div>
+
+              {useWithholding && (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 12,
+                    marginTop: 10,
+                    alignItems: "end",
+                  }}
+                >
+                  <div>
+                    <label className="label" htmlFor="withholdingAmount">
+                      {t("transactions.withholdingAmount")}
+                    </label>
+                    <input
+                      id="withholdingAmount"
+                      className="input"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={form.withholdingAmount}
+                      onChange={(e) =>
+                        setForm({ ...form, withholdingAmount: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                    {t("transactions.netToVendor")}
+                    <div
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 600,
+                        color: "var(--text-primary)",
+                      }}
+                    >
+                      {fmt(netToVendor > 0 ? netToVendor : 0, baseCurrency)}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -816,6 +971,264 @@ function TransactionModal({
   );
 }
 
+// ── CSV import helpers ───────────────────────────────────────
+// Normalize a bank date cell to YYYY-MM-DD. Handles ISO already, US
+// MM/DD/YYYY, and falls back to dayjs parsing. The preview lets the user catch
+// any misread before importing.
+function normalizeDate(v) {
+  if (!v) return "";
+  const s = String(v).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (m) return `${m[3]}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`;
+  const d = dayjs(s);
+  return d.isValid() ? d.format("YYYY-MM-DD") : "";
+}
+// Parse a bank amount cell: strips $/commas, treats (123.45) as negative.
+function parseAmount(v) {
+  if (v == null) return NaN;
+  let s = String(v).trim();
+  let neg = false;
+  if (/^\(.*\)$/.test(s)) {
+    neg = true;
+    s = s.slice(1, -1);
+  }
+  s = s.replace(/[^0-9.-]/g, "");
+  const n = parseFloat(s);
+  if (!Number.isFinite(n)) return NaN;
+  return neg ? -Math.abs(n) : n;
+}
+function guessColumn(fields, re) {
+  return fields.find((f) => re.test(f)) || "";
+}
+
+// One column-mapping dropdown (module-scope so it isn't recreated per render).
+function MappingCol({ k, label, fields, mapping, setMapping, t }) {
+  return (
+    <div>
+      <label className="label">{label}</label>
+      <select
+        className="input"
+        value={mapping[k]}
+        onChange={(e) => setMapping({ ...mapping, [k]: e.target.value })}
+      >
+        <option value="">{t("transactions.importUnmapped")}</option>
+        {fields.map((f) => (
+          <option key={f} value={f}>{f}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function ImportModal({ onClose, accounts, ledgerAccounts, fmt, t }) {
+  const queryClient = useQueryClient();
+  const [accountId, setAccountId] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [fields, setFields] = useState([]);
+  const [data, setData] = useState([]);
+  const [mapping, setMapping] = useState({ date: "", description: "", amount: "" });
+  const [negate, setNegate] = useState(false);
+  const [skipDuplicates, setSkipDuplicates] = useState(true);
+  const [error, setError] = useState("");
+  const [result, setResult] = useState(null);
+
+  const handleFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    setError("");
+    setResult(null);
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (res) => {
+        const f = (res.meta.fields || []).filter(Boolean);
+        setFields(f);
+        setData(res.data || []);
+        setMapping({
+          date: guessColumn(f, /date|fecha/i),
+          description: guessColumn(f, /desc|memo|narration|payee|concept|merchant|name/i),
+          amount: guessColumn(f, /amount|amt|debit|monto|importe|value/i),
+        });
+      },
+      error: () => setError(t("transactions.importParseError")),
+    });
+  };
+
+  const buildRows = () =>
+    data
+      .map((r) => ({
+        date: normalizeDate(r[mapping.date]),
+        merchant: (r[mapping.description] ?? "").toString().trim(),
+        amount: (negate ? -1 : 1) * parseAmount(r[mapping.amount]),
+      }))
+      .filter((r) => r.date && Number.isFinite(r.amount) && r.amount !== 0);
+
+  const mapped = mapping.date && mapping.amount && data.length > 0;
+  const rows = mapped ? buildRows() : [];
+  const preview = rows.slice(0, 8);
+
+  const importMutation = useMutation({
+    mutationFn: () => {
+      const isLedger = accountId.startsWith("coa:");
+      const fundingId = accountId.replace(/^(coa|acct):/, "");
+      return api
+        .post("/transactions/import", {
+          ...(isLedger ? { fundingCoaId: fundingId } : { accountId: fundingId }),
+          rows: buildRows(),
+          skipDuplicates,
+        })
+        .then((r) => r.data);
+    },
+    onSuccess: (res) => {
+      setResult(res);
+      ["transactions", "summary", "balances", "accounts"].forEach((k) =>
+        queryClient.invalidateQueries({ queryKey: [k] }),
+      );
+    },
+    onError: (err) =>
+      setError(err.response?.data?.error || t("transactions.importFailed")),
+  });
+
+  const canImport =
+    accountId && mapped && rows.length > 0 && !importMutation.isPending;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.4)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+        padding: 16,
+      }}
+    >
+      <div
+        className="card fade-in"
+        style={{ width: "100%", maxWidth: 600, maxHeight: "90vh", overflow: "auto", padding: 24 }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)" }}>
+            {t("transactions.importTitle")}
+          </h2>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 20 }}>
+            <i className="ti ti-x" aria-hidden="true" />
+          </button>
+        </div>
+
+        {result ? (
+          <div style={{ textAlign: "center", padding: "20px 0" }}>
+            <i className="ti ti-circle-check" style={{ fontSize: 40, color: "var(--income)" }} aria-hidden="true" />
+            <div style={{ fontSize: 15, fontWeight: 600, margin: "12px 0 6px" }}>
+              {t("transactions.importResult", { imported: result.imported, skipped: result.skipped })}
+            </div>
+            <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={onClose}>
+              {t("common.close")}
+            </button>
+          </div>
+        ) : (
+          <>
+            {error && (
+              <div style={{ background: "var(--danger-bg)", color: "var(--danger)", border: "0.5px solid var(--danger)", borderRadius: 8, padding: "10px 14px", fontSize: 13, marginBottom: 14 }}>
+                <i className="ti ti-alert-circle" style={{ marginRight: 6 }} aria-hidden="true" />
+                {error}
+              </div>
+            )}
+
+            {/* Account */}
+            <div style={{ marginBottom: 14 }}>
+              <label className="label">{t("transactions.importAccount")}</label>
+              <select className="input" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+                <option value="">{t("transactions.selectAccount")}</option>
+                {accounts?.length > 0 && (
+                  <optgroup label={t("transactions.bankAccounts")}>
+                    {accounts.map((a) => <option key={a.id} value={`acct:${a.id}`}>{a.name}</option>)}
+                  </optgroup>
+                )}
+                {ledgerAccounts?.length > 0 && (
+                  <optgroup label={t("transactions.ledgerAccounts")}>
+                    {ledgerAccounts.map((a) => (
+                      <option key={a.id} value={`coa:${a.id}`}>{a.code ? `${a.code} · ${a.name}` : a.name}</option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            </div>
+
+            {/* File */}
+            <div style={{ marginBottom: 14 }}>
+              <label className="label">{t("transactions.importFile")}</label>
+              <input type="file" accept=".csv,text/csv" onChange={handleFile} className="input" style={{ padding: 6 }} />
+              {fileName && (
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                  {fileName} · {t("transactions.importParsedRows", { count: data.length })}
+                </div>
+              )}
+            </div>
+
+            {fields.length > 0 && (
+              <>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+                  {t("transactions.mapColumns")}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
+                  <MappingCol k="date" label={t("transactions.colDate")} fields={fields} mapping={mapping} setMapping={setMapping} t={t} />
+                  <MappingCol k="description" label={t("transactions.colDescription")} fields={fields} mapping={mapping} setMapping={setMapping} t={t} />
+                  <MappingCol k="amount" label={t("transactions.colAmount")} fields={fields} mapping={mapping} setMapping={setMapping} t={t} />
+                </div>
+
+                <div style={{ display: "flex", gap: 16, marginBottom: 14, flexWrap: "wrap" }}>
+                  <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                    <input type="checkbox" checked={negate} onChange={(e) => setNegate(e.target.checked)} />
+                    {t("transactions.negateAmounts")}
+                  </label>
+                  <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                    <input type="checkbox" checked={skipDuplicates} onChange={(e) => setSkipDuplicates(e.target.checked)} />
+                    {t("transactions.skipDuplicates")}
+                  </label>
+                </div>
+
+                {mapped && (
+                  <div className="card" style={{ padding: 0, overflow: "hidden", marginBottom: 14 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "90px 1fr 90px 70px", padding: "8px 12px", background: "var(--bg-secondary)", fontSize: 10, color: "var(--text-muted)", fontWeight: 600, letterSpacing: 0.5 }}>
+                      <div>{t("common.date")}</div>
+                      <div>{t("common.merchant")}</div>
+                      <div style={{ textAlign: "right" }}>{t("common.amount")}</div>
+                      <div style={{ textAlign: "right" }}>{t("common.type")}</div>
+                    </div>
+                    {preview.map((r, i) => (
+                      <div key={i} style={{ display: "grid", gridTemplateColumns: "90px 1fr 90px 70px", padding: "7px 12px", borderTop: "0.5px solid var(--border-color)", fontSize: 12, alignItems: "center" }}>
+                        <div style={{ color: "var(--text-muted)" }}>{r.date}</div>
+                        <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.merchant || "—"}</div>
+                        <div style={{ textAlign: "right", color: r.amount < 0 ? "var(--expense)" : "var(--income)" }}>{fmt(r.amount)}</div>
+                        <div style={{ textAlign: "right", fontSize: 10, color: "var(--text-muted)" }}>{r.amount < 0 ? t("common.expense") : t("common.income")}</div>
+                      </div>
+                    ))}
+                    <div style={{ padding: "7px 12px", borderTop: "0.5px solid var(--border-color)", fontSize: 11, color: "var(--text-muted)" }}>
+                      {t("transactions.importWillImport", { count: rows.length })}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button type="button" onClick={onClose} className="btn btn-secondary">{t("common.cancel")}</button>
+              <button type="button" className="btn btn-primary" disabled={!canImport} onClick={() => importMutation.mutate()}>
+                {importMutation.isPending ? t("transactions.importing") : t("transactions.runImport")}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Transactions() {
   const { t, i18n } = useTranslation();
   const { business } = useAuthStore();
@@ -823,6 +1236,7 @@ export default function Transactions() {
   const currency = business?.currency || "USD";
   const fmt = makeFmt(i18n.language);
   const [showModal, setShowModal] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [editTx, setEditTx] = useState(null);
   const [filters, setFilters] = useState({
     type: "",
@@ -910,6 +1324,10 @@ export default function Transactions() {
     queryKey: ["vendors"],
     queryFn: () => api.get("/vendors").then((r) => r.data),
   });
+  const { data: projects } = useQuery({
+    queryKey: ["projects"],
+    queryFn: () => api.get("/projects").then((r) => r.data),
+  });
 
   // A non-split transaction's category is the single revenue/expense line.
   const catName = (tx) => {
@@ -936,6 +1354,26 @@ export default function Transactions() {
     setShowModal(false);
     setEditTx(null);
   };
+
+  const handleExport = async () => {
+    const params = new URLSearchParams();
+    if (filters.type) params.append("type", filters.type);
+    if (filters.startDate) params.append("startDate", filters.startDate);
+    if (filters.endDate) params.append("endDate", filters.endDate);
+    if (filters.categoryId) params.append("categoryId", filters.categoryId);
+    const res = await api.get(`/transactions/export?${params}`, {
+      responseType: "blob",
+    });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `transactions-${dayjs().format("YYYY-MM-DD")}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const transactions = data?.transactions || [];
 
   return (
@@ -964,10 +1402,28 @@ export default function Transactions() {
             {t("transactions.totalCount", { count: data?.total || 0 })}
           </div>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-          <i className="ti ti-plus" aria-hidden="true" />{" "}
-          {isMobile ? "" : t("transactions.addTransaction")}
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            className="btn btn-secondary"
+            onClick={handleExport}
+            title={t("transactions.export")}
+          >
+            <i className="ti ti-download" aria-hidden="true" />{" "}
+            {isMobile ? "" : t("transactions.export")}
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={() => setShowImport(true)}
+            title={t("transactions.import")}
+          >
+            <i className="ti ti-upload" aria-hidden="true" />{" "}
+            {isMobile ? "" : t("transactions.import")}
+          </button>
+          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+            <i className="ti ti-plus" aria-hidden="true" />{" "}
+            {isMobile ? "" : t("transactions.addTransaction")}
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -1210,6 +1666,25 @@ export default function Transactions() {
                         {t("transactions.autoCategorized")}
                       </span>
                     )}
+                    {tx.recurring_id && (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          background: "var(--bg-secondary)",
+                          color: "var(--text-secondary)",
+                          padding: "1px 6px",
+                          borderRadius: 3,
+                          marginLeft: 6,
+                        }}
+                      >
+                        <i
+                          className="ti ti-repeat"
+                          style={{ fontSize: 9, marginRight: 3 }}
+                          aria-hidden="true"
+                        />
+                        {t("transactions.recurring")}
+                      </span>
+                    )}
                   </div>
                   {tx.notes && (
                     <div
@@ -1441,6 +1916,25 @@ export default function Transactions() {
                               {t("transactions.autoCategorized")}
                             </span>
                           )}
+                          {tx.recurring_id && (
+                            <span
+                              style={{
+                                fontSize: 10,
+                                background: "var(--bg-secondary)",
+                                color: "var(--text-secondary)",
+                                padding: "1px 6px",
+                                borderRadius: 3,
+                                marginLeft: 6,
+                              }}
+                            >
+                              <i
+                                className="ti ti-repeat"
+                                style={{ fontSize: 9, marginRight: 3 }}
+                                aria-hidden="true"
+                              />
+                              {t("transactions.recurring")}
+                            </span>
+                          )}
                         </div>
                         <div
                           style={{
@@ -1572,10 +2066,21 @@ export default function Transactions() {
           ledgerAccounts={ledgerAccounts}
           categories={categories}
           vendors={vendors}
+          projects={projects}
           editTx={editTx}
           fmt={fmt}
           t={t}
           baseCurrency={currency}
+        />
+      )}
+
+      {showImport && (
+        <ImportModal
+          onClose={() => setShowImport(false)}
+          accounts={accounts}
+          ledgerAccounts={ledgerAccounts}
+          fmt={fmt}
+          t={t}
         />
       )}
     </div>

@@ -22,36 +22,33 @@ router.get("/summary", async (req, res) => {
   const period = toPeriod(req.query.month);
 
   try {
+    // Actuals come from the ledger: sum the journal-line activity on each
+    // budgeted chart-of-accounts account for the period. Revenue is naturally
+    // a credit, expense a debit — normalize both to a positive "spent/earned".
     const result = await pool.query(
       `SELECT
-         c.id, c.name, c.color, c.type,
+         c.id, c.name_key, c.name, c.color,
+         CASE WHEN c.account_type = 'revenue' THEN 'income' ELSE 'expense' END AS type,
          b.amount AS budget_amount,
          b.rollover,
          COALESCE((
-           SELECT SUM(t.total_amount)
-           FROM transactions t
-           WHERE t.business_id = $1
-             AND t.category_id = c.id
-             AND t.is_split = false
-             AND t.date >= $2::date
-             AND t.date < $2::date + INTERVAL '1 month'
-         ), 0) +
-         COALESCE((
-           SELECT SUM(ts.amount)
-           FROM transaction_splits ts
-           JOIN transactions t ON t.id = ts.transaction_id
-           WHERE t.business_id = $1
-             AND ts.category_id = c.id
-             AND t.date >= $2::date
-             AND t.date < $2::date + INTERVAL '1 month'
+           SELECT SUM(CASE WHEN c.account_type = 'revenue'
+                           THEN jel.credit - jel.debit
+                           ELSE jel.debit - jel.credit END)
+           FROM journal_entry_lines jel
+           JOIN journal_entries je ON je.id = jel.journal_entry_id
+           WHERE je.business_id = $1
+             AND jel.account_id = c.id
+             AND je.entry_date >= $2::date
+             AND je.entry_date < $2::date + INTERVAL '1 month'
          ), 0) AS actual_amount
-       FROM categories c
+       FROM chart_of_accounts c
        JOIN budgets b ON b.category_id = c.id
          AND b.business_id = $1
          AND b.period = $2::date
        WHERE c.business_id = $1
          AND b.amount > 0
-       ORDER BY c.type, c.name`,
+       ORDER BY c.account_type, c.code, c.name_key, c.name`,
       [businessId, period],
     );
     return res.json(result.rows);
@@ -69,11 +66,13 @@ router.get("/", async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT b.id, b.category_id, b.amount, b.rollover, b.period,
-              c.name AS category_name, c.color AS category_color, c.type AS category_type
+              c.name_key AS category_name_key, c.name AS category_name,
+              c.color AS category_color,
+              CASE WHEN c.account_type = 'revenue' THEN 'income' ELSE 'expense' END AS category_type
        FROM budgets b
-       JOIN categories c ON c.id = b.category_id
+       JOIN chart_of_accounts c ON c.id = b.category_id
        WHERE b.business_id = $1 AND b.period = $2::date
-       ORDER BY c.type, c.name`,
+       ORDER BY c.account_type, c.code, c.name_key, c.name`,
       [businessId, period],
     );
     return res.json(result.rows);
@@ -154,24 +153,18 @@ router.post("/copy-previous", async (req, res) => {
          b.amount::numeric AS budget_amount,
          b.rollover,
          COALESCE((
-           SELECT SUM(t.total_amount)
-           FROM transactions t
-           WHERE t.business_id = $1
-             AND t.category_id = b.category_id
-             AND t.is_split = false
-             AND t.date >= $2::date
-             AND t.date < $2::date + INTERVAL '1 month'
-         ), 0) +
-         COALESCE((
-           SELECT SUM(ts.amount)
-           FROM transaction_splits ts
-           JOIN transactions t ON t.id = ts.transaction_id
-           WHERE t.business_id = $1
-             AND ts.category_id = b.category_id
-             AND t.date >= $2::date
-             AND t.date < $2::date + INTERVAL '1 month'
+           SELECT SUM(CASE WHEN c.account_type = 'revenue'
+                           THEN jel.credit - jel.debit
+                           ELSE jel.debit - jel.credit END)
+           FROM journal_entry_lines jel
+           JOIN journal_entries je ON je.id = jel.journal_entry_id
+           WHERE je.business_id = $1
+             AND jel.account_id = b.category_id
+             AND je.entry_date >= $2::date
+             AND je.entry_date < $2::date + INTERVAL '1 month'
          ), 0) AS actual_amount
        FROM budgets b
+       JOIN chart_of_accounts c ON c.id = b.category_id
        WHERE b.business_id = $1 AND b.period = $2::date AND b.amount > 0`,
       [businessId, sourcePeriod],
     );

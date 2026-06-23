@@ -76,6 +76,12 @@ const COA_TEMPLATE = [
     type: "liability",
     color: "#D85A30",
   },
+  {
+    code: "2400",
+    key: "coa.accounts.services_withholding_payable",
+    type: "liability",
+    color: "#D85A30",
+  }, // §1062.03 service withholding owed to Hacienda
 
   // ── Equity (3000s) ──
   {

@@ -84,16 +84,20 @@ router.get("/:id", async (req, res) => {
         COALESCE(
           json_agg(
             json_build_object(
-              'category_name', c.name,
-              'category_color', c.color,
-              'amount', ts.amount
+              'category_name', coa.name,
+              'category_name_key', coa.name_key,
+              'category_color', coa.color,
+              'amount', (jel.debit + jel.credit)
             )
-          ) FILTER (WHERE ts.id IS NOT NULL),
+          ) FILTER (WHERE coa.id IS NOT NULL),
           '[]'
         ) AS splits
        FROM transactions t
-       LEFT JOIN transaction_splits ts ON ts.transaction_id = t.id
-       LEFT JOIN categories c ON c.id = ts.category_id
+       LEFT JOIN journal_entries je
+         ON je.source_type = 'transaction' AND je.source_id = t.id
+       LEFT JOIN journal_entry_lines jel ON jel.journal_entry_id = je.id
+       LEFT JOIN chart_of_accounts coa
+         ON coa.id = jel.account_id AND coa.account_type IN ('revenue', 'expense')
        WHERE t.account_id = $1 AND t.business_id = $2
        GROUP BY t.id
        ORDER BY t.date DESC

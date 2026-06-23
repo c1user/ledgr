@@ -1,6 +1,7 @@
 import express from "express";
 import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { postJournalEntry } from "../services/ledger.js";
 
 const router = express.Router();
 router.use(requireAuth);
@@ -36,17 +37,63 @@ router.post("/receive", async (req, res) => {
     let transactionId = null;
     if (createTransaction && accountId && date) {
       const totalAmount = qty * cost;
+
+      // The purchase must post through the double-entry ledger like any other
+      // expense: DR the chosen expense (COA) account, CR the funding account's
+      // ledger twin. No direct balance mutation — balances derive from the ledger.
+      const acctRes = await client.query(
+        `SELECT id, coa_account_id FROM accounts WHERE id = $1 AND business_id = $2`,
+        [accountId, businessId],
+      );
+      if (acctRes.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: "Funding account not found" });
+      }
+      if (!acctRes.rows[0].coa_account_id) {
+        await client.query("ROLLBACK");
+        return res
+          .status(400)
+          .json({ error: "Funding account has no linked ledger account" });
+      }
+      if (!categoryId) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          error: "An expense category is required to record the purchase",
+        });
+      }
+      const catRes = await client.query(
+        `SELECT id FROM chart_of_accounts
+         WHERE id = $1 AND business_id = $2 AND account_type = 'expense'
+           AND is_active = TRUE`,
+        [categoryId, businessId],
+      );
+      if (catRes.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res
+          .status(400)
+          .json({ error: "Category must be an active expense account" });
+      }
+
       const txRes = await client.query(
         `INSERT INTO transactions
-           (business_id, account_id, created_by, date, merchant, total_amount, type, is_split, notes, category_id, product_id, qty)
-         VALUES ($1, $2, $3, $4, $5, $6, 'expense', false, $7, $8, $9, $10) RETURNING id`,
-        [businessId, accountId, userId, date, product.name, totalAmount, notes || null, categoryId || null, productId, qty],
+           (business_id, account_id, created_by, date, merchant, total_amount, type, is_split, notes, product_id, qty)
+         VALUES ($1, $2, $3, $4, $5, $6, 'expense', false, $7, $8, $9) RETURNING id`,
+        [businessId, accountId, userId, date, product.name, totalAmount, notes || null, productId, qty],
       );
       transactionId = txRes.rows[0].id;
-      await client.query(
-        "UPDATE accounts SET current_balance = current_balance - $1 WHERE id = $2 AND business_id = $3",
-        [totalAmount, accountId, businessId],
-      );
+
+      await postJournalEntry(client, {
+        businessId,
+        date,
+        description: `Inventory purchase: ${product.name}`,
+        sourceType: "transaction",
+        sourceId: transactionId,
+        createdBy: userId,
+        lines: [
+          { accountId: categoryId, debit: totalAmount },
+          { accountId: acctRes.rows[0].coa_account_id, credit: totalAmount },
+        ],
+      });
     }
 
     await client.query(
@@ -142,9 +189,9 @@ router.get("/valuation", async (req, res) => {
   try {
     const productsRes = await pool.query(
       `SELECT p.id, p.name, p.sku, p.qty_on_hand, p.unit_cost, p.valuation_method,
-              c.name AS category_name
+              c.name_key AS category_name_key, c.name AS category_name
        FROM products p
-       LEFT JOIN categories c ON c.id = p.category_id
+       LEFT JOIN chart_of_accounts c ON c.id = p.category_id
        WHERE p.business_id = $1 AND p.is_active = TRUE
        ORDER BY p.name ASC`,
       [businessId],

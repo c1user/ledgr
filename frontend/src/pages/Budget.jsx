@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import api from "../lib/api";
+import { coaToCategories, resolveCatName } from "../lib/coaCategories";
 
 function currentYM() {
   const now = new Date();
@@ -70,7 +70,6 @@ function ProgressBar({ actual, budget, type }) {
 }
 
 function MonthNav({ month, setMonth }) {
-  const { t } = useTranslation();
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <button
@@ -162,7 +161,7 @@ function OverviewTab({ month }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
             <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
-              {row.name}
+              {resolveCatName(row.name_key, row.name, t)}
             </span>
             <span
               style={{
@@ -258,10 +257,11 @@ function SetupTab({ month }) {
   const [saved, setSaved] = useState(false);
   const [copyMsg, setCopyMsg] = useState(null);
 
-  const { data: categories = [] } = useQuery({
-    queryKey: ["categories"],
-    queryFn: () => api.get("/categories").then((r) => r.data),
+  const { data: coaGroups = [] } = useQuery({
+    queryKey: ["chart-of-accounts"],
+    queryFn: () => api.get("/chart-of-accounts").then((r) => r.data),
   });
+  const categories = coaToCategories(coaGroups, t);
 
   const { data: existing = [] } = useQuery({
     queryKey: ["budgets", month],

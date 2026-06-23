@@ -1,12 +1,8 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import api from "../lib/api";
-
-const PROJECT_COLORS = [
-  "#4f8ef7", "#38a169", "#e53e3e", "#dd6b20",
-  "#805ad5", "#d69e2e", "#319795", "#e91e8c",
-];
 
 // ── Date helpers ─────────────────────────────────────────────
 function todayStr() {
@@ -225,116 +221,6 @@ function EntryModal({ entry, projects, prefill, onClose, onSave, saving }) {
   );
 }
 
-// ── ProjectModal ─────────────────────────────────────────────
-function ProjectModal({ project, onClose, onSave, saving }) {
-  const { t } = useTranslation();
-  const [form, setForm] = useState({
-    name:        project?.name        ?? "",
-    description: project?.description ?? "",
-    color:       project?.color       ?? PROJECT_COLORS[0],
-  });
-  const [err, setErr] = useState("");
-
-  function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
-
-  function handleSubmit(e) {
-    e.preventDefault();
-    setErr("");
-    if (!form.name.trim()) return setErr(t("time.errNameRequired"));
-    onSave({
-      ...(project ? { id: project.id } : {}),
-      name:        form.name.trim(),
-      description: form.description || null,
-      color:       form.color,
-    });
-  }
-
-  return (
-    <div style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      zIndex: 1000, padding: 16,
-    }}>
-      <div className="card" style={{ width: "100%", maxWidth: 400 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
-            {project ? t("time.editProject") : t("time.newProject")}
-          </h2>
-          <button onClick={onClose} className="btn btn-sm btn-secondary"
-            style={{ padding: "4px 8px" }}>
-            <i className="ti ti-x" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 500, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
-              {t("time.projectName")} *
-            </label>
-            <input
-              type="text"
-              required
-              autoFocus
-              placeholder="e.g. Website Redesign"
-              value={form.name}
-              onChange={e => set("name", e.target.value)}
-              className="form-input"
-            />
-          </div>
-
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 500, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>
-              {t("time.projectColor")}
-            </label>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {PROJECT_COLORS.map(c => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => set("color", c)}
-                  style={{
-                    width: 28, height: 28, borderRadius: "50%",
-                    background: c, border: "none", cursor: "pointer",
-                    outline: form.color === c ? `3px solid ${c}` : "none",
-                    outlineOffset: 2,
-                    boxShadow: form.color === c ? "0 0 0 2px var(--bg-primary)" : "none",
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 500, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
-              {t("time.projectDescription")}
-            </label>
-            <input
-              type="text"
-              placeholder="Optional description"
-              value={form.description}
-              onChange={e => set("description", e.target.value)}
-              className="form-input"
-            />
-          </div>
-
-          {err && (
-            <p style={{ color: "var(--error, #e53e3e)", fontSize: 12, margin: 0 }}>{err}</p>
-          )}
-
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
-            <button type="button" onClick={onClose} className="btn btn-secondary">
-              {t("common.cancel")}
-            </button>
-            <button type="submit" disabled={saving} className="btn btn-primary">
-              {saving ? t("time.saving") : project ? t("time.saveChanges") : t("time.createProject")}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
 // ── Main page ────────────────────────────────────────────────
 export default function TimeTracking() {
   const { t, i18n } = useTranslation();
@@ -369,8 +255,6 @@ export default function TimeTracking() {
   const [entryModal, setEntryModal] = useState(false);
   const [editEntry, setEditEntry] = useState(null);
   const [entryPrefill, setEntryPrefill] = useState(null);
-  const [projectModal, setProjectModal] = useState(false);
-  const [editProject, setEditProject] = useState(null);
 
   // Data
   const { data: entries = [], isLoading: loadingEntries } = useQuery({
@@ -407,30 +291,6 @@ export default function TimeTracking() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["time-entries"] }),
   });
 
-  // Mutations — projects
-  const createProject = useMutation({
-    mutationFn: body => api.post("/projects", body).then(r => r.data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["projects"] });
-      setProjectModal(false);
-      setEditProject(null);
-    },
-  });
-
-  const updateProject = useMutation({
-    mutationFn: ({ id, ...body }) => api.put(`/projects/${id}`, body).then(r => r.data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["projects"] });
-      setProjectModal(false);
-      setEditProject(null);
-    },
-  });
-
-  const deleteProject = useMutation({
-    mutationFn: id => api.delete(`/projects/${id}`).then(r => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["projects"] }),
-  });
-
   // Timer actions
   function startTimer() {
     setTimerStart(Date.now());
@@ -462,22 +322,6 @@ export default function TimeTracking() {
   function handleEntrySave(payload) {
     if (payload.id) updateEntry.mutate(payload);
     else createEntry.mutate(payload);
-  }
-
-  // Project actions
-  function openNewProject() {
-    setEditProject(null);
-    setProjectModal(true);
-  }
-
-  function openEditProject(p) {
-    setEditProject(p);
-    setProjectModal(true);
-  }
-
-  function handleProjectSave(payload) {
-    if (payload.id) updateProject.mutate(payload);
-    else createProject.mutate(payload);
   }
 
   // CSV export
@@ -524,7 +368,6 @@ export default function TimeTracking() {
   }
 
   const entrySaving = createEntry.isPending || updateEntry.isPending;
-  const projectSaving = createProject.isPending || updateProject.isPending;
 
   // Tab pill style
   const tabStyle = (active) => ({
@@ -827,12 +670,15 @@ export default function TimeTracking() {
         {/* ── Projects tab ─────────────────────────────── */}
         {tab === "projects" && (
           <div>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
-              <button onClick={openNewProject} className="btn btn-primary"
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                {t("time.projectsReadonly")}
+              </span>
+              <Link to="/projects" className="btn btn-sm btn-secondary"
                 style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <i className="ti ti-plus" style={{ fontSize: 14 }} />
-                {t("time.addProject")}
-              </button>
+                <i className="ti ti-briefcase" style={{ fontSize: 14 }} />
+                {t("time.manageProjects")}
+              </Link>
             </div>
 
             {projects.length === 0 ? (
@@ -884,28 +730,6 @@ export default function TimeTracking() {
                       </div>
                     </div>
 
-                    {/* Actions */}
-                    <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                      <button
-                        onClick={() => openEditProject(p)}
-                        className="btn btn-sm btn-secondary"
-                        style={{ padding: "4px 8px" }}
-                        title={t("common.edit")}
-                      >
-                        <i className="ti ti-pencil" style={{ fontSize: 13 }} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (window.confirm(t("time.confirmDeleteProject", { name: p.name })))
-                            deleteProject.mutate(p.id);
-                        }}
-                        className="btn btn-sm btn-secondary"
-                        style={{ padding: "4px 8px", color: "var(--error, #e53e3e)" }}
-                        title={t("common.delete")}
-                      >
-                        <i className="ti ti-trash" style={{ fontSize: 13 }} />
-                      </button>
-                    </div>
                   </div>
                 ))}
               </div>
@@ -923,14 +747,6 @@ export default function TimeTracking() {
           onClose={() => { setEntryModal(false); setEditEntry(null); setEntryPrefill(null); }}
           onSave={handleEntrySave}
           saving={entrySaving}
-        />
-      )}
-      {projectModal && (
-        <ProjectModal
-          project={editProject}
-          onClose={() => { setProjectModal(false); setEditProject(null); }}
-          onSave={handleProjectSave}
-          saving={projectSaving}
         />
       )}
     </div>

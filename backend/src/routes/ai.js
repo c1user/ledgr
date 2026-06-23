@@ -10,35 +10,23 @@
  */
 
 import express from "express";
-import Anthropic from "@anthropic-ai/sdk";
 import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { aiChatLimiter } from "../middleware/rateLimiter.js";
+import { anthropic, containsInjectionAttempt } from "../services/aiGuards.js";
 
 const router = express.Router();
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-// Validate API key exists at module load
-if (!process.env.ANTHROPIC_API_KEY) {
-  throw new Error("FATAL: ANTHROPIC_API_KEY env var is missing");
+// Readable label for a chart-of-accounts category in the AI prompt. Custom
+// accounts have a plain `name`; seeded system accounts carry an i18n name_key
+// (e.g. "coa.accounts.sales_revenue") — derive a human label from its last
+// segment since the backend has no i18n table.
+function coaLabel(name, nameKey) {
+  if (name) return name;
+  if (!nameKey) return "Uncategorized";
+  const seg = nameKey.split(".").pop().replace(/_/g, " ");
+  return seg.charAt(0).toUpperCase() + seg.slice(1);
 }
-
-// ── LLM01: Prompt injection detection ────────────────────────
-// Detects common prompt injection patterns. Not exhaustive — defense-in-depth.
-const INJECTION_PATTERNS = [
-  /ignore\s+(all\s+)?previous\s+instructions/i,
-  /disregard\s+(your\s+)?system\s+prompt/i,
-  /forget\s+(everything|all)\s+(you|above)/i,
-  /you\s+are\s+now\s+(a\s+)?different/i,
-  /new\s+instructions?:/i,
-  /\[SYSTEM\]/i,
-  /<<<.*?>>>/, // Common injection delimiters
-  /<\|.*?\|>/, // Token-style injections
-  /act\s+as\s+(if\s+you\s+(are|were))/i,
-];
-
-const containsInjectionAttempt = (text) =>
-  INJECTION_PATTERNS.some((pattern) => pattern.test(text));
 
 // ── LLM06: Business context builder ──────────────────────────
 // SECURITY NOTE: This prompt explicitly instructs the model to never reveal
@@ -81,21 +69,27 @@ const getBusinessContext = async (businessId) => {
       [businessId, firstOfYear],
     ),
     pool.query(
-      `SELECT c.name AS category, SUM(ts.amount) AS total
-       FROM transaction_splits ts
-       JOIN categories c ON c.id = ts.category_id
-       JOIN transactions t ON t.id = ts.transaction_id
-       WHERE t.business_id = $1 AND t.type = 'expense' AND t.date >= $2
-       GROUP BY c.name ORDER BY total DESC LIMIT 5`,
+      `SELECT coa.name, coa.name_key,
+              SUM(jel.debit - jel.credit) AS total
+       FROM journal_entry_lines jel
+       JOIN journal_entries je ON je.id = jel.journal_entry_id
+       JOIN chart_of_accounts coa ON coa.id = jel.account_id
+       WHERE je.business_id = $1 AND coa.account_type = 'expense' AND je.entry_date >= $2
+       GROUP BY coa.id, coa.name, coa.name_key
+       HAVING SUM(jel.debit - jel.credit) <> 0
+       ORDER BY total DESC LIMIT 5`,
       [businessId, firstOfYear],
     ),
     pool.query(
-      `SELECT c.name AS category, SUM(ts.amount) AS total
-       FROM transaction_splits ts
-       JOIN categories c ON c.id = ts.category_id
-       JOIN transactions t ON t.id = ts.transaction_id
-       WHERE t.business_id = $1 AND t.type = 'income' AND t.date >= $2
-       GROUP BY c.name ORDER BY total DESC LIMIT 5`,
+      `SELECT coa.name, coa.name_key,
+              SUM(jel.credit - jel.debit) AS total
+       FROM journal_entry_lines jel
+       JOIN journal_entries je ON je.id = jel.journal_entry_id
+       JOIN chart_of_accounts coa ON coa.id = jel.account_id
+       WHERE je.business_id = $1 AND coa.account_type = 'revenue' AND je.entry_date >= $2
+       GROUP BY coa.id, coa.name, coa.name_key
+       HAVING SUM(jel.credit - jel.debit) <> 0
+       ORDER BY total DESC LIMIT 5`,
       [businessId, firstOfYear],
     ),
     pool.query(
@@ -105,12 +99,15 @@ const getBusinessContext = async (businessId) => {
       [businessId],
     ),
     pool.query(
-      `SELECT c.name AS category, SUM(ts.amount) AS total
-       FROM transaction_splits ts
-       JOIN categories c ON c.id = ts.category_id
-       JOIN transactions t ON t.id = ts.transaction_id
-       WHERE t.business_id = $1 AND t.type = 'expense' AND t.date >= $2
-       GROUP BY c.name ORDER BY total DESC`,
+      `SELECT coa.name, coa.name_key,
+              SUM(jel.debit - jel.credit) AS total
+       FROM journal_entry_lines jel
+       JOIN journal_entries je ON je.id = jel.journal_entry_id
+       JOIN chart_of_accounts coa ON coa.id = jel.account_id
+       WHERE je.business_id = $1 AND coa.account_type = 'expense' AND je.entry_date >= $2
+       GROUP BY coa.id, coa.name, coa.name_key
+       HAVING SUM(jel.debit - jel.credit) <> 0
+       ORDER BY total DESC`,
       [businessId, firstOfMonth],
     ),
     pool.query(
@@ -183,13 +180,13 @@ Expenses: ${biz.currency} ${parseFloat(yearly.expenses).toFixed(2)}
 Net Profit: ${biz.currency} ${(parseFloat(yearly.income) - parseFloat(yearly.expenses)).toFixed(2)}
 
 === TOP EXPENSE CATEGORIES THIS YEAR ===
-${topExpenses.rows.map((r) => `${r.category}: ${biz.currency} ${parseFloat(r.total).toFixed(2)}`).join("\n") || "No data yet"}
+${topExpenses.rows.map((r) => `${coaLabel(r.name, r.name_key)}: ${biz.currency} ${parseFloat(r.total).toFixed(2)}`).join("\n") || "No data yet"}
 
 === TOP INCOME CATEGORIES THIS YEAR ===
-${topIncome.rows.map((r) => `${r.category}: ${biz.currency} ${parseFloat(r.total).toFixed(2)}`).join("\n") || "No data yet"}
+${topIncome.rows.map((r) => `${coaLabel(r.name, r.name_key)}: ${biz.currency} ${parseFloat(r.total).toFixed(2)}`).join("\n") || "No data yet"}
 
 === THIS MONTH EXPENSE BREAKDOWN ===
-${categoryBreakdown.rows.map((r) => `${r.category}: ${biz.currency} ${parseFloat(r.total).toFixed(2)}`).join("\n") || "No expenses this month"}
+${categoryBreakdown.rows.map((r) => `${coaLabel(r.name, r.name_key)}: ${biz.currency} ${parseFloat(r.total).toFixed(2)}`).join("\n") || "No expenses this month"}
 
 === ACCOUNT BALANCES ===
 ${accountBalances.rows.map((r) => `${r.name} (${r.type}): ${biz.currency} ${parseFloat(r.current_balance).toFixed(2)}`).join("\n") || "No accounts"}
@@ -280,7 +277,7 @@ router.post("/chat", requireAuth, aiChatLimiter, async (req, res) => {
     // Keep last 20 messages for token budget
     const recentHistory = updatedHistory.slice(-20);
 
-    const response = await client.messages.create({
+    const response = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 1024,
       system: systemPrompt,

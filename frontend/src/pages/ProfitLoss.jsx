@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { resolveCatName } from "../lib/coaCategories";
 import {
   BarChart,
   Bar,
@@ -154,7 +155,7 @@ function PLRow({ color, name, total, fmt, currency }) {
 }
 
 // ── P&L Section ───────────────────────────────────────────────
-function PLSection({ title, categories, total, totalLabel, fmt, currency }) {
+function PLSection({ title, categories, total, totalLabel, fmt, currency, t }) {
   return (
     <div style={{ marginBottom: 16 }}>
       <div
@@ -178,7 +179,7 @@ function PLSection({ title, categories, total, totalLabel, fmt, currency }) {
           <PLRow
             key={cat.category_id}
             color={cat.category_color}
-            name={cat.category_name}
+            name={resolveCatName(cat.category_name_key, cat.category_name, t)}
             total={parseFloat(cat.total)}
             fmt={fmt}
             currency={currency}
@@ -203,7 +204,7 @@ function PLSection({ title, categories, total, totalLabel, fmt, currency }) {
 }
 
 // ── Custom Tooltip for bar chart ──────────────────────────────
-function TrendTooltip({ active, payload, label, fmt, currency, t }) {
+function TrendTooltip({ active, payload, label, fmt, currency }) {
   if (!active || !payload?.length) return null;
   return (
     <div
@@ -311,6 +312,7 @@ function PLStatement({ data, startDate, endDate, fmt, currency, t }) {
         totalLabel={t("reports.totalRevenue")}
         fmt={fmt}
         currency={currency}
+        t={t}
       />
 
       <PLSection
@@ -320,6 +322,7 @@ function PLStatement({ data, startDate, endDate, fmt, currency, t }) {
         totalLabel={t("reports.totalExpenses")}
         fmt={fmt}
         currency={currency}
+        t={t}
       />
 
       {/* Net income line */}

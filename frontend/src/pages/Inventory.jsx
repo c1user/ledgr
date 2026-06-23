@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
 import useInventoryStore from "../store/inventoryStore";
+import { coaToCategories, resolveCatName } from "../lib/coaCategories";
 
 // ── helpers ────────────────────────────────────────────────────
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -148,6 +149,10 @@ function ReceiveModal({ product, accounts, categories, onClose, onSave, saving }
       setErr(t("inventory.errAccountRequired"));
       return;
     }
+    if (form.createTransaction && !form.categoryId) {
+      setErr(t("inventory.errExpenseCategoryRequired"));
+      return;
+    }
     setErr("");
     onSave({ ...form, productId: product.id });
   };
@@ -214,9 +219,9 @@ function ReceiveModal({ product, accounts, categories, onClose, onSave, saving }
                 </select>
               </div>
               <div style={{ gridColumn: "1 / -1" }}>
-                <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>{t("inventory.expenseCategory")}</label>
+                <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>{t("inventory.expenseCategory")} *</label>
                 <select style={INPUT} value={form.categoryId} onChange={(e) => set("categoryId", e.target.value)}>
-                  <option value="">{t("inventory.noCategoryTx")}</option>
+                  <option value="">{t("inventory.selectCategory")}</option>
                   {categories?.filter((c) => c.type === "expense").map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
@@ -328,10 +333,11 @@ export default function Inventory() {
     queryFn: () => api.get("/products").then((r) => r.data),
   });
 
-  const { data: categories = [] } = useQuery({
-    queryKey: ["categories"],
-    queryFn: () => api.get("/categories").then((r) => r.data),
+  const { data: coaGroups = [] } = useQuery({
+    queryKey: ["chart-of-accounts"],
+    queryFn: () => api.get("/chart-of-accounts").then((r) => r.data),
   });
+  const categories = coaToCategories(coaGroups, t);
 
   const { data: accounts = [] } = useQuery({
     queryKey: ["accounts"],
@@ -546,7 +552,7 @@ export default function Inventory() {
                               )}
                             </div>
                             {p.sku && <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1 }}>SKU: {p.sku}</div>}
-                            {p.category_name && <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{p.category_name}</div>}
+                            {(p.category_name_key || p.category_name) && <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{resolveCatName(p.category_name_key, p.category_name, t)}</div>}
                           </div>
                         </div>
                       </td>
@@ -677,7 +683,7 @@ export default function Inventory() {
                           <div style={{ fontWeight: 500 }}>{p.name}</div>
                           {p.sku && <div style={{ fontSize: 11, color: "var(--text-muted)" }}>SKU: {p.sku}</div>}
                         </td>
-                        <td style={{ padding: "11px 16px", color: "var(--text-secondary)" }}>{p.category_name || "—"}</td>
+                        <td style={{ padding: "11px 16px", color: "var(--text-secondary)" }}>{resolveCatName(p.category_name_key, p.category_name, t) || "—"}</td>
                         <td style={{ padding: "11px 16px", textAlign: "right" }}>{fmtQty(p.qty_on_hand)}</td>
                         <td style={{ padding: "11px 16px", textAlign: "center" }}>
                           <span style={{

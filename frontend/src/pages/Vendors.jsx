@@ -14,6 +14,8 @@ const emptyForm = {
   email: "",
   phone: "",
   is_1099_eligible: false,
+  withholding_exempt: false,
+  waiver_certificate_no: "",
 };
 
 // The category comes from the ledger now: system categories carry a name_key
@@ -44,6 +46,8 @@ function VendorModal({ vendor, onClose, t }) {
           email: vendor.email || "",
           phone: vendor.phone || "",
           is_1099_eligible: vendor.is_1099_eligible,
+          withholding_exempt: vendor.withholding_exempt || false,
+          waiver_certificate_no: vendor.waiver_certificate_no || "",
         }
       : { ...emptyForm },
   );
@@ -269,6 +273,57 @@ function VendorModal({ vendor, onClose, t }) {
               <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
                 {t("vendors.is1099Hint")}
               </div>
+            </div>
+          </div>
+
+          {/* §1062.03 withholding waiver (relevo) — feeds Form 480.6SP */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 10,
+              padding: "10px 14px",
+              background: "var(--bg-secondary)",
+              borderRadius: 8,
+            }}
+          >
+            <input
+              type="checkbox"
+              id="vendor-waiver"
+              checked={form.withholding_exempt}
+              onChange={(e) =>
+                setForm({ ...form, withholding_exempt: e.target.checked })
+              }
+              style={{ width: 16, height: 16, cursor: "pointer", marginTop: 2 }}
+            />
+            <div style={{ flex: 1 }}>
+              <label
+                htmlFor="vendor-waiver"
+                style={{
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: "var(--text-primary)",
+                  cursor: "pointer",
+                  display: "block",
+                }}
+              >
+                {t("vendors.waiverLabel")}
+              </label>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                {t("vendors.waiverHint")}
+              </div>
+              {form.withholding_exempt && (
+                <input
+                  className="input"
+                  style={{ marginTop: 8 }}
+                  type="text"
+                  placeholder={t("vendors.waiverCertPlaceholder")}
+                  value={form.waiver_certificate_no}
+                  onChange={(e) =>
+                    setForm({ ...form, waiver_certificate_no: e.target.value })
+                  }
+                />
+              )}
             </div>
           </div>
 
@@ -604,14 +659,39 @@ function VendorDrawer({ vendor, onClose, onEdit, onDelete, fmt, t }) {
 function Report1099({ fmt, t }) {
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
+  const [exportError, setExportError] = useState("");
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["vendors-1099", year],
-    queryFn: () =>
-      api.get(`/vendors/1099-report?year=${year}`).then((r) => r.data),
+    queryKey: ["report-1099", year],
+    queryFn: () => api.get(`/reports/1099?year=${year}`).then((r) => r.data),
   });
 
   const years = [currentYear, currentYear - 1, currentYear - 2, currentYear - 3];
+
+  // Localized label for each required field key the backend can report missing.
+  const fieldLabel = (f) => t(`vendors.field_${f}`);
+
+  const exportCsv = useMutation({
+    mutationFn: async () => {
+      const res = await api.get(`/reports/1099/export?year=${year}`, {
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `1099-nec-${year}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    },
+    onSuccess: () => setExportError(""),
+    onError: () => setExportError(t("vendors.exportBlocked")),
+  });
+
+  const flaggedCount = data?.flagged_count || 0;
+  const incompleteCount = data?.incomplete_count || 0;
+  const canExport = flaggedCount > 0 && incompleteCount === 0;
 
   return (
     <div>
@@ -621,6 +701,7 @@ function Report1099({ fmt, t }) {
           alignItems: "center",
           gap: 12,
           marginBottom: 16,
+          flexWrap: "wrap",
         }}
       >
         <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
@@ -649,6 +730,18 @@ function Report1099({ fmt, t }) {
         >
           {t("vendors.reportThreshold")}
         </div>
+        <button
+          className="btn btn-sm btn-secondary"
+          style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 5 }}
+          onClick={() => exportCsv.mutate()}
+          disabled={!canExport || exportCsv.isPending}
+          title={
+            canExport ? t("vendors.exportCsv") : t("vendors.exportDisabledHint")
+          }
+        >
+          <i className="ti ti-download" style={{ fontSize: 13 }} aria-hidden="true" />
+          {t("vendors.exportCsv")}
+        </button>
       </div>
 
       {isLoading && (
@@ -660,6 +753,39 @@ function Report1099({ fmt, t }) {
       {isError && (
         <div style={{ fontSize: 13, color: "var(--expense)", padding: 16, textAlign: "center" }}>
           {t("common.error")}
+        </div>
+      )}
+
+      {/* Missing-field blocker: flagged vendors can't be filed until complete */}
+      {data && incompleteCount > 0 && (
+        <div
+          style={{
+            background: "var(--expense-bg)",
+            color: "var(--expense)",
+            border: "0.5px solid var(--expense)",
+            borderRadius: 8,
+            padding: "10px 14px",
+            fontSize: 13,
+            marginBottom: 12,
+          }}
+        >
+          <i className="ti ti-alert-triangle" style={{ marginRight: 6 }} aria-hidden="true" />
+          {t("vendors.incompleteWarning", { count: incompleteCount })}
+        </div>
+      )}
+
+      {exportError && (
+        <div
+          style={{
+            background: "var(--expense-bg)",
+            color: "var(--expense)",
+            borderRadius: 8,
+            padding: "10px 14px",
+            fontSize: 13,
+            marginBottom: 12,
+          }}
+        >
+          {exportError}
         </div>
       )}
 
@@ -687,12 +813,25 @@ function Report1099({ fmt, t }) {
               fontSize: 12,
               color: "var(--text-muted)",
               marginBottom: 12,
+              display: "flex",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: 8,
             }}
           >
-            {t("vendors.reportSummary", {
-              count: data.vendors.length,
-              flagged: data.flagged.length,
-            })}
+            <span>
+              {t("vendors.reportSummary", {
+                count: data.eligible_count,
+                flagged: data.flagged_count,
+              })}
+            </span>
+            {data.flagged_count > 0 && (
+              <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>
+                {t("vendors.reportReportable", {
+                  amount: fmt(data.total_reportable),
+                })}
+              </span>
+            )}
           </div>
 
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -700,7 +839,7 @@ function Report1099({ fmt, t }) {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 140px 130px 100px",
+                gridTemplateColumns: "1fr 140px 130px 160px",
                 padding: "10px 16px",
                 borderBottom: "0.5px solid var(--border-color)",
                 background: "var(--bg-secondary)",
@@ -717,13 +856,13 @@ function Report1099({ fmt, t }) {
             </div>
 
             {data.vendors.map((v) => {
-              const flagged = parseFloat(v.total_paid) >= 600;
+              const incomplete = v.flagged && v.missing_fields?.length > 0;
               return (
                 <div
                   key={v.id}
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "1fr 140px 130px 100px",
+                    gridTemplateColumns: "1fr 140px 130px 160px",
                     padding: "12px 16px",
                     borderBottom: "0.5px solid var(--border-color)",
                     alignItems: "center",
@@ -741,42 +880,58 @@ function Report1099({ fmt, t }) {
                       </div>
                     )}
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                    {v.ein || "—"}
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: v.ein ? "var(--text-secondary)" : "var(--expense)",
+                    }}
+                  >
+                    {v.ein || t("vendors.missingEin")}
                   </div>
                   <div
                     style={{
                       fontSize: 13,
                       fontWeight: 600,
-                      color: flagged ? "var(--expense)" : "var(--text-primary)",
+                      color: v.flagged ? "var(--expense)" : "var(--text-primary)",
                       textAlign: "right",
                     }}
                   >
                     {fmt(v.total_paid)}
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    {flagged ? (
+                    {!v.flagged ? (
+                      <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                        {t("vendors.belowThreshold")}
+                      </span>
+                    ) : incomplete ? (
                       <span
                         style={{
                           fontSize: 10,
-                          fontWeight: 700,
+                          fontWeight: 600,
                           padding: "2px 7px",
                           borderRadius: 4,
                           background: "var(--expense-bg)",
                           color: "var(--expense)",
-                          letterSpacing: 0.5,
                         }}
+                        title={v.missing_fields.map(fieldLabel).join(", ")}
                       >
-                        {t("vendors.flagged")}
+                        {t("vendors.statusMissing", {
+                          fields: v.missing_fields.map(fieldLabel).join(", "),
+                        })}
                       </span>
                     ) : (
                       <span
                         style={{
-                          fontSize: 11,
-                          color: "var(--text-muted)",
+                          fontSize: 10,
+                          fontWeight: 600,
+                          padding: "2px 7px",
+                          borderRadius: 4,
+                          background: "var(--income-bg)",
+                          color: "var(--income)",
+                          letterSpacing: 0.5,
                         }}
                       >
-                        {t("vendors.belowThreshold")}
+                        {t("vendors.statusReady")}
                       </span>
                     )}
                   </div>

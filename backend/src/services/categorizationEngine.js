@@ -8,9 +8,10 @@
  */
 export async function applyRules(client, { merchant, notes }, businessId, transactionType) {
   const { rows: rules } = await client.query(
-    `SELECT r.id, r.match_type, r.pattern, r.category_id, c.type AS category_type
+    `SELECT r.id, r.match_type, r.pattern, r.category_id,
+            CASE WHEN c.account_type = 'revenue' THEN 'income' ELSE 'expense' END AS category_type
      FROM categorization_rules r
-     JOIN categories c ON c.id = r.category_id
+     JOIN chart_of_accounts c ON c.id = r.category_id
      WHERE r.business_id = $1
        AND r.is_active = TRUE
      ORDER BY r.priority ASC, r.created_at ASC`,

@@ -14,7 +14,8 @@ router.get("/", async (req, res) => {
     let query = `
       SELECT
         v.id, v.name, v.ein, v.address, v.city, v.state, v.zip,
-        v.email, v.phone, v.is_1099_eligible, v.created_at,
+        v.email, v.phone, v.is_1099_eligible,
+        v.withholding_exempt, v.waiver_certificate_no, v.created_at,
         COUNT(t.id)::int AS transaction_count,
         COALESCE(SUM(t.total_amount) FILTER (WHERE t.type = 'expense'), 0)::numeric AS ytd_paid
       FROM vendors v
@@ -44,39 +45,9 @@ router.get("/", async (req, res) => {
   }
 });
 
-// ── GET /api/vendors/1099-report — declared BEFORE /:id ──────
-router.get("/1099-report", async (req, res) => {
-  const { businessId } = req.user;
-  const year = parseInt(req.query.year) || new Date().getFullYear();
-
-  try {
-    const result = await pool.query(
-      `SELECT
-        v.id, v.name, v.ein, v.address, v.city, v.state, v.zip, v.email, v.phone,
-        COALESCE(SUM(t.total_amount) FILTER (WHERE t.type = 'expense'), 0)::numeric AS total_paid,
-        COUNT(t.id) FILTER (WHERE t.type = 'expense')::int AS payment_count
-       FROM vendors v
-       LEFT JOIN transactions t ON t.vendor_id = v.id
-         AND t.business_id = $1
-         AND EXTRACT(YEAR FROM t.date) = $2
-       WHERE v.business_id = $1 AND v.is_1099_eligible = TRUE
-       GROUP BY v.id
-       ORDER BY total_paid DESC`,
-      [businessId, year],
-    );
-
-    const vendors = result.rows;
-    return res.json({
-      year,
-      vendors,
-      threshold: 600,
-      flagged: vendors.filter((v) => parseFloat(v.total_paid) >= 600),
-    });
-  } catch (err) {
-    console.error("1099 report error:", err);
-    return res.status(500).json({ error: "Failed to generate 1099 report" });
-  }
-});
+// The 1099 report moved to GET /api/reports/1099 (+ /1099/export) — see
+// routes/reports.js. It adds threshold flagging, missing-field detection, and
+// a CSV export, so the thin per-vendor aggregation that lived here was removed.
 
 // ── GET /api/vendors/:id ──────────────────────────────────────
 router.get("/:id", async (req, res) => {
@@ -150,8 +121,10 @@ router.get("/:id/transactions", async (req, res) => {
 // ── POST /api/vendors ─────────────────────────────────────────
 router.post("/", async (req, res) => {
   const { businessId } = req.user;
-  const { name, ein, address, city, state, zip, email, phone, is_1099_eligible } =
-    req.body;
+  const {
+    name, ein, address, city, state, zip, email, phone, is_1099_eligible,
+    withholding_exempt, waiver_certificate_no,
+  } = req.body;
 
   if (!name?.trim()) {
     return res.status(400).json({ error: "name is required" });
@@ -159,8 +132,8 @@ router.post("/", async (req, res) => {
 
   try {
     const result = await pool.query(
-      `INSERT INTO vendors (business_id, name, ein, address, city, state, zip, email, phone, is_1099_eligible)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      `INSERT INTO vendors (business_id, name, ein, address, city, state, zip, email, phone, is_1099_eligible, withholding_exempt, waiver_certificate_no)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
       [
         businessId,
         name.trim(),
@@ -172,6 +145,8 @@ router.post("/", async (req, res) => {
         email || null,
         phone || null,
         !!is_1099_eligible,
+        !!withholding_exempt,
+        waiver_certificate_no || null,
       ],
     );
     return res.status(201).json(result.rows[0]);
@@ -185,8 +160,10 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   const { businessId } = req.user;
   const { id } = req.params;
-  const { name, ein, address, city, state, zip, email, phone, is_1099_eligible } =
-    req.body;
+  const {
+    name, ein, address, city, state, zip, email, phone, is_1099_eligible,
+    withholding_exempt, waiver_certificate_no,
+  } = req.body;
 
   if (!name?.trim()) {
     return res.status(400).json({ error: "name is required" });
@@ -203,16 +180,18 @@ router.put("/:id", async (req, res) => {
 
     const result = await pool.query(
       `UPDATE vendors SET
-        name             = $1,
-        ein              = $2,
-        address          = $3,
-        city             = $4,
-        state            = $5,
-        zip              = $6,
-        email            = $7,
-        phone            = $8,
-        is_1099_eligible = $9
-       WHERE id = $10 AND business_id = $11 RETURNING *`,
+        name                  = $1,
+        ein                   = $2,
+        address               = $3,
+        city                  = $4,
+        state                 = $5,
+        zip                   = $6,
+        email                 = $7,
+        phone                 = $8,
+        is_1099_eligible      = $9,
+        withholding_exempt    = $10,
+        waiver_certificate_no = $11
+       WHERE id = $12 AND business_id = $13 RETURNING *`,
       [
         name.trim(),
         ein || null,
@@ -223,6 +202,8 @@ router.put("/:id", async (req, res) => {
         email || null,
         phone || null,
         !!is_1099_eligible,
+        !!withholding_exempt,
+        waiver_certificate_no || null,
         id,
         businessId,
       ],

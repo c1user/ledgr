@@ -32,111 +32,23 @@ import {
   postJournalEntry,
   deleteEntriesForSource,
 } from "../services/ledger.js";
+import {
+  resolveFundingSource,
+  validateCategoryAccounts,
+  buildLines,
+  createLedgerTransaction,
+  getSystemAccountId,
+  WITHHOLDING_PAYABLE_KEY,
+} from "../services/transactionPosting.js";
+import { applyRules } from "../services/categorizationEngine.js";
 
 const router = express.Router();
 router.use(requireAuth);
 
 // ── Helpers ──────────────────────────────────────────────────
-
-// Resolve a transaction's funding source to the COA account it posts against.
-// The source is EITHER an operational account (accounts.id) OR an
-// asset/liability ledger account (chart_of_accounts.id) — never both.
-//
-// Returns { error } or:
-//   { accountId, fundingCoaId } where
-//     - accountId is the operational account id (null when funded from a
-//       pure ledger account) — this is what the transactions.account_id
-//       header column stores.
-//     - fundingCoaId is the chart_of_accounts id the journal entry posts
-//       the funding line against (always set).
-async function resolveFundingSource(
-  client,
-  businessId,
-  { accountId, fundingCoaId },
-) {
-  if (accountId && fundingCoaId) {
-    return { error: "Provide either accountId or fundingCoaId, not both" };
-  }
-
-  if (accountId) {
-    const result = await client.query(
-      `SELECT id, name, coa_account_id FROM accounts
-       WHERE id = $1 AND business_id = $2`,
-      [accountId, businessId],
-    );
-    if (result.rows.length === 0) return { error: "Account not found" };
-    const acct = result.rows[0];
-    if (!acct.coa_account_id) {
-      return {
-        error:
-          "This account has no ledger account linked (coa_account_id is null). " +
-          "Recreate the account via the accounts route to backfill it.",
-      };
-    }
-    return { accountId: acct.id, fundingCoaId: acct.coa_account_id };
-  }
-
-  if (fundingCoaId) {
-    const result = await client.query(
-      `SELECT id, account_type, is_active FROM chart_of_accounts
-       WHERE id = $1 AND business_id = $2`,
-      [fundingCoaId, businessId],
-    );
-    if (result.rows.length === 0) return { error: "Ledger account not found" };
-    const coa = result.rows[0];
-    if (!coa.is_active) return { error: "Ledger account is inactive" };
-    if (!["asset", "liability"].includes(coa.account_type)) {
-      return {
-        error:
-          "The funding account must be an asset or liability ledger account",
-      };
-    }
-    return { accountId: null, fundingCoaId: coa.id };
-  }
-
-  return { error: "A funding accountId or fundingCoaId is required" };
-}
-
-// Validate the category/split accounts: they must be chart_of_accounts rows
-// of this business, of the expected type (revenue for income, expense for
-// expense). Returns { error } or { accounts: Map(id -> row) }.
-async function validateCategoryAccounts(client, businessId, ids, txType) {
-  const expectedType = txType === "income" ? "revenue" : "expense";
-  const uniqueIds = [...new Set(ids)];
-  const result = await client.query(
-    `SELECT id, account_type FROM chart_of_accounts
-     WHERE id = ANY($1::uuid[]) AND business_id = $2 AND is_active = TRUE`,
-    [uniqueIds, businessId],
-  );
-  if (result.rows.length !== uniqueIds.length) {
-    return { error: "One or more category accounts were not found" };
-  }
-  const wrong = result.rows.find((r) => r.account_type !== expectedType);
-  if (wrong) {
-    return {
-      error: `A ${txType} transaction must use ${expectedType} accounts (account ${wrong.id} is ${wrong.account_type})`,
-    };
-  }
-  return { ok: true };
-}
-
-// Build balanced journal lines for a transaction.
-function buildLines({ txType, total, fundingCoaId, allocations }) {
-  // allocations: [{ accountId, amount }] summing to total
-  const lines = [];
-  if (txType === "expense") {
-    allocations.forEach((a) =>
-      lines.push({ accountId: a.accountId, debit: a.amount, memo: a.memo }),
-    );
-    lines.push({ accountId: fundingCoaId, credit: total });
-  } else {
-    lines.push({ accountId: fundingCoaId, debit: total });
-    allocations.forEach((a) =>
-      lines.push({ accountId: a.accountId, credit: a.amount, memo: a.memo }),
-    );
-  }
-  return lines;
-}
+// resolveFundingSource / validateCategoryAccounts / buildLines /
+// createLedgerTransaction live in services/transactionPosting.js so the
+// recurring generator materializes transactions identically.
 
 // Normalize the request body into allocations (single category -> one allocation).
 function readAllocations(body) {
@@ -214,11 +126,13 @@ router.get("/", async (req, res) => {
       SELECT
         t.id, t.date, t.merchant, t.total_amount, t.type, t.is_split, t.notes,
         t.plaid_tx_id, t.created_at, t.account_id, t.funding_coa_id,
+        t.recurring_id, t.withholding_amount, t.project_id,
         t.vendor_id, t.original_currency, t.original_amount, t.exchange_rate,
         COALESCE(a.name, fcoa.name) AS account_name,
         fcoa.name_key AS account_name_key,
         u.name AS created_by_name,
         v.name AS vendor_name,
+        pr.name AS project_name, pr.color AS project_color,
         r.id AS receipt_id, r.status AS receipt_status,
         COALESCE(
           json_agg(
@@ -239,13 +153,14 @@ router.get("/", async (req, res) => {
       LEFT JOIN users u ON u.id = t.created_by
       LEFT JOIN receipts r ON r.id = t.receipt_id
       LEFT JOIN vendors v ON v.id = t.vendor_id
+      LEFT JOIN projects pr ON pr.id = t.project_id
       LEFT JOIN journal_entries je
         ON je.source_type = 'transaction' AND je.source_id = t.id
       LEFT JOIN journal_entry_lines jel ON jel.journal_entry_id = je.id
       LEFT JOIN chart_of_accounts coa
         ON coa.id = jel.account_id AND coa.account_type IN ('revenue','expense')
       ${where}
-      GROUP BY t.id, a.name, fcoa.name, fcoa.name_key, u.name, v.name, r.id, r.status
+      GROUP BY t.id, a.name, fcoa.name, fcoa.name_key, u.name, v.name, pr.name, pr.color, r.id, r.status
       ORDER BY t.date DESC, t.created_at DESC
       LIMIT $${limitIdx} OFFSET $${offsetIdx}`;
 
@@ -265,6 +180,220 @@ router.get("/", async (req, res) => {
   } catch (err) {
     console.error("Get transactions error:", err);
     return res.status(500).json({ error: "Failed to fetch transactions" });
+  }
+});
+
+// ── CSV helpers ──────────────────────────────────────────────
+// Quote a cell only when it needs it; double embedded quotes.
+function csvCell(val) {
+  const s = val == null ? "" : String(val);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+// System COA accounts store an i18n name_key (e.g. coa.accounts.rent); turn
+// those into a readable label for the CSV ("Rent"). Custom names pass through.
+function prettifyCoa(s) {
+  return (s || "").replace(/coa\.accounts\.([a-z_]+)/g, (_, k) =>
+    k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+  );
+}
+
+// ── GET /api/transactions/export ─────────────────────────────
+// CSV of all matching transactions (same filters as the list, no pagination).
+// Amount is signed (expense negative) so the file round-trips through import.
+// Declared before /:id so "export" isn't captured as an :id.
+router.get("/export", async (req, res) => {
+  const { businessId } = req.user;
+  const { startDate, endDate, type, accountId, categoryId } = req.query;
+
+  try {
+    const params = [businessId];
+    let p = 1;
+    let where = "WHERE t.business_id = $1";
+    if (type) { where += ` AND t.type = $${++p}`; params.push(type); }
+    if (startDate) { where += ` AND t.date >= $${++p}`; params.push(startDate); }
+    if (endDate) { where += ` AND t.date <= $${++p}`; params.push(endDate); }
+    if (accountId) { where += ` AND t.account_id = $${++p}`; params.push(accountId); }
+    if (categoryId) {
+      where += ` AND EXISTS (
+        SELECT 1 FROM journal_entries je2
+        JOIN journal_entry_lines jl2 ON jl2.journal_entry_id = je2.id
+        WHERE je2.source_type = 'transaction' AND je2.source_id = t.id
+          AND jl2.account_id = $${++p})`;
+      params.push(categoryId);
+    }
+
+    const result = await pool.query(
+      `SELECT t.date::text AS date, t.merchant, t.total_amount, t.type, t.notes,
+         COALESCE(a.name, fcoa.name, fcoa.name_key) AS account_name,
+         (SELECT string_agg(COALESCE(coa.name, coa.name_key), ' + ')
+            FROM journal_entries je
+            JOIN journal_entry_lines jel ON jel.journal_entry_id = je.id
+            JOIN chart_of_accounts coa ON coa.id = jel.account_id
+              AND coa.account_type IN ('revenue','expense')
+            WHERE je.source_type = 'transaction' AND je.source_id = t.id) AS category
+       FROM transactions t
+       LEFT JOIN accounts a ON a.id = t.account_id
+       LEFT JOIN chart_of_accounts fcoa ON fcoa.id = t.funding_coa_id
+       ${where}
+       ORDER BY t.date DESC, t.created_at DESC`,
+      params,
+    );
+
+    const header = ["Date", "Merchant", "Category", "Account", "Type", "Amount", "Notes"];
+    const lines = [header.map(csvCell).join(",")];
+    for (const r of result.rows) {
+      const signed = (r.type === "expense" ? -1 : 1) * Number(r.total_amount);
+      lines.push(
+        [
+          r.date,
+          r.merchant || "",
+          prettifyCoa(r.category),
+          prettifyCoa(r.account_name),
+          r.type,
+          signed.toFixed(2),
+          r.notes || "",
+        ].map(csvCell).join(","),
+      );
+    }
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="transactions-${new Date().toISOString().slice(0, 10)}.csv"`,
+    );
+    return res.send(lines.join("\r\n"));
+  } catch (err) {
+    console.error("Export transactions error:", err);
+    return res.status(500).json({ error: "Failed to export transactions" });
+  }
+});
+
+// ── POST /api/transactions/import ────────────────────────────
+// Bulk-create transactions from mapped CSV rows. Each row's sign decides
+// income vs expense; category comes from auto-rules, else falls back to the
+// seeded Other income/expense. The whole batch is atomic.
+const OTHER_INCOME_KEY = "coa.accounts.other_income";
+const OTHER_EXPENSE_KEY = "coa.accounts.other_expense";
+const MAX_IMPORT_ROWS = 2000;
+const IMPORT_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+router.post("/import", async (req, res) => {
+  const { businessId, userId } = req.user;
+  const { accountId, fundingCoaId, rows, skipDuplicates = true } = req.body;
+
+  if (!accountId && !fundingCoaId) {
+    return res.status(400).json({ error: "A funding account is required" });
+  }
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return res.status(400).json({ error: "No rows to import" });
+  }
+  if (rows.length > MAX_IMPORT_ROWS) {
+    return res
+      .status(400)
+      .json({ error: `Too many rows (max ${MAX_IMPORT_ROWS} per import)` });
+  }
+
+  // Validate + normalize every row up front; reject the batch if any are bad.
+  const norm = [];
+  const errors = [];
+  rows.forEach((r, i) => {
+    const date = String(r.date || "").slice(0, 10);
+    const amount = parseFloat(r.amount);
+    const merchant = (r.merchant ?? "").toString().trim() || null;
+    const notes = (r.notes ?? "").toString().trim() || null;
+    if (!IMPORT_DATE_RE.test(date))
+      return errors.push({ row: i + 1, error: "Invalid date (expected YYYY-MM-DD)" });
+    if (!Number.isFinite(amount) || amount === 0)
+      return errors.push({ row: i + 1, error: "Invalid or zero amount" });
+    norm.push({ date, merchant, notes, amount });
+  });
+  if (errors.length > 0) {
+    return res
+      .status(400)
+      .json({ error: "Some rows are invalid", errors: errors.slice(0, 25) });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const funding = await resolveFundingSource(client, businessId, {
+      accountId,
+      fundingCoaId,
+    });
+    if (funding.error) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: funding.error });
+    }
+    const dupAccountId = funding.accountId;
+    const dupFundingCoa = funding.accountId ? null : funding.fundingCoaId;
+
+    const otherIncome = await getSystemAccountId(client, businessId, OTHER_INCOME_KEY);
+    const otherExpense = await getSystemAccountId(client, businessId, OTHER_EXPENSE_KEY);
+    if (!otherIncome || !otherExpense) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        error: "Missing the Other income/expense fallback accounts. Seed the chart of accounts.",
+      });
+    }
+
+    let imported = 0;
+    let skipped = 0;
+    for (const r of norm) {
+      const type = r.amount < 0 ? "expense" : "income";
+      const total = Math.round(Math.abs(r.amount) * 100) / 100;
+
+      if (skipDuplicates) {
+        const dup = await client.query(
+          `SELECT 1 FROM transactions
+           WHERE business_id = $1 AND date = $2 AND total_amount = $3
+             AND COALESCE(merchant, '') = COALESCE($4, '')
+             AND (($5::uuid IS NOT NULL AND account_id = $5)
+               OR ($6::uuid IS NOT NULL AND funding_coa_id = $6))
+           LIMIT 1`,
+          [businessId, r.date, total, r.merchant, dupAccountId, dupFundingCoa],
+        );
+        if (dup.rows.length > 0) { skipped++; continue; }
+      }
+
+      const match = await applyRules(
+        client,
+        { merchant: r.merchant, notes: r.notes },
+        businessId,
+        type,
+      );
+      const categoryId = match
+        ? match.category_id
+        : type === "income"
+          ? otherIncome
+          : otherExpense;
+
+      const result = await createLedgerTransaction(client, {
+        businessId,
+        userId,
+        date: r.date,
+        merchant: r.merchant,
+        totalAmount: total,
+        type,
+        notes: r.notes,
+        accountId: accountId || undefined,
+        fundingCoaId: fundingCoaId || undefined,
+        allocations: [{ accountId: categoryId, amount: total, memo: null }],
+      });
+      if (result.error) throw new Error(result.error);
+      imported++;
+    }
+
+    await client.query("COMMIT");
+    return res.json({ imported, skipped, total: norm.length });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Import transactions error:", err);
+    return res
+      .status(500)
+      .json({ error: err.message || "Failed to import transactions" });
+  } finally {
+    client.release();
   }
 });
 
@@ -336,6 +465,8 @@ router.post("/", async (req, res) => {
     originalCurrency,
     originalAmount,
     exchangeRate,
+    withholdingAmount,
+    projectId,
   } = req.body;
 
   if ((!accountId && !fundingCoaId) || !date || !totalAmount || !type) {
@@ -353,7 +484,18 @@ router.post("/", async (req, res) => {
       .json({ error: "totalAmount must be greater than 0" });
   }
 
-  const allocations = readAllocations(req.body);
+  let allocations = readAllocations(req.body);
+  // Auto-categorization: if the caller didn't pick a category (e.g. a future
+  // bank import, or a quick-add), let the highest-priority matching rule assign
+  // the COA account. Rules return a chart_of_accounts id, validated below.
+  if (allocations.length === 0) {
+    const match = await applyRules(pool, { merchant, notes }, businessId, type);
+    if (match) {
+      allocations = [
+        { accountId: match.category_id, amount: parseFloat(totalAmount), memo: null },
+      ];
+    }
+  }
   if (allocations.length === 0) {
     return res
       .status(400)
@@ -380,77 +522,32 @@ router.post("/", async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    const funding = await resolveFundingSource(client, businessId, {
+    const result = await createLedgerTransaction(client, {
+      businessId,
+      userId,
+      date,
+      merchant,
+      totalAmount,
+      type,
+      notes,
       accountId,
       fundingCoaId,
-    });
-    if (funding.error) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ error: funding.error });
-    }
-
-    const catCheck = await validateCategoryAccounts(
-      client,
-      businessId,
-      allocations.map((a) => a.accountId),
-      type,
-    );
-    if (catCheck.error) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ error: catCheck.error });
-    }
-
-    const isSplit = allocations.length > 1;
-    // Exactly one of these is set (enforced by transactions_funding_source_chk).
-    const headerAccountId = funding.accountId;
-    const headerFundingCoaId = funding.accountId ? null : funding.fundingCoaId;
-
-    // Insert the transaction header (denormalized source document).
-    const txResult = await client.query(
-      `INSERT INTO transactions
-         (business_id, account_id, funding_coa_id, created_by, date, merchant, total_amount, type, is_split, receipt_id, notes,
-          vendor_id, original_currency, original_amount, exchange_rate)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-       RETURNING *`,
-      [
-        businessId,
-        headerAccountId,
-        headerFundingCoaId,
-        userId,
-        date,
-        merchant || null,
-        totalAmount,
-        type,
-        isSplit,
-        receiptId || null,
-        notes || null,
-        vendorId || null,
-        originalCurrency || null,
-        originalAmount != null ? originalAmount : null,
-        exchangeRate || 1,
-      ],
-    );
-    const transaction = txResult.rows[0];
-
-    // Post the balanced journal entry.
-    const lines = buildLines({
-      txType: type,
-      total: parseFloat(totalAmount),
-      fundingCoaId: funding.fundingCoaId,
       allocations,
+      receiptId,
+      vendorId,
+      originalCurrency,
+      originalAmount,
+      exchangeRate,
+      withholdingAmount,
+      projectId,
     });
-    await postJournalEntry(client, {
-      businessId,
-      date,
-      description: merchant || (type === "income" ? "Income" : "Expense"),
-      sourceType: "transaction",
-      sourceId: transaction.id,
-      createdBy: userId,
-      lines,
-    });
+    if (result.error) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: result.error });
+    }
 
     await client.query("COMMIT");
-    return res.status(201).json(transaction);
+    return res.status(201).json(result.transaction);
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("Create transaction error:", err);
@@ -501,6 +598,8 @@ router.put("/:id", async (req, res) => {
           : { fundingCoaId: oldTx.funding_coa_id };
     const vendorId =
       req.body.vendorId !== undefined ? req.body.vendorId : oldTx.vendor_id;
+    const projectId =
+      req.body.projectId !== undefined ? req.body.projectId : oldTx.project_id;
     const originalCurrency =
       req.body.originalCurrency !== undefined
         ? req.body.originalCurrency
@@ -513,6 +612,13 @@ router.put("/:id", async (req, res) => {
       req.body.exchangeRate !== undefined
         ? req.body.exchangeRate
         : oldTx.exchange_rate;
+    // §1062.03 withholding (expense only). Force 0 for income.
+    const withholdingAmount =
+      type === "expense"
+        ? req.body.withholdingAmount !== undefined
+          ? parseFloat(req.body.withholdingAmount) || 0
+          : Number(oldTx.withholding_amount || 0)
+        : 0;
 
     if (!["income", "expense"].includes(type)) {
       await client.query("ROLLBACK");
@@ -523,6 +629,12 @@ router.put("/:id", async (req, res) => {
       return res
         .status(400)
         .json({ error: "totalAmount must be greater than 0" });
+    }
+    if (withholdingAmount < 0 || withholdingAmount >= totalAmount) {
+      await client.query("ROLLBACK");
+      return res
+        .status(400)
+        .json({ error: "withholdingAmount must be between 0 and the total amount" });
     }
 
     // Allocations: if the body provides them, use them; else recover the
@@ -594,6 +706,23 @@ router.put("/:id", async (req, res) => {
     const headerAccountId = funding.accountId;
     const headerFundingCoaId = funding.accountId ? null : funding.fundingCoaId;
 
+    // Resolve the withholding-payable account when re-posting a withholding tx.
+    let withholdingAccountId = null;
+    if (withholdingAmount > 0) {
+      withholdingAccountId = await getSystemAccountId(
+        client,
+        businessId,
+        WITHHOLDING_PAYABLE_KEY,
+      );
+      if (!withholdingAccountId) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          error:
+            "Missing the Services Withholding Payable ledger account. Run migration 015 to seed it.",
+        });
+      }
+    }
+
     // Remove the old ledger entry, update the header.
     await deleteEntriesForSource(client, businessId, "transaction", id);
 
@@ -601,8 +730,9 @@ router.put("/:id", async (req, res) => {
       `UPDATE transactions SET
          date = $1, merchant = $2, total_amount = $3, type = $4,
          notes = $5, account_id = $6, funding_coa_id = $7, is_split = $8,
-         vendor_id = $9, original_currency = $10, original_amount = $11, exchange_rate = $12
-       WHERE id = $13 AND business_id = $14
+         vendor_id = $9, original_currency = $10, original_amount = $11, exchange_rate = $12,
+         withholding_amount = $13, project_id = $14
+       WHERE id = $15 AND business_id = $16
        RETURNING *`,
       [
         date,
@@ -617,6 +747,8 @@ router.put("/:id", async (req, res) => {
         originalCurrency || null,
         originalAmount != null ? originalAmount : null,
         exchangeRate || 1,
+        withholdingAmount,
+        projectId || null,
         id,
         businessId,
       ],
@@ -628,6 +760,8 @@ router.put("/:id", async (req, res) => {
       total: totalAmount,
       fundingCoaId: funding.fundingCoaId,
       allocations,
+      withholdingAmount,
+      withholdingAccountId,
     });
     await postJournalEntry(client, {
       businessId,

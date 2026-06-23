@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import api from "../lib/api";
+import { coaToCategories, resolveCatName } from "../lib/coaCategories";
 
 const MATCH_TYPES = ["contains", "equals", "regex"];
 
@@ -330,7 +331,7 @@ function RuleCard({ rule, index, total, onMoveUp, onMoveDown, onEdit, onDelete, 
                 display: "inline-block",
               }}
             />
-            {rule.category_name}
+            {resolveCatName(rule.category_name_key, rule.category_name, t)}
             <span style={{ color: "var(--text-muted)", fontSize: 11 }}>
               ({rule.category_type})
             </span>
@@ -390,10 +391,11 @@ export default function Rules() {
     queryFn: () => api.get("/rules").then((r) => r.data),
   });
 
-  const { data: categories = [] } = useQuery({
-    queryKey: ["categories"],
-    queryFn: () => api.get("/categories").then((r) => r.data),
+  const { data: coaGroups = [] } = useQuery({
+    queryKey: ["chart-of-accounts"],
+    queryFn: () => api.get("/chart-of-accounts").then((r) => r.data),
   });
+  const categories = coaToCategories(coaGroups, t);
 
   const reorderMutation = useMutation({
     mutationFn: (ids) => api.post("/rules/reorder", { ids }).then((r) => r.data),

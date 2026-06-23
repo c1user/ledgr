@@ -15,9 +15,11 @@ router.get("/", async (req, res) => {
       `SELECT
         r.id, r.priority, r.name, r.match_type, r.pattern,
         r.category_id, r.is_active, r.created_at,
-        c.name AS category_name, c.color AS category_color, c.type AS category_type
+        c.name_key AS category_name_key, c.name AS category_name,
+        c.color AS category_color,
+        CASE WHEN c.account_type = 'revenue' THEN 'income' ELSE 'expense' END AS category_type
        FROM categorization_rules r
-       JOIN categories c ON c.id = r.category_id
+       JOIN chart_of_accounts c ON c.id = r.category_id
        WHERE r.business_id = $1
        ORDER BY r.priority ASC, r.created_at ASC`,
       [businessId],
@@ -134,7 +136,9 @@ router.post("/", async (req, res) => {
 
   try {
     const catCheck = await pool.query(
-      "SELECT id FROM categories WHERE id = $1 AND business_id = $2",
+      `SELECT id FROM chart_of_accounts
+       WHERE id = $1 AND business_id = $2
+         AND account_type IN ('revenue', 'expense')`,
       [category_id, businessId],
     );
     if (catCheck.rows.length === 0) {
@@ -187,7 +191,9 @@ router.put("/:id", async (req, res) => {
 
     if (category_id) {
       const catCheck = await pool.query(
-        "SELECT id FROM categories WHERE id = $1 AND business_id = $2",
+        `SELECT id FROM chart_of_accounts
+         WHERE id = $1 AND business_id = $2
+           AND account_type IN ('revenue', 'expense')`,
         [category_id, businessId],
       );
       if (catCheck.rows.length === 0) {

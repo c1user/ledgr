@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import api from "../lib/api";
+import { coaToCategories } from "../lib/coaCategories";
 
 const emptyForm = { name: "", type: "expense", color: "#4F8EF7", parentId: "" };
 
@@ -36,10 +37,20 @@ function CategoryModal({ onClose, editCategory, categories, t }) {
   const mutation = useMutation({
     mutationFn: (data) =>
       editCategory
-        ? api.put(`/categories/${editCategory.id}`, data)
-        : api.post("/categories", data),
+        ? // COA accounts: type is immutable and parent isn't re-parentable,
+          // so an edit only changes name + color.
+          api.put(`/chart-of-accounts/${editCategory.id}`, {
+            name: data.name,
+            color: data.color,
+          })
+        : api.post("/chart-of-accounts", {
+            name: data.name,
+            accountType: data.type === "income" ? "revenue" : "expense",
+            color: data.color,
+            parentId: data.parentId,
+          }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["chart-of-accounts"] });
       onClose();
     },
     onError: (err) =>
@@ -271,8 +282,8 @@ function CategoryModal({ onClose, editCategory, categories, t }) {
             </div>
           </div>
 
-          {/* Parent category */}
-          {!editCategory?.is_system && parentOptions.length > 0 && (
+          {/* Parent category — only when creating (COA accounts aren't re-parentable) */}
+          {!editCategory && parentOptions.length > 0 && (
             <div style={{ marginBottom: 24 }}>
               <label className="label" htmlFor="cat-parent">
                 {t("categories.parentCategory")}
@@ -510,15 +521,16 @@ export default function Categories() {
   const [editCategory, setEditCategory] = useState(null);
   const [activeTab, setActiveTab] = useState("expense");
 
-  const { data: categories, isLoading } = useQuery({
-    queryKey: ["categories"],
-    queryFn: () => api.get("/categories").then((r) => r.data),
+  const { data: coaGroups, isLoading } = useQuery({
+    queryKey: ["chart-of-accounts"],
+    queryFn: () => api.get("/chart-of-accounts").then((r) => r.data),
   });
+  const categories = useMemo(() => coaToCategories(coaGroups, t), [coaGroups, t]);
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => api.delete(`/categories/${id}`),
+    mutationFn: (id) => api.delete(`/chart-of-accounts/${id}`),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["categories"] }),
+      queryClient.invalidateQueries({ queryKey: ["chart-of-accounts"] }),
     onError: (err) =>
       alert(err.response?.data?.error || t("categories.deleteFailed")),
   });

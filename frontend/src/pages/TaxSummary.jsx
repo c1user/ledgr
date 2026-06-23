@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { resolveCatName } from "../lib/coaCategories";
 import {
   BarChart,
   Bar,
@@ -57,7 +58,7 @@ function CategoryRow({ color, name, total, fmt, currency }) {
 }
 
 // ── Category section ──────────────────────────────────────────
-function CategorySection({ title, categories, total, totalLabel, fmt, currency }) {
+function CategorySection({ title, categories, total, totalLabel, fmt, currency, t }) {
   return (
     <div style={{ marginBottom: 16 }}>
       <div
@@ -81,7 +82,7 @@ function CategorySection({ title, categories, total, totalLabel, fmt, currency }
           <CategoryRow
             key={cat.category_id}
             color={cat.category_color}
-            name={cat.category_name}
+            name={resolveCatName(cat.category_name_key, cat.category_name, t)}
             total={parseFloat(cat.total)}
             fmt={fmt}
             currency={currency}
@@ -333,6 +334,7 @@ export default function TaxSummary() {
                 totalLabel={t("tax.totalRevenue")}
                 fmt={fmt}
                 currency={currency}
+                t={t}
               />
               <CategorySection
                 title={t("tax.expenses")}
@@ -341,6 +343,7 @@ export default function TaxSummary() {
                 totalLabel={t("tax.totalExpenses")}
                 fmt={fmt}
                 currency={currency}
+                t={t}
               />
               {/* Net income line */}
               <div
