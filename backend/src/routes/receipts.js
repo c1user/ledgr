@@ -2,6 +2,7 @@ import express from "express";
 import multer from "multer";
 import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { uuidParam } from "../middleware/validateUuid.js";
 import {
   uploadReceiptToS3,
   getReceiptSignedUrl,
@@ -34,6 +35,7 @@ const upload = multer({
 
 // All routes require authentication
 router.use(requireAuth);
+router.param("id", uuidParam("Receipt"));
 
 // ── POST /api/receipts/upload ─────────────────────────────────
 // Upload a receipt image, run AI extraction, save to DB

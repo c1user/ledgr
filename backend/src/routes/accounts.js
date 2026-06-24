@@ -1,6 +1,7 @@
 import express from "express";
 import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { uuidParam } from "../middleware/validateUuid.js";
 import {
   createAccountCoa,
   ACCOUNT_TYPES,
@@ -12,6 +13,7 @@ const router = express.Router();
 
 // All routes require authentication
 router.use(requireAuth);
+router.param("id", uuidParam("Account"));
 
 // ── GET /api/accounts ─────────────────────────────────────────
 // Get all accounts for the business

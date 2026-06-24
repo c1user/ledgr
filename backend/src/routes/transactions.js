@@ -28,6 +28,7 @@
 import express from "express";
 import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { uuidParam } from "../middleware/validateUuid.js";
 import {
   postJournalEntry,
   deleteEntriesForSource,
@@ -44,6 +45,7 @@ import { applyRules } from "../services/categorizationEngine.js";
 
 const router = express.Router();
 router.use(requireAuth);
+router.param("id", uuidParam("Transaction"));
 
 // ── Helpers ──────────────────────────────────────────────────
 // resolveFundingSource / validateCategoryAccounts / buildLines /

@@ -1,12 +1,14 @@
 import express from "express";
 import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { uuidParam } from "../middleware/validateUuid.js";
 import { calculatePayslip, getPeriodsPerYear } from "../services/payroll.js";
 
 const router = express.Router();
 
 // All routes require authentication
 router.use(requireAuth);
+router.param("id", uuidParam("Payroll record"));
 
 // ── GET /api/payroll ──────────────────────────────────────────
 // Get all payroll runs for the business

@@ -1,10 +1,12 @@
 import express from "express";
 import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { uuidParam } from "../middleware/validateUuid.js";
 
 const router = express.Router();
 
 router.use(requireAuth);
+router.param("id", uuidParam("Rule"));
 
 // ── GET /api/rules ────────────────────────────────────────────
 router.get("/", async (req, res) => {

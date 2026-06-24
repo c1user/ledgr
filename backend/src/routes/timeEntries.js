@@ -1,9 +1,11 @@
 import express from "express";
 import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { uuidParam } from "../middleware/validateUuid.js";
 
 const router = express.Router();
 router.use(requireAuth);
+router.param("id", uuidParam("Time entry"));
 
 // ── GET /api/time-entries ────────────────────────────────────
 // Filters: week=YYYY-MM-DD (Monday), project_id, user_id, startDate, endDate

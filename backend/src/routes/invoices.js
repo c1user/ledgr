@@ -29,6 +29,7 @@
 import express from "express";
 import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { uuidParam } from "../middleware/validateUuid.js";
 import { aiChatLimiter } from "../middleware/rateLimiter.js";
 import { anthropic, containsInjectionAttempt } from "../services/aiGuards.js";
 import {
@@ -41,17 +42,7 @@ import { sendInvoiceEmail } from "../services/email.js";
 
 const router = express.Router();
 router.use(requireAuth);
-
-// Invoice ids are UUIDs. Reject malformed ids up front so Postgres never sees
-// an invalid uuid (which would surface as a 500 instead of a clean 404).
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-router.param("id", (req, res, next, id) => {
-  if (!UUID_RE.test(id)) {
-    return res.status(404).json({ error: "Invoice not found" });
-  }
-  next();
-});
+router.param("id", uuidParam("Invoice"));
 
 // ── AI invoice draft (#12) config ────────────────────────────
 const AI_DRAFT_MODEL = "claude-sonnet-4-6";
