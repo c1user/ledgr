@@ -13,6 +13,7 @@
  */
 
 import nodemailer from "nodemailer";
+import { NOREPLY_EMAIL } from "../config/brand.js";
 
 // Build a transport: real SMTP when configured, else an offline capture.
 function getTransport() {
@@ -61,7 +62,7 @@ export async function sendInvoiceEmail({ to, invoice, business, pdfBuffer, lang 
     currency: business?.currency || "USD",
   }).format(Number(invoice.total) || 0);
 
-  const from = process.env.EMAIL_FROM || `${bizName} <no-reply@ledgr.local>`;
+  const from = process.env.EMAIL_FROM || `${bizName} <${NOREPLY_EMAIL}>`;
 
   try {
     const { transport, fallback } = getTransport();

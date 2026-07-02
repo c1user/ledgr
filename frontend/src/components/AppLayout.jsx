@@ -6,6 +6,7 @@ import useThemeStore from "../store/themeStore";
 import useInventoryStore from "../store/inventoryStore";
 import LanguageToggle from "../components/LanguageToggle";
 import { setAppLanguage } from "../i18n";
+import BRAND from "../config/brand";
 
 // Sidebar nav, organized into labelled sections. Groups without a `label`
 // (dashboard at the top, AI/settings at the bottom) render as ungrouped rows.
@@ -179,9 +180,10 @@ export default function AppLayout() {
                   fontSize: 15,
                   fontWeight: 700,
                   letterSpacing: 3,
+                  textTransform: "uppercase",
                 }}
               >
-                LEDGR
+                {BRAND.name}
               </div>
               <div
                 style={{
@@ -543,9 +545,10 @@ export default function AppLayout() {
                 fontSize: 14,
                 fontWeight: 700,
                 letterSpacing: 3,
+                textTransform: "uppercase",
               }}
             >
-              LEDGR
+              {BRAND.name}
             </div>
           )}
 

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
+import BRAND from "../config/brand";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -93,9 +94,10 @@ export default function Login() {
               fontWeight: 700,
               letterSpacing: 4,
               marginBottom: 6,
+              textTransform: "uppercase",
             }}
           >
-            LEDGR
+            {BRAND.name}
           </div>
           <div style={{ color: "var(--text-muted)", fontSize: 13 }}>
             Sign in to your account

@@ -15,6 +15,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import dotenv from "dotenv";
+import { BRAND_NAME } from "./config/brand.js";
 import authRoutes from "./routes/auth.js";
 import transactionRoutes from "./routes/transactions.js";
 import accountRoutes from "./routes/accounts.js";
@@ -172,6 +173,6 @@ app.use((err, req, res, next) => {
 
 app.listen(process.env.PORT, () => {
   console.log(
-    `Ledgr API running on port ${process.env.PORT} [${process.env.NODE_ENV || "development"}]`,
+    `${BRAND_NAME} API running on port ${process.env.PORT} [${process.env.NODE_ENV || "development"}]`,
   );
 });

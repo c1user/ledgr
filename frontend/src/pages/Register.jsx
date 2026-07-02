@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import useThemeStore from "../store/themeStore";
+import BRAND from "../config/brand";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -106,9 +107,10 @@ export default function Register() {
               fontWeight: 700,
               letterSpacing: 4,
               marginBottom: 6,
+              textTransform: "uppercase",
             }}
           >
-            LEDGR
+            {BRAND.name}
           </div>
           <div style={{ color: "var(--text-muted)", fontSize: 13 }}>
             Create your business account
