@@ -17,6 +17,7 @@ import quarterOfYear from "dayjs/plugin/quarterOfYear";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import cx from "../lib/cx";
+import { downloadFile } from "../lib/download";
 import { Button, Card, Input } from "../components/ui";
 
 dayjs.extend(quarterOfYear);
@@ -388,14 +389,30 @@ export default function ProfitLoss() {
       {/* Page header */}
       <div className="print-hide flex justify-between items-center mb-5 flex-wrap gap-3">
         <h1 className="text-xl font-bold text-ink">{t("reports.profitLoss")}</h1>
-        <Button
-          size="sm"
-          icon="ti-printer"
-          className="print-hide"
-          onClick={() => window.print()}
-        >
-          {t("reports.print")}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            icon="ti-file-type-pdf"
+            className="print-hide"
+            disabled={!startDate || !endDate}
+            onClick={() =>
+              downloadFile(
+                `/reports/pl/pdf?startDate=${startDate}&endDate=${endDate}&lang=${i18n.language === "es" ? "es" : "en"}`,
+                `profit-loss-${startDate}-to-${endDate}.pdf`,
+              )
+            }
+          >
+            {t("common.downloadPdf")}
+          </Button>
+          <Button
+            size="sm"
+            icon="ti-printer"
+            className="print-hide"
+            onClick={() => window.print()}
+          >
+            {t("reports.print")}
+          </Button>
+        </div>
       </div>
 
       {/* Period selector */}

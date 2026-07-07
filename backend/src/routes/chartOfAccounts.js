@@ -17,6 +17,7 @@ import express from "express";
 import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { uuidParam } from "../middleware/validateUuid.js";
+import { buildCoaPdf, fetchBusiness } from "../services/reportPdf.js";
 
 const router = express.Router();
 router.use(requireAuth);
@@ -24,49 +25,74 @@ router.param("id", uuidParam("Account"));
 
 const TYPE_ORDER = ["asset", "liability", "equity", "revenue", "expense"];
 
+// ── Grouped COA tree (shared by the JSON and PDF endpoints) ──
+async function fetchGroupedCoa(businessId) {
+  const result = await pool.query(
+    `SELECT
+       coa.id, coa.code, coa.name_key, coa.name, coa.account_type,
+       coa.normal_balance, coa.color, coa.parent_id, coa.is_system, coa.is_active,
+       COALESCE(bal.natural_balance, 0) AS balance
+     FROM chart_of_accounts coa
+     LEFT JOIN account_ledger_balances bal ON bal.account_id = coa.id
+     WHERE coa.business_id = $1
+     ORDER BY coa.code NULLS LAST, coa.name_key NULLS LAST, coa.name`,
+    [businessId],
+  );
+
+  // Build parent/child tree
+  const byId = new Map();
+  result.rows.forEach((r) => byId.set(r.id, { ...r, children: [] }));
+  const roots = [];
+  byId.forEach((node) => {
+    if (node.parent_id && byId.has(node.parent_id)) {
+      byId.get(node.parent_id).children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+
+  // Group roots by account type, in conventional order
+  return TYPE_ORDER.map((type) => ({
+    account_type: type,
+    accounts: roots.filter((n) => n.account_type === type),
+    total: roots
+      .filter((n) => n.account_type === type)
+      .reduce((sum, n) => sum + Number(n.balance), 0),
+  })).filter((g) => g.accounts.length > 0);
+}
+
 // ── GET /api/chart-of-accounts ───────────────────────────────
 // Type-grouped, parent/child tree, each account with its current balance.
 router.get("/", async (req, res) => {
-  const { businessId } = req.user;
-
   try {
-    const result = await pool.query(
-      `SELECT
-         coa.id, coa.code, coa.name_key, coa.name, coa.account_type,
-         coa.normal_balance, coa.color, coa.parent_id, coa.is_system, coa.is_active,
-         COALESCE(bal.natural_balance, 0) AS balance
-       FROM chart_of_accounts coa
-       LEFT JOIN account_ledger_balances bal ON bal.account_id = coa.id
-       WHERE coa.business_id = $1
-       ORDER BY coa.code NULLS LAST, coa.name_key NULLS LAST, coa.name`,
-      [businessId],
-    );
-
-    // Build parent/child tree
-    const byId = new Map();
-    result.rows.forEach((r) => byId.set(r.id, { ...r, children: [] }));
-    const roots = [];
-    byId.forEach((node) => {
-      if (node.parent_id && byId.has(node.parent_id)) {
-        byId.get(node.parent_id).children.push(node);
-      } else {
-        roots.push(node);
-      }
-    });
-
-    // Group roots by account type, in conventional order
-    const grouped = TYPE_ORDER.map((type) => ({
-      account_type: type,
-      accounts: roots.filter((n) => n.account_type === type),
-      total: roots
-        .filter((n) => n.account_type === type)
-        .reduce((sum, n) => sum + Number(n.balance), 0),
-    })).filter((g) => g.accounts.length > 0);
-
-    return res.json(grouped);
+    return res.json(await fetchGroupedCoa(req.user.businessId));
   } catch (err) {
     console.error("Get chart of accounts error:", err);
     return res.status(500).json({ error: "Failed to fetch chart of accounts" });
+  }
+});
+
+// ── GET /api/chart-of-accounts/pdf ───────────────────────────
+// Server-side Chart of Accounts PDF (Phase 3 — replaces window.print()).
+router.get("/pdf", async (req, res) => {
+  const { businessId } = req.user;
+  const lang = req.query.lang === "es" ? "es" : "en";
+
+  try {
+    const [groups, business] = await Promise.all([
+      fetchGroupedCoa(businessId),
+      fetchBusiness(businessId),
+    ]);
+    const pdf = await buildCoaPdf(groups, business, { lang });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="chart-of-accounts.pdf"',
+    );
+    return res.send(pdf);
+  } catch (err) {
+    console.error("COA PDF error:", err);
+    return res.status(500).json({ error: "Failed to generate PDF" });
   }
 });
 
@@ -185,11 +211,9 @@ router.delete("/:id", async (req, res) => {
       return res.status(404).json({ error: "Account not found" });
     }
     if (existing.rows[0].is_system) {
-      return res
-        .status(400)
-        .json({
-          error: "System accounts can't be deleted. Deactivate it instead.",
-        });
+      return res.status(400).json({
+        error: "System accounts can't be deleted. Deactivate it instead.",
+      });
     }
 
     const used = await pool.query(

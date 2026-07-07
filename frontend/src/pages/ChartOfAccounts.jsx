@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import cx from "../lib/cx";
+import { downloadFile } from "../lib/download";
 import { Button } from "../components/ui";
 
 // Locale-aware currency formatter (matches the rest of the app).
@@ -104,9 +105,22 @@ export default function ChartOfAccounts() {
           <h1 className="text-[22px] font-bold text-ink">{t("coa.title")}</h1>
           <div className="text-sm text-secondary">{t("coa.subtitle")}</div>
         </div>
-        <Button icon="ti-printer" onClick={() => window.print()}>
-          {t("coa.print")}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            icon="ti-file-type-pdf"
+            onClick={() =>
+              downloadFile(
+                `/chart-of-accounts/pdf?lang=${i18n.language === "es" ? "es" : "en"}`,
+                "chart-of-accounts.pdf",
+              )
+            }
+          >
+            {t("common.downloadPdf")}
+          </Button>
+          <Button icon="ti-printer" onClick={() => window.print()}>
+            {t("coa.print")}
+          </Button>
+        </div>
       </div>
 
       {/* Type filter */}

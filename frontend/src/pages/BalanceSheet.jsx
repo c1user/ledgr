@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import cx from "../lib/cx";
+import { downloadFile } from "../lib/download";
 import { Button, Card, Input } from "../components/ui";
 
 const makeFmt =
@@ -81,6 +82,17 @@ export default function BalanceSheet() {
             onChange={(e) => setAsOf(e.target.value)}
             className="w-auto"
           />
+          <Button
+            icon="ti-file-type-pdf"
+            onClick={() =>
+              downloadFile(
+                `/ledger/balance-sheet/pdf?asOf=${asOf}&lang=${i18n.language === "es" ? "es" : "en"}`,
+                `balance-sheet-${asOf}.pdf`,
+              )
+            }
+          >
+            {t("common.downloadPdf")}
+          </Button>
           <Button icon="ti-printer" onClick={() => window.print()}>
             {t("balanceSheet.print")}
           </Button>

@@ -31,6 +31,7 @@
   },
   "common": {
     "save": "Guardar",
+    "downloadPdf": "Descargar PDF",
     "cancel": "Cancelar",
     "delete": "Eliminar",
     "edit": "Editar",

@@ -18,6 +18,7 @@
 import express from "express";
 import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { buildBalanceSheetPdf, fetchBusiness } from "../services/reportPdf.js";
 
 const router = express.Router();
 router.use(requireAuth);
@@ -77,67 +78,96 @@ router.get("/trial-balance", async (req, res) => {
   }
 });
 
+// ── Balance-sheet data (shared by the JSON and PDF endpoints) ─
+async function computeBalanceSheet(businessId, asOf) {
+  const accounts = await accountTotals(businessId, asOf);
+
+  const byType = (t) => accounts.filter((a) => a.account_type === t);
+  const sumNatural = (rows) => rows.reduce((s, a) => s + a.natural_balance, 0);
+
+  const assets = byType("asset");
+  const liabilities = byType("liability");
+  const equityAccounts = byType("equity");
+  const revenue = byType("revenue");
+  const expense = byType("expense");
+
+  const totalAssets = sumNatural(assets);
+  const totalLiabilities = sumNatural(liabilities);
+  const totalEquityAccounts = sumNatural(equityAccounts);
+
+  // Revenue and expense are temporary accounts that haven't been closed
+  // into equity. Their net is current-period earnings, shown as an equity line.
+  const netIncome = sumNatural(revenue) - sumNatural(expense);
+  const totalEquity = totalEquityAccounts + netIncome;
+
+  const round = (n) => Math.round(n * 100) / 100;
+  const difference = totalAssets - (totalLiabilities + totalEquity);
+
+  const present = (rows) =>
+    rows
+      .filter((a) => a.natural_balance !== 0)
+      .map((a) => ({
+        id: a.id,
+        code: a.code,
+        name_key: a.name_key,
+        name: a.name,
+        balance: round(a.natural_balance),
+      }));
+
+  return {
+    as_of: asOf || null,
+    assets: { accounts: present(assets), total: round(totalAssets) },
+    liabilities: {
+      accounts: present(liabilities),
+      total: round(totalLiabilities),
+    },
+    equity: {
+      accounts: present(equityAccounts),
+      current_period_earnings: round(netIncome),
+      total: round(totalEquity),
+    },
+    total_liabilities_and_equity: round(totalLiabilities + totalEquity),
+    // The proof: assets must equal liabilities + equity.
+    balances: Math.abs(difference) < EPSILON,
+    difference: round(difference),
+  };
+}
+
 // ── GET /api/ledger/balance-sheet ────────────────────────────
 router.get("/balance-sheet", async (req, res) => {
   const { businessId } = req.user;
   const { asOf } = req.query;
 
   try {
-    const accounts = await accountTotals(businessId, asOf);
-
-    const byType = (t) => accounts.filter((a) => a.account_type === t);
-    const sumNatural = (rows) =>
-      rows.reduce((s, a) => s + a.natural_balance, 0);
-
-    const assets = byType("asset");
-    const liabilities = byType("liability");
-    const equityAccounts = byType("equity");
-    const revenue = byType("revenue");
-    const expense = byType("expense");
-
-    const totalAssets = sumNatural(assets);
-    const totalLiabilities = sumNatural(liabilities);
-    const totalEquityAccounts = sumNatural(equityAccounts);
-
-    // Revenue and expense are temporary accounts that haven't been closed
-    // into equity. Their net is current-period earnings, shown as an equity line.
-    const netIncome = sumNatural(revenue) - sumNatural(expense);
-    const totalEquity = totalEquityAccounts + netIncome;
-
-    const round = (n) => Math.round(n * 100) / 100;
-    const difference = totalAssets - (totalLiabilities + totalEquity);
-
-    const present = (rows) =>
-      rows
-        .filter((a) => a.natural_balance !== 0)
-        .map((a) => ({
-          id: a.id,
-          code: a.code,
-          name_key: a.name_key,
-          name: a.name,
-          balance: round(a.natural_balance),
-        }));
-
-    return res.json({
-      as_of: asOf || null,
-      assets: { accounts: present(assets), total: round(totalAssets) },
-      liabilities: {
-        accounts: present(liabilities),
-        total: round(totalLiabilities),
-      },
-      equity: {
-        accounts: present(equityAccounts),
-        current_period_earnings: round(netIncome),
-        total: round(totalEquity),
-      },
-      total_liabilities_and_equity: round(totalLiabilities + totalEquity),
-      // The proof: assets must equal liabilities + equity.
-      balances: Math.abs(difference) < EPSILON,
-      difference: round(difference),
-    });
+    return res.json(await computeBalanceSheet(businessId, asOf));
   } catch (err) {
     console.error("Balance sheet error:", err);
     return res.status(500).json({ error: "Failed to compute balance sheet" });
+  }
+});
+
+// ── GET /api/ledger/balance-sheet/pdf ────────────────────────
+// Server-side Balance Sheet PDF (Phase 3 — replaces window.print()).
+router.get("/balance-sheet/pdf", async (req, res) => {
+  const { businessId } = req.user;
+  const asOf = req.query.asOf || new Date().toISOString().slice(0, 10);
+  const lang = req.query.lang === "es" ? "es" : "en";
+
+  try {
+    const [data, business] = await Promise.all([
+      computeBalanceSheet(businessId, asOf),
+      fetchBusiness(businessId),
+    ]);
+    const pdf = await buildBalanceSheetPdf(data, business, { asOf, lang });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="balance-sheet-${asOf}.pdf"`,
+    );
+    return res.send(pdf);
+  } catch (err) {
+    console.error("Balance sheet PDF error:", err);
+    return res.status(500).json({ error: "Failed to generate PDF" });
   }
 });
 

@@ -15,6 +15,7 @@ import {
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import cx from "../lib/cx";
+import { downloadFile } from "../lib/download";
 import { Button, Card } from "../components/ui";
 
 const makeFmt =
@@ -224,6 +225,19 @@ export default function TaxSummary() {
               </Button>
             ))}
           </div>
+          <Button
+            size="sm"
+            icon="ti-file-type-pdf"
+            className="print-hide"
+            onClick={() =>
+              downloadFile(
+                `/reports/tax/pdf?year=${year}&lang=${i18n.language === "es" ? "es" : "en"}`,
+                `tax-summary-${year}.pdf`,
+              )
+            }
+          >
+            {t("common.downloadPdf")}
+          </Button>
           <Button
             size="sm"
             icon="ti-printer"

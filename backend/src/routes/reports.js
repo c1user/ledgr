@@ -1,6 +1,11 @@
 import express from "express";
 import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
+import {
+  buildPlPdf,
+  buildTaxPdf,
+  fetchBusiness,
+} from "../services/reportPdf.js";
 
 const router = express.Router();
 
@@ -15,14 +20,8 @@ function monthStartStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 }
 
-// ── GET /api/reports/pl ───────────────────────────────────────
-// Profit & Loss report: income/expense by category + monthly trend
-router.get("/pl", async (req, res) => {
-  const { businessId } = req.user;
-
-  const startDate = req.query.startDate || monthStartStr();
-  const endDate = req.query.endDate || todayStr();
-
+// ── P&L data (shared by the JSON and PDF endpoints) ──────────
+async function getPlData(businessId, startDate, endDate) {
   // Category breakdown from the ledger: sum journal-line activity per
   // chart-of-accounts account. $4 is the account_type ('revenue' or 'expense').
   // Revenue is naturally a credit, expense a debit — normalize to positive.
@@ -84,47 +83,90 @@ router.get("/pl", async (req, res) => {
     ORDER BY converted_total DESC
   `;
 
-  try {
-    const [incomeResult, expenseResult, trendResult, fxResult] = await Promise.all([
-      pool.query(categoryBreakdownSql, [businessId, startDate, endDate, "revenue"]),
-      pool.query(categoryBreakdownSql, [businessId, startDate, endDate, "expense"]),
+  const [incomeResult, expenseResult, trendResult, fxResult] =
+    await Promise.all([
+      pool.query(categoryBreakdownSql, [
+        businessId,
+        startDate,
+        endDate,
+        "revenue",
+      ]),
+      pool.query(categoryBreakdownSql, [
+        businessId,
+        startDate,
+        endDate,
+        "expense",
+      ]),
       pool.query(trendSql, [businessId, startDate, endDate]),
       pool.query(fxSummarySql, [businessId, startDate, endDate]),
     ]);
 
-    const incomeCategories = incomeResult.rows;
-    const expenseCategories = expenseResult.rows;
+  const incomeCategories = incomeResult.rows;
+  const expenseCategories = expenseResult.rows;
 
-    const totalIncome = incomeCategories.reduce(
-      (sum, r) => sum + parseFloat(r.total),
-      0,
-    );
-    const totalExpenses = expenseCategories.reduce(
-      (sum, r) => sum + parseFloat(r.total),
-      0,
-    );
+  const totalIncome = incomeCategories.reduce(
+    (sum, r) => sum + parseFloat(r.total),
+    0,
+  );
+  const totalExpenses = expenseCategories.reduce(
+    (sum, r) => sum + parseFloat(r.total),
+    0,
+  );
 
-    return res.json({
-      income_categories: incomeCategories,
-      expense_categories: expenseCategories,
-      total_income: parseFloat(totalIncome.toFixed(2)),
-      total_expenses: parseFloat(totalExpenses.toFixed(2)),
-      net_income: parseFloat((totalIncome - totalExpenses).toFixed(2)),
-      monthly_trend: trendResult.rows,
-      fx_currencies: fxResult.rows,
-    });
+  return {
+    income_categories: incomeCategories,
+    expense_categories: expenseCategories,
+    total_income: parseFloat(totalIncome.toFixed(2)),
+    total_expenses: parseFloat(totalExpenses.toFixed(2)),
+    net_income: parseFloat((totalIncome - totalExpenses).toFixed(2)),
+    monthly_trend: trendResult.rows,
+    fx_currencies: fxResult.rows,
+  };
+}
+
+// ── GET /api/reports/pl ───────────────────────────────────────
+// Profit & Loss report: income/expense by category + monthly trend
+router.get("/pl", async (req, res) => {
+  const { businessId } = req.user;
+  const startDate = req.query.startDate || monthStartStr();
+  const endDate = req.query.endDate || todayStr();
+
+  try {
+    return res.json(await getPlData(businessId, startDate, endDate));
   } catch (err) {
     console.error("P&L report error:", err);
     return res.status(500).json({ error: "Failed to generate report" });
   }
 });
 
-// ── GET /api/reports/tax ─────────────────────────────────────
-// Tax summary report: income/expense by category + payroll taxes + quarterly
-router.get("/tax", async (req, res) => {
+// ── GET /api/reports/pl/pdf ──────────────────────────────────
+// Server-side P&L PDF (Phase 3 — replaces window.print()).
+router.get("/pl/pdf", async (req, res) => {
   const { businessId } = req.user;
-  const year = parseInt(req.query.year) || new Date().getFullYear();
+  const startDate = req.query.startDate || monthStartStr();
+  const endDate = req.query.endDate || todayStr();
+  const lang = req.query.lang === "es" ? "es" : "en";
 
+  try {
+    const [data, business] = await Promise.all([
+      getPlData(businessId, startDate, endDate),
+      fetchBusiness(businessId),
+    ]);
+    const pdf = await buildPlPdf(data, business, { startDate, endDate, lang });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="profit-loss-${startDate}-to-${endDate}.pdf"`,
+    );
+    return res.send(pdf);
+  } catch (err) {
+    console.error("P&L PDF error:", err);
+    return res.status(500).json({ error: "Failed to generate PDF" });
+  }
+});
+
+// ── Tax-summary data (shared by the JSON and PDF endpoints) ──
+async function getTaxData(businessId, year) {
   const startDate = `${year}-01-01`;
   const endDate = `${year}-12-31`;
 
@@ -187,44 +229,94 @@ router.get("/tax", async (req, res) => {
     ORDER BY quarter ASC
   `;
 
+  const [incomeResult, expenseResult, payrollResult, quarterResult] =
+    await Promise.all([
+      pool.query(categoryBreakdownSql, [
+        businessId,
+        startDate,
+        endDate,
+        "revenue",
+      ]),
+      pool.query(categoryBreakdownSql, [
+        businessId,
+        startDate,
+        endDate,
+        "expense",
+      ]),
+      pool.query(payrollTaxSql, [businessId, year]),
+      pool.query(quarterSql, [businessId, year]),
+    ]);
+
+  const incomeCategories = incomeResult.rows;
+  const expenseCategories = expenseResult.rows;
+  const totalIncome = incomeCategories.reduce(
+    (s, r) => s + parseFloat(r.total),
+    0,
+  );
+  const totalExpenses = expenseCategories.reduce(
+    (s, r) => s + parseFloat(r.total),
+    0,
+  );
+
+  // Fill in missing quarters with zeros
+  const quarterMap = {};
+  for (const row of quarterResult.rows) {
+    quarterMap[row.quarter] = row;
+  }
+  const quarterly = [1, 2, 3, 4].map((q) => ({
+    quarter: `Q${q}`,
+    income: parseFloat(quarterMap[q]?.income || 0),
+    expenses: parseFloat(quarterMap[q]?.expenses || 0),
+  }));
+
+  return {
+    year,
+    income_categories: incomeCategories,
+    expense_categories: expenseCategories,
+    total_income: parseFloat(totalIncome.toFixed(2)),
+    total_expenses: parseFloat(totalExpenses.toFixed(2)),
+    net_income: parseFloat((totalIncome - totalExpenses).toFixed(2)),
+    payroll: payrollResult.rows[0],
+    quarterly,
+  };
+}
+
+// ── GET /api/reports/tax ─────────────────────────────────────
+// Tax summary report: income/expense by category + payroll taxes + quarterly
+router.get("/tax", async (req, res) => {
+  const { businessId } = req.user;
+  const year = parseInt(req.query.year) || new Date().getFullYear();
+
   try {
-    const [incomeResult, expenseResult, payrollResult, quarterResult] =
-      await Promise.all([
-        pool.query(categoryBreakdownSql, [businessId, startDate, endDate, "revenue"]),
-        pool.query(categoryBreakdownSql, [businessId, startDate, endDate, "expense"]),
-        pool.query(payrollTaxSql, [businessId, year]),
-        pool.query(quarterSql, [businessId, year]),
-      ]);
-
-    const incomeCategories = incomeResult.rows;
-    const expenseCategories = expenseResult.rows;
-    const totalIncome = incomeCategories.reduce((s, r) => s + parseFloat(r.total), 0);
-    const totalExpenses = expenseCategories.reduce((s, r) => s + parseFloat(r.total), 0);
-
-    // Fill in missing quarters with zeros
-    const quarterMap = {};
-    for (const row of quarterResult.rows) {
-      quarterMap[row.quarter] = row;
-    }
-    const quarterly = [1, 2, 3, 4].map((q) => ({
-      quarter: `Q${q}`,
-      income: parseFloat(quarterMap[q]?.income || 0),
-      expenses: parseFloat(quarterMap[q]?.expenses || 0),
-    }));
-
-    return res.json({
-      year,
-      income_categories: incomeCategories,
-      expense_categories: expenseCategories,
-      total_income: parseFloat(totalIncome.toFixed(2)),
-      total_expenses: parseFloat(totalExpenses.toFixed(2)),
-      net_income: parseFloat((totalIncome - totalExpenses).toFixed(2)),
-      payroll: payrollResult.rows[0],
-      quarterly,
-    });
+    return res.json(await getTaxData(businessId, year));
   } catch (err) {
     console.error("Tax summary report error:", err);
     return res.status(500).json({ error: "Failed to generate tax report" });
+  }
+});
+
+// ── GET /api/reports/tax/pdf ─────────────────────────────────
+// Server-side Tax Summary PDF (Phase 3 — replaces window.print()).
+router.get("/tax/pdf", async (req, res) => {
+  const { businessId } = req.user;
+  const year = parseInt(req.query.year) || new Date().getFullYear();
+  const lang = req.query.lang === "es" ? "es" : "en";
+
+  try {
+    const [data, business] = await Promise.all([
+      getTaxData(businessId, year),
+      fetchBusiness(businessId),
+    ]);
+    const pdf = await buildTaxPdf(data, business, { lang });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="tax-summary-${year}.pdf"`,
+    );
+    return res.send(pdf);
+  } catch (err) {
+    console.error("Tax summary PDF error:", err);
+    return res.status(500).json({ error: "Failed to generate PDF" });
   }
 });
 
@@ -301,7 +393,9 @@ router.get("/ar-aging", async (req, res) => {
     });
   } catch (err) {
     console.error("AR aging report error:", err);
-    return res.status(500).json({ error: "Failed to generate AR aging report" });
+    return res
+      .status(500)
+      .json({ error: "Failed to generate AR aging report" });
   }
 });
 
@@ -351,7 +445,9 @@ router.get("/ar-summary", async (req, res) => {
     });
   } catch (err) {
     console.error("AR summary report error:", err);
-    return res.status(500).json({ error: "Failed to generate AR summary report" });
+    return res
+      .status(500)
+      .json({ error: "Failed to generate AR summary report" });
   }
 });
 
@@ -451,7 +547,11 @@ router.get("/1099/export", async (req, res) => {
 
     const incomplete = flagged
       .filter((v) => v.missing_fields.length > 0)
-      .map((v) => ({ id: v.id, name: v.name, missing_fields: v.missing_fields }));
+      .map((v) => ({
+        id: v.id,
+        name: v.name,
+        missing_fields: v.missing_fields,
+      }));
     if (incomplete.length > 0) {
       return res.status(422).json({
         error:
@@ -472,7 +572,15 @@ router.get("/1099/export", async (req, res) => {
     const lines = [header.map(csvCell).join(",")];
     for (const v of flagged) {
       lines.push(
-        [v.name, v.ein, v.address, v.city, v.state, v.zip, v.total_paid.toFixed(2)]
+        [
+          v.name,
+          v.ein,
+          v.address,
+          v.city,
+          v.state,
+          v.zip,
+          v.total_paid.toFixed(2),
+        ]
           .map(csvCell)
           .join(","),
       );
@@ -633,7 +741,11 @@ router.get("/480-6sp/export", async (req, res) => {
 
     const incomplete = flagged
       .filter((v) => v.missing_fields.length > 0)
-      .map((v) => ({ id: v.id, name: v.name, missing_fields: v.missing_fields }));
+      .map((v) => ({
+        id: v.id,
+        name: v.name,
+        missing_fields: v.missing_fields,
+      }));
     if (incomplete.length > 0) {
       return res.status(422).json({
         error:
@@ -674,7 +786,9 @@ router.get("/480-6sp/export", async (req, res) => {
           v.withheld.toFixed(2),
           v.not_subject.toFixed(2),
           v.waiver_certificate_no,
-        ].map(csvCell).join(","),
+        ]
+          .map(csvCell)
+          .join(","),
       );
     }
 
