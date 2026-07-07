@@ -122,7 +122,7 @@ export default function AppLayout() {
     .toUpperCase();
 
   return (
-    <div className="relative flex h-screen overflow-hidden">
+    <div className="relative flex h-screen overflow-hidden print:h-auto print:overflow-visible">
       {/* ── Mobile overlay backdrop ── */}
       {mobile && sidebarOpen && (
         <div
@@ -134,7 +134,7 @@ export default function AppLayout() {
       {/* ── Sidebar ── */}
       <aside
         className={cx(
-          "flex flex-col shrink-0 overflow-hidden bg-sidebar border-r border-line",
+          "flex flex-col shrink-0 overflow-hidden bg-sidebar border-r border-line print:hidden",
           "transition-[width,transform] duration-200 ease-in-out",
           mobile
             ? cx(
@@ -303,7 +303,7 @@ export default function AppLayout() {
       {/* ── Main content ── */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Top bar */}
-        <header className="flex items-center justify-between gap-3 h-[52px] px-5 bg-surface border-b border-line shrink-0">
+        <header className="flex items-center justify-between gap-3 h-[52px] px-5 bg-surface border-b border-line shrink-0 print:hidden">
           {/* Mobile menu button */}
           {mobile && (
             <button
@@ -348,7 +348,7 @@ export default function AppLayout() {
         </header>
 
         {/* Page content */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 print:overflow-visible">
           <Outlet />
         </div>
       </div>

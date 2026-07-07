@@ -408,7 +408,7 @@ export default function TimeTracking() {
               {/* Timer widget */}
               <div
                 className={cx(
-                  "flex items-center gap-2 px-3 py-2 rounded-lg border border-line shrink-0",
+                  "flex items-center gap-2 px-3 py-2 rounded-lg border border-line flex-wrap max-w-full",
                   timerRunning ? "bg-brand-light" : "bg-canvas",
                 )}
               >

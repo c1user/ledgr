@@ -509,7 +509,7 @@ function InvoiceModal({ invoice, clients, revenueAccounts, onClose, t, lang }) {
             {items.map((it, i) => (
               <div
                 key={i}
-                className="grid grid-cols-[12px_1fr_64px_90px_90px_30px] gap-1.5 items-center"
+                className="grid grid-cols-[12px_minmax(0,1fr)_52px_76px_28px] sm:grid-cols-[12px_1fr_64px_90px_90px_30px] gap-1.5 items-center"
               >
                 <span
                   title={
@@ -547,7 +547,7 @@ function InvoiceModal({ invoice, clients, revenueAccounts, onClose, t, lang }) {
                   onChange={(e) => updateItem(i, "unit_price", e.target.value)}
                   className="text-right"
                 />
-                <div className="text-xs text-right text-secondary">
+                <div className="hidden sm:block text-xs text-right text-secondary">
                   {fmt(
                     (parseFloat(it.quantity) || 0) *
                       (parseFloat(it.unit_price) || 0),
