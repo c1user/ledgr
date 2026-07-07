@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -6,6 +6,8 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import dayjs from "dayjs";
+import cx from "../lib/cx";
+import { Button, Card, EmptyState } from "../components/ui";
 
 // Locale-aware currency formatter. Falls back to en-US number grouping;
 // es-PR uses the same currency symbols so $ stays correct for PR.
@@ -18,49 +20,33 @@ const makeFmt =
     }).format(val || 0);
 
 // ── KPI Card ─────────────────────────────────────────────────
-function KpiCard({ label, value, color, icon, bg }) {
+const KPI_TONES = {
+  income: { text: "text-income", box: "bg-income-bg" },
+  expense: { text: "text-expense", box: "bg-expense-bg" },
+  payroll: { text: "text-payroll", box: "bg-payroll-bg" },
+};
+
+function KpiCard({ label, value, tone, icon }) {
+  const t = KPI_TONES[tone];
   return (
-    <div className="card" style={{ padding: "16px 20px" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-        }}
-      >
+    <Card padding="none" className="px-5 py-4">
+      <div className="flex justify-between items-start">
         <div>
-          <div
-            style={{
-              fontSize: 11,
-              color: "var(--text-muted)",
-              letterSpacing: 1,
-              marginBottom: 8,
-              textTransform: "uppercase",
-            }}
-          >
+          <div className="text-[11px] text-muted tracking-[1px] uppercase mb-2">
             {label}
           </div>
-          <div style={{ fontSize: 24, fontWeight: 600, color }}>{value}</div>
+          <div className={cx("text-2xl font-semibold", t.text)}>{value}</div>
         </div>
         <div
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 8,
-            background: bg,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          className={cx(
+            "flex items-center justify-center w-9 h-9 rounded-lg shrink-0",
+            t.box,
+          )}
         >
-          <i
-            className={`ti ${icon}`}
-            style={{ fontSize: 18, color }}
-            aria-hidden="true"
-          />
+          <i className={cx("ti", icon, "text-lg", t.text)} aria-hidden="true" />
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -69,45 +55,18 @@ function CustomTooltip({ active, payload, currency, fmt, t }) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
-    <div
-      style={{
-        background: "var(--bg-primary)",
-        border: "0.5px solid var(--border-color)",
-        borderRadius: 8,
-        padding: "10px 14px",
-        boxShadow: "var(--card-shadow)",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          marginBottom: 4,
-        }}
-      >
+    <div className="bg-surface border border-line rounded-lg px-3.5 py-2.5 shadow-card">
+      <div className="flex items-center gap-1.5 mb-1">
         <div
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: "50%",
-            background: d.color,
-          }}
+          className="w-2.5 h-2.5 rounded-full"
+          style={{ background: d.color }}
         />
-        <span
-          style={{
-            fontSize: 13,
-            fontWeight: 500,
-            color: "var(--text-primary)",
-          }}
-        >
-          {d.name}
-        </span>
+        <span className="text-md font-medium text-ink">{d.name}</span>
       </div>
-      <div style={{ fontSize: 13, color: "var(--expense)", fontWeight: 600 }}>
+      <div className="text-md font-semibold text-expense">
         {fmt(d.value, currency)}
       </div>
-      <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+      <div className="text-[11px] text-muted">
         {t("dashboard.pctOfExpenses", { pct: d.pct })}
       </div>
     </div>
@@ -162,32 +121,22 @@ function SpendingChart({ transactions, currency, navigate, fmt, t }) {
 
   if (data.length === 0) {
     return (
-      <div style={{ padding: "40px 20px", textAlign: "center" }}>
-        <i
-          className="ti ti-chart-donut"
-          style={{ fontSize: 36, color: "var(--text-muted)" }}
-          aria-hidden="true"
-        />
-        <div
-          style={{ color: "var(--text-muted)", fontSize: 13, marginTop: 10 }}
-        >
-          {t("dashboard.noExpenseData")}
-        </div>
-        <button
-          onClick={() => navigate("/transactions")}
-          className="btn btn-primary"
-          style={{ marginTop: 12 }}
-        >
-          {t("dashboard.addTransaction")}
-        </button>
-      </div>
+      <EmptyState
+        icon="ti-chart-donut"
+        message={t("dashboard.noExpenseData")}
+        action={
+          <Button variant="primary" onClick={() => navigate("/transactions")}>
+            {t("dashboard.addTransaction")}
+          </Button>
+        }
+      />
     );
   }
 
   return (
-    <div style={{ padding: "0 0 8px" }}>
+    <div className="pb-2">
       {/* Donut chart */}
-      <div style={{ height: 220, position: "relative" }}>
+      <div className="relative h-[220px]">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -218,130 +167,73 @@ function SpendingChart({ transactions, currency, navigate, fmt, t }) {
           </PieChart>
         </ResponsiveContainer>
         {/* Center label */}
-        <div
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            textAlign: "center",
-            pointerEvents: "none",
-          }}
-        >
-          <div
-            style={{
-              fontSize: 11,
-              color: "var(--text-muted)",
-              marginBottom: 2,
-            }}
-          >
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+          <div className="text-[11px] text-muted mb-0.5">
             {t("dashboard.total")}
           </div>
-          <div
-            style={{ fontSize: 16, fontWeight: 700, color: "var(--expense)" }}
-          >
+          <div className="text-base font-bold text-expense">
             {fmt(total, currency)}
           </div>
         </div>
       </div>
 
       {/* Category ranked list */}
-      <div style={{ padding: "0 18px" }}>
+      <div className="px-[18px]">
         {data.map((cat, i) => (
           <div
             key={cat.name}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "8px 0",
-              borderBottom:
-                i < data.length - 1
-                  ? "0.5px solid var(--border-color)"
-                  : "none",
-            }}
+            className={cx(
+              "flex items-center gap-2.5 py-2",
+              i < data.length - 1 && "border-b border-line",
+            )}
             onMouseEnter={() => setActiveIndex(i)}
             onMouseLeave={() => setActiveIndex(null)}
           >
             {/* Color dot */}
             <div
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: "50%",
-                background: cat.color,
-                flexShrink: 0,
-              }}
+              className="w-2.5 h-2.5 rounded-full shrink-0"
+              style={{ background: cat.color }}
             />
 
             {/* Category name + bar */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  marginBottom: 4,
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: "var(--text-primary)",
-                    fontWeight: 500,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between mb-1">
+                <span className="text-xs font-medium text-ink truncate">
                   {cat.name}
                 </span>
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: "var(--text-muted)",
-                    flexShrink: 0,
-                    marginLeft: 8,
-                  }}
-                >
+                <span className="text-xs text-muted shrink-0 ml-2">
                   {cat.pct}%
                 </span>
               </div>
               {/* Progress bar */}
-              <div
-                style={{
-                  height: 4,
-                  background: "var(--border-color)",
-                  borderRadius: 2,
-                }}
-              >
+              <div className="h-1 bg-line rounded-sm">
                 <div
-                  style={{
-                    height: "100%",
-                    width: `${cat.pct}%`,
-                    background: cat.color,
-                    borderRadius: 2,
-                    transition: "width 0.3s",
-                  }}
+                  className="h-full rounded-sm transition-all duration-300"
+                  style={{ width: `${cat.pct}%`, background: cat.color }}
                 />
               </div>
             </div>
 
             {/* Amount */}
-            <div
-              style={{
-                fontSize: 13,
-                fontWeight: 600,
-                color: "var(--expense)",
-                flexShrink: 0,
-                minWidth: 70,
-                textAlign: "right",
-              }}
-            >
+            <div className="text-md font-semibold text-expense shrink-0 min-w-[70px] text-right">
               {fmt(cat.value, currency)}
             </div>
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// Card section header, shared by the dashboard panels.
+function PanelHeader({ title, sub, action }) {
+  return (
+    <div className="flex items-center justify-between px-[18px] py-3.5 border-b border-line">
+      <div>
+        <div className="text-sm font-medium text-ink">{title}</div>
+        {sub && <div className="text-[11px] text-muted mt-0.5">{sub}</div>}
+      </div>
+      {action}
     </div>
   );
 }
@@ -353,14 +245,6 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const currency = business?.currency || "USD";
   const fmt = makeFmt(i18n.language);
-
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
 
   const now = dayjs();
   const startOfMonth = now.startOf("month").format("YYYY-MM-DD");
@@ -376,14 +260,22 @@ export default function Dashboard() {
         .then((r) => r.data),
   });
 
+  // Current-month transactions — feeds the month-labeled spending chart.
   const { data: txData, isLoading: txLoading } = useQuery({
-    queryKey: ["transactions", "recent"],
+    queryKey: ["transactions", "month", startOfMonth],
     queryFn: () =>
       api
         .get(
           `/transactions?limit=100&startDate=${startOfMonth}&endDate=${endOfMonth}`,
         )
         .then((r) => r.data),
+  });
+
+  // Latest transactions regardless of month — the "Recent transactions"
+  // panel must not go blank at the start of a new month.
+  const { data: recentData, isLoading: recentLoading } = useQuery({
+    queryKey: ["transactions", "recent"],
+    queryFn: () => api.get(`/transactions?limit=8`).then((r) => r.data),
   });
 
   const { data: balances, isLoading: balancesLoading } = useQuery({
@@ -410,113 +302,66 @@ export default function Dashboard() {
   // Localized "Month YYYY" — dayjs locale is set globally by setAppLanguage
   const monthLabel = now.format("MMMM YYYY");
 
+  const loadingText = (
+    <div className="p-6 text-center text-muted text-md">
+      {t("common.loading")}
+    </div>
+  );
+
   return (
     <div className="fade-in">
       {/* Page header */}
-      <div style={{ marginBottom: 24 }}>
-        <h1
-          style={{
-            fontSize: 20,
-            fontWeight: 600,
-            color: "var(--text-primary)",
-            marginBottom: 4,
-          }}
-        >
+      <div className="mb-6">
+        <h1 className="text-xl font-semibold text-ink mb-1">
           {t("dashboard.title")}
         </h1>
-        <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
+        <div className="text-md text-muted">
           {t("dashboard.overview", { month: monthLabel })}
         </div>
       </div>
 
       {/* KPI Cards */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-          gap: 12,
-          marginBottom: 24,
-        }}
-      >
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3 mb-6">
         <KpiCard
           label={t("dashboard.revenue")}
           value={summaryLoading ? "..." : fmt(income, currency)}
-          color="var(--income)"
+          tone="income"
           icon="ti-trending-up"
-          bg="var(--income-bg)"
         />
         <KpiCard
           label={t("common.expenses")}
           value={summaryLoading ? "..." : fmt(expenses, currency)}
-          color="var(--expense)"
+          tone="expense"
           icon="ti-trending-down"
-          bg="var(--expense-bg)"
         />
         <KpiCard
           label={t("common.netProfit")}
           value={summaryLoading ? "..." : fmt(net, currency)}
-          color={net >= 0 ? "var(--income)" : "var(--expense)"}
+          tone={net >= 0 ? "income" : "expense"}
           icon="ti-report-money"
-          bg={net >= 0 ? "var(--income-bg)" : "var(--expense-bg)"}
         />
         <KpiCard
           label={t("dashboard.totalBalance")}
           value={
             balancesLoading ? "..." : fmt(balances?.total_balance, currency)
           }
-          color="var(--payroll)"
+          tone="payroll"
           icon="ti-building-bank"
-          bg="var(--payroll-bg)"
         />
       </div>
 
       {/* Main grid */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "1fr 300px",
-          gap: 16,
-        }}
-      >
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] gap-4">
         {/* Left — spending chart + recent transactions */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* Spending by category — shown on both mobile and desktop */}
-          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-            <div
-              style={{
-                padding: "14px 18px",
-                borderBottom: "0.5px solid var(--border-color)",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: "var(--text-primary)",
-                }}
-              >
-                {t("dashboard.spendingByCategory")}
-              </div>
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "var(--text-muted)",
-                  marginTop: 2,
-                }}
-              >
-                {t("dashboard.monthExpenses", { month: monthLabel })}
-              </div>
-            </div>
+        <div className="flex flex-col gap-4 min-w-0">
+          {/* Spending by category */}
+          <Card padding="none" className="overflow-hidden">
+            <PanelHeader
+              title={t("dashboard.spendingByCategory")}
+              sub={t("dashboard.monthExpenses", { month: monthLabel })}
+            />
             {txLoading ? (
-              <div
-                style={{
-                  padding: 24,
-                  textAlign: "center",
-                  color: "var(--text-muted)",
-                }}
-              >
-                {t("common.loading")}
-              </div>
+              loadingText
             ) : (
               <SpendingChart
                 transactions={txData?.transactions}
@@ -526,154 +371,67 @@ export default function Dashboard() {
                 t={t}
               />
             )}
-          </div>
+          </Card>
 
-          {/* Recent transactions — shown on both mobile and desktop */}
-          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-            <div
-              style={{
-                padding: "14px 18px",
-                borderBottom: "0.5px solid var(--border-color)",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: "var(--text-primary)",
-                }}
-              >
-                {t("dashboard.recentTransactions")}
-              </div>
-              <button
-                onClick={() => navigate("/transactions")}
-                className="btn btn-secondary"
-                style={{ padding: "5px 10px", fontSize: 12 }}
-              >
-                {t("dashboard.viewAll")}
-              </button>
-            </div>
-            {txLoading ? (
-              <div
-                style={{
-                  padding: 24,
-                  textAlign: "center",
-                  color: "var(--text-muted)",
-                }}
-              >
-                {t("common.loading")}
-              </div>
-            ) : txData?.transactions?.length === 0 ? (
-              <div style={{ padding: 32, textAlign: "center" }}>
-                <i
-                  className="ti ti-receipt-off"
-                  style={{ fontSize: 32, color: "var(--text-muted)" }}
-                  aria-hidden="true"
-                />
-                <div
-                  style={{
-                    color: "var(--text-muted)",
-                    fontSize: 13,
-                    marginTop: 8,
-                  }}
-                >
-                  {t("dashboard.noTransactions")}
-                </div>
-                <button
-                  onClick={() => navigate("/transactions")}
-                  className="btn btn-primary"
-                  style={{ marginTop: 12 }}
-                >
-                  {t("dashboard.addFirstTransaction")}
-                </button>
-              </div>
+          {/* Recent transactions */}
+          <Card padding="none" className="overflow-hidden">
+            <PanelHeader
+              title={t("dashboard.recentTransactions")}
+              action={
+                <Button size="sm" onClick={() => navigate("/transactions")}>
+                  {t("dashboard.viewAll")}
+                </Button>
+              }
+            />
+            {recentLoading ? (
+              loadingText
+            ) : recentData?.transactions?.length === 0 ? (
+              <EmptyState
+                icon="ti-receipt-off"
+                message={t("dashboard.noTransactions")}
+                action={
+                  <Button
+                    variant="primary"
+                    onClick={() => navigate("/transactions")}
+                  >
+                    {t("dashboard.addFirstTransaction")}
+                  </Button>
+                }
+              />
             ) : (
               <div>
-                {txData?.transactions?.slice(0, 8).map((tx) => (
+                {recentData?.transactions?.slice(0, 8).map((tx) => (
                   <div
                     key={tx.id}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "12px 18px",
-                      borderBottom: "0.5px solid var(--border-color)",
-                      cursor: "pointer",
-                      transition: "background 0.15s",
-                      gap: 12,
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.background = "var(--bg-secondary)")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = "transparent")
-                    }
+                    className="flex items-center justify-between gap-3 px-[18px] py-3 border-b border-line cursor-pointer transition-colors hover:bg-canvas"
                     onClick={() => navigate("/transactions")}
                   >
                     <div
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 8,
-                        background:
-                          tx.type === "income"
-                            ? "var(--income-bg)"
-                            : "var(--expense-bg)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
-                      }}
+                      className={cx(
+                        "flex items-center justify-center w-9 h-9 rounded-lg shrink-0",
+                        tx.type === "income" ? "bg-income-bg" : "bg-expense-bg",
+                      )}
                     >
                       <i
-                        className={`ti ${tx.type === "income" ? "ti-arrow-down-left" : "ti-arrow-up-right"}`}
-                        style={{
-                          fontSize: 16,
-                          color:
-                            tx.type === "income"
-                              ? "var(--income)"
-                              : "var(--expense)",
-                        }}
+                        className={cx(
+                          "ti text-base",
+                          tx.type === "income"
+                            ? "ti-arrow-down-left text-income"
+                            : "ti-arrow-up-right text-expense",
+                        )}
                         aria-hidden="true"
                       />
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: 13,
-                          fontWeight: 500,
-                          color: "var(--text-primary)",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-md font-medium text-ink truncate">
                         {tx.merchant || t("dashboard.noMerchant")}
                         {tx.is_split && (
-                          <span
-                            style={{
-                              fontSize: 10,
-                              background: "var(--payroll-bg)",
-                              color: "var(--payroll)",
-                              padding: "1px 6px",
-                              borderRadius: 3,
-                              marginLeft: 6,
-                            }}
-                          >
+                          <span className="text-[10px] bg-payroll-bg text-payroll px-1.5 rounded-sm ml-1.5">
                             {t("dashboard.split")}
                           </span>
                         )}
                       </div>
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: "var(--text-muted)",
-                          marginTop: 2,
-                        }}
-                      >
+                      <div className="text-[11px] text-muted mt-0.5">
                         {dayjs(tx.date).format("MMM D, YYYY")} ·{" "}
                         {tx.account_name_key
                           ? t(tx.account_name_key)
@@ -682,15 +440,10 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div
-                      style={{
-                        fontSize: 14,
-                        fontWeight: 600,
-                        flexShrink: 0,
-                        color:
-                          tx.type === "income"
-                            ? "var(--income)"
-                            : "var(--expense)",
-                      }}
+                      className={cx(
+                        "text-sm font-semibold shrink-0",
+                        tx.type === "income" ? "text-income" : "text-expense",
+                      )}
                     >
                       {tx.type === "income" ? "+" : "-"}
                       {fmt(tx.total_amount, currency)}
@@ -699,42 +452,18 @@ export default function Dashboard() {
                 ))}
               </div>
             )}
-          </div>
+          </Card>
         </div>
 
         {/* Right column */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className="flex flex-col gap-4 min-w-0">
           {/* Account balances */}
-          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-            <div
-              style={{
-                padding: "14px 18px",
-                borderBottom: "0.5px solid var(--border-color)",
-                fontSize: 14,
-                fontWeight: 500,
-                color: "var(--text-primary)",
-              }}
-            >
-              {t("dashboard.accounts")}
-            </div>
+          <Card padding="none" className="overflow-hidden">
+            <PanelHeader title={t("dashboard.accounts")} />
             {balancesLoading ? (
-              <div
-                style={{
-                  padding: 16,
-                  color: "var(--text-muted)",
-                  fontSize: 13,
-                }}
-              >
-                {t("common.loading")}
-              </div>
+              loadingText
             ) : accounts?.length === 0 ? (
-              <div
-                style={{
-                  padding: 16,
-                  color: "var(--text-muted)",
-                  fontSize: 13,
-                }}
-              >
+              <div className="p-4 text-muted text-md">
                 {t("dashboard.noAccounts")}
               </div>
             ) : (
@@ -742,39 +471,21 @@ export default function Dashboard() {
                 {accounts?.map((acc) => (
                   <div
                     key={acc.id}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "10px 18px",
-                      borderBottom: "0.5px solid var(--border-color)",
-                    }}
+                    className="flex items-center justify-between px-[18px] py-2.5 border-b border-line"
                   >
                     <div>
-                      <div
-                        style={{ fontSize: 13, color: "var(--text-primary)" }}
-                      >
-                        {acc.name}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: "var(--text-muted)",
-                          textTransform: "capitalize",
-                        }}
-                      >
+                      <div className="text-md text-ink">{acc.name}</div>
+                      <div className="text-[11px] text-muted capitalize">
                         {t(`accountTypes.${acc.type}`, acc.type)}
                       </div>
                     </div>
                     <div
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color:
-                          parseFloat(acc.current_balance) >= 0
-                            ? "var(--income)"
-                            : "var(--expense)",
-                      }}
+                      className={cx(
+                        "text-md font-semibold",
+                        parseFloat(acc.current_balance) >= 0
+                          ? "text-income"
+                          : "text-expense",
+                      )}
                     >
                       {fmt(acc.current_balance, currency)}
                     </div>
@@ -782,173 +493,155 @@ export default function Dashboard() {
                 ))}
               </div>
             )}
-          </div>
+          </Card>
 
           {/* Budget overview widget */}
-          {budgetSummary.length > 0 && (() => {
-            const totalBudget = budgetSummary.reduce((s, r) => s + parseFloat(r.budget_amount), 0);
-            const totalActual = budgetSummary.reduce((s, r) => s + parseFloat(r.actual_amount), 0);
-            const pct = totalBudget > 0 ? Math.min((totalActual / totalBudget) * 100, 100) : 0;
-            const over = totalActual > totalBudget;
-            return (
-              <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-                <div
-                  style={{
-                    padding: "14px 18px",
-                    borderBottom: "0.5px solid var(--border-color)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <span style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)" }}>
-                    {t("budget.title")}
-                  </span>
-                  <span
-                    onClick={() => navigate("/budget")}
-                    style={{ fontSize: 11, color: "var(--brand)", cursor: "pointer" }}
-                  >
-                    {t("budget.viewAll")} →
-                  </span>
-                </div>
-                <div style={{ padding: "12px 18px" }}>
-                  {/* Total bar */}
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>
-                    <span>{fmt(totalActual, currency)} {t("budget.totalSpent").toLowerCase()}</span>
-                    <span>{fmt(totalBudget, currency)}</span>
-                  </div>
-                  <div style={{ height: 6, background: "var(--border-color)", borderRadius: 3, marginBottom: 12, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${pct}%`, background: over ? "var(--error, #e53e3e)" : "var(--brand)", borderRadius: 3, transition: "width 0.3s" }} />
-                  </div>
-                  {/* Top categories */}
-                  {budgetSummary.slice(0, 4).map((r) => {
-                    const a = parseFloat(r.actual_amount);
-                    const b = parseFloat(r.budget_amount);
-                    const p = b > 0 ? Math.min((a / b) * 100, 100) : 0;
-                    const o = a > b;
-                    return (
-                      <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: r.color || "var(--brand)", flexShrink: 0 }} />
-                        <span style={{ fontSize: 12, color: "var(--text-secondary)", minWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</span>
-                        <div style={{ flex: 1, height: 4, background: "var(--border-color)", borderRadius: 2, overflow: "hidden" }}>
-                          <div style={{ height: "100%", width: `${p}%`, background: o ? "var(--error, #e53e3e)" : "var(--brand)", borderRadius: 2 }} />
+          {budgetSummary.length > 0 &&
+            (() => {
+              const totalBudget = budgetSummary.reduce(
+                (s, r) => s + parseFloat(r.budget_amount),
+                0,
+              );
+              const totalActual = budgetSummary.reduce(
+                (s, r) => s + parseFloat(r.actual_amount),
+                0,
+              );
+              const pct =
+                totalBudget > 0
+                  ? Math.min((totalActual / totalBudget) * 100, 100)
+                  : 0;
+              const over = totalActual > totalBudget;
+              return (
+                <Card padding="none" className="overflow-hidden">
+                  <PanelHeader
+                    title={t("budget.title")}
+                    action={
+                      <span
+                        onClick={() => navigate("/budget")}
+                        className="text-[11px] text-brand cursor-pointer"
+                      >
+                        {t("budget.viewAll")} →
+                      </span>
+                    }
+                  />
+                  <div className="px-[18px] py-3">
+                    {/* Total bar */}
+                    <div className="flex justify-between text-[11px] text-muted mb-1.5">
+                      <span>
+                        {fmt(totalActual, currency)}{" "}
+                        {t("budget.totalSpent").toLowerCase()}
+                      </span>
+                      <span>{fmt(totalBudget, currency)}</span>
+                    </div>
+                    <div className="h-1.5 bg-line rounded-sm mb-3 overflow-hidden">
+                      <div
+                        className={cx(
+                          "h-full rounded-sm transition-all duration-300",
+                          over ? "bg-danger" : "bg-brand",
+                        )}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    {/* Top categories */}
+                    {budgetSummary.slice(0, 4).map((r) => {
+                      const a = parseFloat(r.actual_amount);
+                      const b = parseFloat(r.budget_amount);
+                      const p = b > 0 ? Math.min((a / b) * 100, 100) : 0;
+                      const o = a > b;
+                      return (
+                        <div
+                          key={r.id}
+                          className="flex items-center gap-2 mb-1.5"
+                        >
+                          <div
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ background: r.color || "var(--brand)" }}
+                          />
+                          <span className="text-xs text-secondary min-w-[80px] truncate">
+                            {r.name}
+                          </span>
+                          <div className="flex-1 h-1 bg-line rounded-sm overflow-hidden">
+                            <div
+                              className={cx(
+                                "h-full rounded-sm",
+                                o ? "bg-danger" : "bg-brand",
+                              )}
+                              style={{ width: `${p}%` }}
+                            />
+                          </div>
+                          <span
+                            className={cx(
+                              "text-[11px] whitespace-nowrap",
+                              o ? "text-danger" : "text-muted",
+                            )}
+                          >
+                            {Math.round(p)}%
+                          </span>
                         </div>
-                        <span style={{ fontSize: 11, color: o ? "var(--error, #e53e3e)" : "var(--text-muted)", whiteSpace: "nowrap" }}>{Math.round(p)}%</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })()}
+                      );
+                    })}
+                  </div>
+                </Card>
+              );
+            })()}
 
           {/* AI prompt bar */}
-          <div
-            className="card"
+          <Card
+            padding="none"
             onClick={() => navigate("/ai")}
-            style={{
-              padding: "14px 16px",
-              cursor: "pointer",
-              transition: "all 0.15s",
-              border: "0.5px solid var(--border-color)",
-            }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.borderColor = "var(--brand)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.borderColor = "var(--border-color)")
-            }
+            className="px-4 py-3.5 cursor-pointer transition-all hover:border-brand"
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 8,
-                  background: "var(--brand-light)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
+            <div className="flex items-center gap-2.5">
+              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-brand-light shrink-0">
                 <i
-                  className="ti ti-sparkles"
-                  style={{ fontSize: 16, color: "var(--brand)" }}
+                  className="ti ti-sparkles text-base text-brand"
                   aria-hidden="true"
                 />
               </div>
               <div>
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 500,
-                    color: "var(--text-primary)",
-                  }}
-                >
+                <div className="text-md font-medium text-ink">
                   {t("dashboard.askAi")}
                 </div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: "var(--text-muted)",
-                    marginTop: 1,
-                  }}
-                >
+                <div className="text-[11px] text-muted mt-px">
                   {t("dashboard.askAiExample")}
                 </div>
               </div>
               <i
-                className="ti ti-arrow-right"
-                style={{
-                  marginLeft: "auto",
-                  color: "var(--text-muted)",
-                  fontSize: 16,
-                }}
+                className="ti ti-arrow-right ml-auto text-base text-muted"
                 aria-hidden="true"
               />
             </div>
-          </div>
+          </Card>
 
           {/* Quick actions */}
-          <div className="card" style={{ padding: "14px 18px" }}>
-            <div
-              style={{
-                fontSize: 14,
-                fontWeight: 500,
-                color: "var(--text-primary)",
-                marginBottom: 12,
-              }}
-            >
+          <Card padding="none" className="px-[18px] py-3.5">
+            <div className="text-sm font-medium text-ink mb-3">
               {t("dashboard.quickActions")}
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <button
+            <div className="flex flex-col gap-2">
+              <Button
+                icon="ti-plus"
                 onClick={() => navigate("/transactions")}
-                className="btn btn-secondary"
-                style={{ justifyContent: "flex-start", fontSize: 13 }}
+                className="justify-start"
               >
-                <i className="ti ti-plus" aria-hidden="true" />{" "}
                 {t("dashboard.addTransaction")}
-              </button>
-              <button
+              </Button>
+              <Button
+                icon="ti-camera"
                 onClick={() => navigate("/receipts")}
-                className="btn btn-secondary"
-                style={{ justifyContent: "flex-start", fontSize: 13 }}
+                className="justify-start"
               >
-                <i className="ti ti-camera" aria-hidden="true" />{" "}
                 {t("dashboard.scanReceipt")}
-              </button>
-              <button
+              </Button>
+              <Button
+                icon="ti-report-money"
                 onClick={() => navigate("/payroll")}
-                className="btn btn-secondary"
-                style={{ justifyContent: "flex-start", fontSize: 13 }}
+                className="justify-start"
               >
-                <i className="ti ti-report-money" aria-hidden="true" />{" "}
                 {t("dashboard.runPayroll")}
-              </button>
+              </Button>
             </div>
-          </div>
+          </Card>
         </div>
       </div>
     </div>

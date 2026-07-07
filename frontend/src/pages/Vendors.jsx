@@ -3,6 +3,18 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import dayjs from "dayjs";
+import cx from "../lib/cx";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  Modal,
+  PageHeader,
+  Select,
+} from "../components/ui";
 
 const emptyForm = {
   name: "",
@@ -28,6 +40,31 @@ const makeFmt = (lang) => (val) =>
     style: "currency",
     currency: "USD",
   }).format(val || 0);
+
+// Checkbox row on a muted background, with label + hint (+ optional extra).
+function CheckRow({ id, checked, onChange, label, hint, children }) {
+  return (
+    <div className="flex items-start gap-2.5 px-3.5 py-2.5 bg-canvas rounded-lg">
+      <input
+        type="checkbox"
+        id={id}
+        checked={checked}
+        onChange={onChange}
+        className="w-4 h-4 cursor-pointer mt-0.5"
+      />
+      <div className="flex-1">
+        <label
+          htmlFor={id}
+          className="block text-md font-medium text-ink cursor-pointer"
+        >
+          {label}
+        </label>
+        <div className="text-[11px] text-muted mt-0.5">{hint}</div>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 // ── Vendor add/edit modal ─────────────────────────────────────
 function VendorModal({ vendor, onClose, t }) {
@@ -77,282 +114,141 @@ function VendorModal({ vendor, onClose, t }) {
   }
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.45)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-        padding: 16,
-      }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+    <Modal
+      open
+      onClose={onClose}
+      title={isEdit ? t("vendors.editVendor") : t("vendors.newVendor")}
     >
-      <div
-        className="card fade-in"
-        style={{
-          width: "100%",
-          maxWidth: 520,
-          padding: 24,
-          maxHeight: "90vh",
-          overflow: "auto",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 20,
-          }}
-        >
-          <h2
-            style={{
-              fontSize: 16,
-              fontWeight: 700,
-              margin: 0,
-              color: "var(--text-primary)",
-            }}
-          >
-            {isEdit ? t("vendors.editVendor") : t("vendors.newVendor")}
-          </h2>
-          <button className="btn btn-secondary btn-sm" onClick={onClose}>
-            <i className="ti ti-x" />
-          </button>
+      {error && (
+        <div className="text-md text-expense bg-expense-bg rounded-md px-3 py-2 mb-3.5">
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+        <Field label={t("vendors.nameLabel")} className="mb-0">
+          <Input
+            type="text"
+            placeholder={t("vendors.namePlaceholder")}
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            autoFocus
+          />
+        </Field>
+
+        <Field label={t("vendors.einLabel")} className="mb-0">
+          <Input
+            type="text"
+            placeholder={t("vendors.einPlaceholder")}
+            value={form.ein}
+            onChange={(e) => setForm({ ...form, ein: e.target.value })}
+          />
+        </Field>
+
+        <Field label={t("vendors.addressLabel")} className="mb-0">
+          <Input
+            type="text"
+            placeholder="123 Main St"
+            value={form.address}
+            onChange={(e) => setForm({ ...form, address: e.target.value })}
+          />
+        </Field>
+
+        <div className="grid grid-cols-[1fr_80px_90px] gap-2">
+          <Field label={t("vendors.cityLabel")} className="mb-0">
+            <Input
+              type="text"
+              placeholder="San Juan"
+              value={form.city}
+              onChange={(e) => setForm({ ...form, city: e.target.value })}
+            />
+          </Field>
+          <Field label={t("vendors.stateLabel")} className="mb-0">
+            <Input
+              type="text"
+              placeholder="PR"
+              value={form.state}
+              onChange={(e) => setForm({ ...form, state: e.target.value })}
+            />
+          </Field>
+          <Field label={t("vendors.zipLabel")} className="mb-0">
+            <Input
+              type="text"
+              placeholder="00901"
+              value={form.zip}
+              onChange={(e) => setForm({ ...form, zip: e.target.value })}
+            />
+          </Field>
         </div>
 
-        {error && (
-          <div
-            style={{
-              fontSize: 13,
-              color: "var(--expense, #ef4444)",
-              background: "var(--expense-bg)",
-              borderRadius: 6,
-              padding: "8px 12px",
-              marginBottom: 14,
-            }}
-          >
-            {error}
-          </div>
-        )}
+        <div className="grid grid-cols-2 gap-2">
+          <Field label={t("vendors.emailLabel")} className="mb-0">
+            <Input
+              type="email"
+              placeholder="contact@vendor.com"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
+          </Field>
+          <Field label={t("vendors.phoneLabel")} className="mb-0">
+            <Input
+              type="tel"
+              placeholder="(787) 555-0100"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            />
+          </Field>
+        </div>
 
-        <form
-          onSubmit={handleSubmit}
-          style={{ display: "flex", flexDirection: "column", gap: 14 }}
+        <CheckRow
+          id="vendor-1099"
+          checked={form.is_1099_eligible}
+          onChange={(e) =>
+            setForm({ ...form, is_1099_eligible: e.target.checked })
+          }
+          label={t("vendors.is1099Label")}
+          hint={t("vendors.is1099Hint")}
+        />
+
+        {/* §1062.03 withholding waiver (relevo) — feeds Form 480.6SP */}
+        <CheckRow
+          id="vendor-waiver"
+          checked={form.withholding_exempt}
+          onChange={(e) =>
+            setForm({ ...form, withholding_exempt: e.target.checked })
+          }
+          label={t("vendors.waiverLabel")}
+          hint={t("vendors.waiverHint")}
         >
-          <div>
-            <label className="label">{t("vendors.nameLabel")}</label>
-            <input
-              className="input"
+          {form.withholding_exempt && (
+            <Input
+              className="mt-2"
               type="text"
-              placeholder={t("vendors.namePlaceholder")}
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              autoFocus
-            />
-          </div>
-
-          <div>
-            <label className="label">{t("vendors.einLabel")}</label>
-            <input
-              className="input"
-              type="text"
-              placeholder={t("vendors.einPlaceholder")}
-              value={form.ein}
-              onChange={(e) => setForm({ ...form, ein: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <label className="label">{t("vendors.addressLabel")}</label>
-            <input
-              className="input"
-              type="text"
-              placeholder="123 Main St"
-              value={form.address}
-              onChange={(e) => setForm({ ...form, address: e.target.value })}
-            />
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 80px 90px",
-              gap: 8,
-            }}
-          >
-            <div>
-              <label className="label">{t("vendors.cityLabel")}</label>
-              <input
-                className="input"
-                type="text"
-                placeholder="San Juan"
-                value={form.city}
-                onChange={(e) => setForm({ ...form, city: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="label">{t("vendors.stateLabel")}</label>
-              <input
-                className="input"
-                type="text"
-                placeholder="PR"
-                value={form.state}
-                onChange={(e) => setForm({ ...form, state: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="label">{t("vendors.zipLabel")}</label>
-              <input
-                className="input"
-                type="text"
-                placeholder="00901"
-                value={form.zip}
-                onChange={(e) => setForm({ ...form, zip: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <div>
-              <label className="label">{t("vendors.emailLabel")}</label>
-              <input
-                className="input"
-                type="email"
-                placeholder="contact@vendor.com"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="label">{t("vendors.phoneLabel")}</label>
-              <input
-                className="input"
-                type="tel"
-                placeholder="(787) 555-0100"
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 10,
-              padding: "10px 14px",
-              background: "var(--bg-secondary)",
-              borderRadius: 8,
-            }}
-          >
-            <input
-              type="checkbox"
-              id="vendor-1099"
-              checked={form.is_1099_eligible}
+              placeholder={t("vendors.waiverCertPlaceholder")}
+              value={form.waiver_certificate_no}
               onChange={(e) =>
-                setForm({ ...form, is_1099_eligible: e.target.checked })
+                setForm({ ...form, waiver_certificate_no: e.target.value })
               }
-              style={{ width: 16, height: 16, cursor: "pointer", marginTop: 2 }}
             />
-            <div>
-              <label
-                htmlFor="vendor-1099"
-                style={{
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: "var(--text-primary)",
-                  cursor: "pointer",
-                  display: "block",
-                }}
-              >
-                {t("vendors.is1099Label")}
-              </label>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
-                {t("vendors.is1099Hint")}
-              </div>
-            </div>
-          </div>
+          )}
+        </CheckRow>
 
-          {/* §1062.03 withholding waiver (relevo) — feeds Form 480.6SP */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 10,
-              padding: "10px 14px",
-              background: "var(--bg-secondary)",
-              borderRadius: 8,
-            }}
+        <div className="flex gap-2.5 justify-end mt-1">
+          <Button onClick={onClose}>{t("common.cancel")}</Button>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={saveMutation.isPending}
           >
-            <input
-              type="checkbox"
-              id="vendor-waiver"
-              checked={form.withholding_exempt}
-              onChange={(e) =>
-                setForm({ ...form, withholding_exempt: e.target.checked })
-              }
-              style={{ width: 16, height: 16, cursor: "pointer", marginTop: 2 }}
-            />
-            <div style={{ flex: 1 }}>
-              <label
-                htmlFor="vendor-waiver"
-                style={{
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: "var(--text-primary)",
-                  cursor: "pointer",
-                  display: "block",
-                }}
-              >
-                {t("vendors.waiverLabel")}
-              </label>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
-                {t("vendors.waiverHint")}
-              </div>
-              {form.withholding_exempt && (
-                <input
-                  className="input"
-                  style={{ marginTop: 8 }}
-                  type="text"
-                  placeholder={t("vendors.waiverCertPlaceholder")}
-                  value={form.waiver_certificate_no}
-                  onChange={(e) =>
-                    setForm({ ...form, waiver_certificate_no: e.target.value })
-                  }
-                />
-              )}
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              gap: 10,
-              justifyContent: "flex-end",
-              marginTop: 4,
-            }}
-          >
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
-              {t("common.cancel")}
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={saveMutation.isPending}
-            >
-              {saveMutation.isPending
-                ? t("vendors.saving")
-                : isEdit
-                  ? t("vendors.saveChanges")
-                  : t("vendors.createVendor")}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+            {saveMutation.isPending
+              ? t("vendors.saving")
+              : isEdit
+                ? t("vendors.saveChanges")
+                : t("vendors.createVendor")}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -368,251 +264,114 @@ function VendorDrawer({ vendor, onClose, onEdit, onDelete, fmt, t }) {
     .filter((tx) => tx.type === "expense")
     .reduce((s, tx) => s + parseFloat(tx.total_amount), 0);
 
+  const contactRow = (icon, value, alignTop) =>
+    value && (
+      <div
+        className={cx(
+          "flex gap-2 mb-1.5",
+          alignTop ? "items-start" : "items-center",
+        )}
+      >
+        <i
+          className={cx("ti", icon, "text-sm text-muted shrink-0", alignTop && "mt-px")}
+          aria-hidden="true"
+        />
+        <span className="text-md text-secondary">{value}</span>
+      </div>
+    );
+
   return (
     <>
       {/* Backdrop */}
-      <div
-        onClick={onClose}
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,0.3)",
-          zIndex: 200,
-        }}
-      />
+      <div onClick={onClose} className="fixed inset-0 bg-black/30 z-[150]" />
       {/* Panel */}
-      <div
-        className="fade-in"
-        style={{
-          position: "fixed",
-          top: 0,
-          right: 0,
-          bottom: 0,
-          width: 400,
-          maxWidth: "100vw",
-          background: "var(--bg-primary)",
-          borderLeft: "0.5px solid var(--border-color)",
-          zIndex: 201,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        }}
-      >
+      <div className="fade-in fixed top-0 right-0 bottom-0 w-[400px] max-w-full bg-surface border-l border-line z-[151] flex flex-col overflow-hidden">
         {/* Header */}
-        <div
-          style={{
-            padding: "16px 20px",
-            borderBottom: "0.5px solid var(--border-color)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            gap: 12,
-            flexShrink: 0,
-          }}
-        >
-          <div style={{ minWidth: 0 }}>
-            <div
-              style={{
-                fontSize: 16,
-                fontWeight: 700,
-                color: "var(--text-primary)",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
+        <div className="flex justify-between items-start gap-3 px-5 py-4 border-b border-line shrink-0">
+          <div className="min-w-0">
+            <div className="text-base font-bold text-ink truncate">
               {vendor.name}
             </div>
             {vendor.is_1099_eligible && (
-              <span
-                style={{
-                  display: "inline-block",
-                  marginTop: 4,
-                  fontSize: 10,
-                  fontWeight: 600,
-                  padding: "2px 7px",
-                  borderRadius: 4,
-                  background: "var(--income-bg)",
-                  color: "var(--income)",
-                  letterSpacing: 0.5,
-                }}
-              >
-                1099
-              </span>
+              <div className="mt-1">
+                <Badge tone="income">1099</Badge>
+              </div>
             )}
           </div>
-          <button className="btn btn-secondary btn-sm" onClick={onClose}>
-            <i className="ti ti-x" />
-          </button>
+          <Button size="sm" icon="ti-x" onClick={onClose} aria-label="Close" />
         </div>
 
         {/* Body */}
-        <div style={{ flex: 1, overflow: "auto", padding: "16px 20px" }}>
+        <div className="flex-1 overflow-auto px-5 py-4">
           {/* YTD stats */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 10,
-              marginBottom: 20,
-            }}
-          >
-            <div
-              style={{
-                background: "var(--bg-secondary)",
-                borderRadius: 8,
-                padding: "10px 14px",
-              }}
-            >
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 2 }}>
+          <div className="grid grid-cols-2 gap-2.5 mb-5">
+            <div className="bg-canvas rounded-lg px-3.5 py-2.5">
+              <div className="text-[11px] text-muted mb-0.5">
                 {t("vendors.ytdPaid")}
               </div>
-              <div
-                style={{ fontSize: 16, fontWeight: 700, color: "var(--expense)" }}
-              >
+              <div className="text-base font-bold text-expense">
                 {fmt(totalPaid)}
               </div>
             </div>
-            <div
-              style={{
-                background: "var(--bg-secondary)",
-                borderRadius: 8,
-                padding: "10px 14px",
-              }}
-            >
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 2 }}>
+            <div className="bg-canvas rounded-lg px-3.5 py-2.5">
+              <div className="text-[11px] text-muted mb-0.5">
                 {t("vendors.colTxCount")}
               </div>
-              <div
-                style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}
-              >
-                {txs.length}
-              </div>
+              <div className="text-base font-bold text-ink">{txs.length}</div>
             </div>
           </div>
 
           {/* Contact info */}
-          <div style={{ marginBottom: 20 }}>
-            {vendor.ein && (
-              <div style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
-                <i
-                  className="ti ti-id"
-                  style={{ fontSize: 14, color: "var(--text-muted)", flexShrink: 0 }}
-                />
-                <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-                  {vendor.ein}
-                </span>
-              </div>
+          <div className="mb-5">
+            {contactRow("ti-id", vendor.ein)}
+            {contactRow(
+              "ti-map-pin",
+              [vendor.address, vendor.city, vendor.state, vendor.zip]
+                .filter(Boolean)
+                .join(", ") || null,
+              true,
             )}
-            {(vendor.address || vendor.city) && (
-              <div style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "flex-start" }}>
-                <i
-                  className="ti ti-map-pin"
-                  style={{ fontSize: 14, color: "var(--text-muted)", flexShrink: 0, marginTop: 1 }}
-                />
-                <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-                  {[vendor.address, vendor.city, vendor.state, vendor.zip]
-                    .filter(Boolean)
-                    .join(", ")}
-                </span>
-              </div>
-            )}
-            {vendor.email && (
-              <div style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
-                <i
-                  className="ti ti-mail"
-                  style={{ fontSize: 14, color: "var(--text-muted)", flexShrink: 0 }}
-                />
-                <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-                  {vendor.email}
-                </span>
-              </div>
-            )}
-            {vendor.phone && (
-              <div style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
-                <i
-                  className="ti ti-phone"
-                  style={{ fontSize: 14, color: "var(--text-muted)", flexShrink: 0 }}
-                />
-                <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-                  {vendor.phone}
-                </span>
-              </div>
-            )}
+            {contactRow("ti-mail", vendor.email)}
+            {contactRow("ti-phone", vendor.phone)}
           </div>
 
           {/* Edit button */}
-          <button
-            className="btn btn-secondary"
-            onClick={onEdit}
-            style={{ width: "100%", marginBottom: 20, display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}
-          >
-            <i className="ti ti-pencil" style={{ fontSize: 14 }} />
+          <Button icon="ti-pencil" onClick={onEdit} full className="mb-5">
             {t("common.edit")}
-          </button>
+          </Button>
 
           {/* Recent transactions */}
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              color: "var(--text-muted)",
-              letterSpacing: 0.5,
-              marginBottom: 10,
-            }}
-          >
-            {t("vendors.recentTransactions").toUpperCase()}
+          <div className="text-[11px] font-semibold text-muted tracking-[0.5px] mb-2.5 uppercase">
+            {t("vendors.recentTransactions")}
           </div>
 
           {txLoading ? (
-            <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-              {t("common.loading")}
-            </div>
+            <div className="text-md text-muted">{t("common.loading")}</div>
           ) : txs.length === 0 ? (
-            <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
+            <div className="text-md text-muted">
               {t("vendors.noTransactions")}
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div className="flex flex-col gap-1.5">
               {txs.map((tx) => (
                 <div
                   key={tx.id}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                    padding: "8px 10px",
-                    background: "var(--bg-secondary)",
-                    borderRadius: 6,
-                  }}
+                  className="flex justify-between items-start px-2.5 py-2 bg-canvas rounded-md"
                 >
-                  <div style={{ minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 500,
-                        color: "var(--text-primary)",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium text-ink truncate">
                       {tx.merchant || "—"}
                     </div>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1 }}>
+                    <div className="text-[11px] text-muted mt-px">
                       {dayjs(tx.date).format("MMM D, YYYY")}
                       {txCategoryName(tx, t) && ` · ${txCategoryName(tx, t)}`}
                     </div>
                   </div>
                   <div
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color:
-                        tx.type === "income" ? "var(--income)" : "var(--expense)",
-                      marginLeft: 8,
-                      flexShrink: 0,
-                    }}
+                    className={cx(
+                      "text-xs font-semibold ml-2 shrink-0",
+                      tx.type === "income" ? "text-income" : "text-expense",
+                    )}
                   >
                     {tx.type === "income" ? "+" : "-"}
                     {new Intl.NumberFormat("en-US", {
@@ -627,28 +386,10 @@ function VendorDrawer({ vendor, onClose, onEdit, onDelete, fmt, t }) {
         </div>
 
         {/* Delete footer */}
-        <div
-          style={{
-            padding: "12px 20px",
-            borderTop: "0.5px solid var(--border-color)",
-            flexShrink: 0,
-          }}
-        >
-          <button
-            className="btn btn-secondary"
-            onClick={onDelete}
-            style={{
-              width: "100%",
-              color: "var(--expense, #ef4444)",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              justifyContent: "center",
-            }}
-          >
-            <i className="ti ti-trash" style={{ fontSize: 14 }} />
+        <div className="px-5 py-3 border-t border-line shrink-0">
+          <Button variant="danger" icon="ti-trash" onClick={onDelete} full>
             {t("common.delete")}
-          </button>
+          </Button>
         </div>
       </div>
     </>
@@ -695,21 +436,10 @@ function Report1099({ fmt, t }) {
 
   return (
     <div>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          marginBottom: 16,
-          flexWrap: "wrap",
-        }}
-      >
-        <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-          {t("vendors.reportYear")}
-        </div>
-        <select
-          className="input"
-          style={{ width: 100 }}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="text-md text-muted">{t("vendors.reportYear")}</div>
+        <Select
+          className="w-[100px]"
           value={year}
           onChange={(e) => setYear(parseInt(e.target.value))}
         >
@@ -718,107 +448,63 @@ function Report1099({ fmt, t }) {
               {y}
             </option>
           ))}
-        </select>
-        <div
-          style={{
-            fontSize: 12,
-            color: "var(--text-muted)",
-            padding: "4px 10px",
-            background: "var(--bg-secondary)",
-            borderRadius: 6,
-          }}
-        >
+        </Select>
+        <div className="text-xs text-muted px-2.5 py-1 bg-canvas rounded-md">
           {t("vendors.reportThreshold")}
         </div>
-        <button
-          className="btn btn-sm btn-secondary"
-          style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 5 }}
+        <Button
+          size="sm"
+          icon="ti-download"
+          className="ml-auto"
           onClick={() => exportCsv.mutate()}
           disabled={!canExport || exportCsv.isPending}
           title={
             canExport ? t("vendors.exportCsv") : t("vendors.exportDisabledHint")
           }
         >
-          <i className="ti ti-download" style={{ fontSize: 13 }} aria-hidden="true" />
           {t("vendors.exportCsv")}
-        </button>
+        </Button>
       </div>
 
       {isLoading && (
-        <div style={{ fontSize: 13, color: "var(--text-muted)", padding: "32px 0", textAlign: "center" }}>
+        <div className="text-md text-muted py-8 text-center">
           {t("common.loading")}
         </div>
       )}
 
       {isError && (
-        <div style={{ fontSize: 13, color: "var(--expense)", padding: 16, textAlign: "center" }}>
+        <div className="text-md text-expense p-4 text-center">
           {t("common.error")}
         </div>
       )}
 
       {/* Missing-field blocker: flagged vendors can't be filed until complete */}
       {data && incompleteCount > 0 && (
-        <div
-          style={{
-            background: "var(--expense-bg)",
-            color: "var(--expense)",
-            border: "0.5px solid var(--expense)",
-            borderRadius: 8,
-            padding: "10px 14px",
-            fontSize: 13,
-            marginBottom: 12,
-          }}
-        >
-          <i className="ti ti-alert-triangle" style={{ marginRight: 6 }} aria-hidden="true" />
+        <div className="bg-expense-bg text-expense border border-expense rounded-lg px-3.5 py-2.5 text-md mb-3">
+          <i className="ti ti-alert-triangle mr-1.5" aria-hidden="true" />
           {t("vendors.incompleteWarning", { count: incompleteCount })}
         </div>
       )}
 
       {exportError && (
-        <div
-          style={{
-            background: "var(--expense-bg)",
-            color: "var(--expense)",
-            borderRadius: 8,
-            padding: "10px 14px",
-            fontSize: 13,
-            marginBottom: 12,
-          }}
-        >
+        <div className="bg-expense-bg text-expense rounded-lg px-3.5 py-2.5 text-md mb-3">
           {exportError}
         </div>
       )}
 
       {data && data.vendors.length === 0 && (
-        <div className="card" style={{ padding: 48, textAlign: "center" }}>
-          <i
-            className="ti ti-file-invoice"
-            style={{ fontSize: 40, color: "var(--text-muted)", display: "block", marginBottom: 12 }}
+        <Card>
+          <EmptyState
+            icon="ti-file-invoice"
+            title={t("vendors.noEligible")}
+            message={t("vendors.noEligibleHint")}
           />
-          <div
-            style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)", marginBottom: 6 }}
-          >
-            {t("vendors.noEligible")}
-          </div>
-          <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-            {t("vendors.noEligibleHint")}
-          </div>
-        </div>
+        </Card>
       )}
 
       {data && data.vendors.length > 0 && (
         <>
-          <div
-            style={{
-              fontSize: 12,
-              color: "var(--text-muted)",
-              marginBottom: 12,
-              display: "flex",
-              justifyContent: "space-between",
-              flexWrap: "wrap",
-              gap: 8,
-            }}
-          >
+          <div className="flex justify-between flex-wrap gap-2 text-xs text-muted mb-3">
             <span>
               {t("vendors.reportSummary", {
                 count: data.eligible_count,
@@ -826,7 +512,7 @@ function Report1099({ fmt, t }) {
               })}
             </span>
             {data.flagged_count > 0 && (
-              <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>
+              <span className="font-semibold text-secondary">
                 {t("vendors.reportReportable", {
                   amount: fmt(data.total_reportable),
                 })}
@@ -834,111 +520,73 @@ function Report1099({ fmt, t }) {
             )}
           </div>
 
-          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-            {/* Header row */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 140px 130px 160px",
-                padding: "10px 16px",
-                borderBottom: "0.5px solid var(--border-color)",
-                background: "var(--bg-secondary)",
-                fontSize: 11,
-                color: "var(--text-muted)",
-                fontWeight: 500,
-                letterSpacing: 0.5,
-              }}
-            >
-              <div>{t("vendors.reportColVendor")}</div>
-              <div>{t("vendors.reportColEin")}</div>
-              <div style={{ textAlign: "right" }}>{t("vendors.reportColTotal")}</div>
-              <div style={{ textAlign: "right" }}>{t("vendors.reportColStatus")}</div>
-            </div>
+          <Card padding="none" className="overflow-x-auto">
+            <div className="min-w-[560px]">
+              {/* Header row */}
+              <div className="grid grid-cols-[1fr_140px_130px_160px] px-4 py-2.5 border-b border-line bg-canvas text-[11px] text-muted font-medium tracking-[0.5px]">
+                <div>{t("vendors.reportColVendor")}</div>
+                <div>{t("vendors.reportColEin")}</div>
+                <div className="text-right">{t("vendors.reportColTotal")}</div>
+                <div className="text-right">{t("vendors.reportColStatus")}</div>
+              </div>
 
-            {data.vendors.map((v) => {
-              const incomplete = v.flagged && v.missing_fields?.length > 0;
-              return (
-                <div
-                  key={v.id}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 140px 130px 160px",
-                    padding: "12px 16px",
-                    borderBottom: "0.5px solid var(--border-color)",
-                    alignItems: "center",
-                  }}
-                >
-                  <div>
-                    <div
-                      style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}
-                    >
-                      {v.name}
-                    </div>
-                    {(v.city || v.state) && (
-                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1 }}>
-                        {[v.city, v.state].filter(Boolean).join(", ")}
+              {data.vendors.map((v) => {
+                const incomplete = v.flagged && v.missing_fields?.length > 0;
+                return (
+                  <div
+                    key={v.id}
+                    className="grid grid-cols-[1fr_140px_130px_160px] px-4 py-3 border-b border-line items-center"
+                  >
+                    <div>
+                      <div className="text-md font-medium text-ink">
+                        {v.name}
                       </div>
-                    )}
+                      {(v.city || v.state) && (
+                        <div className="text-[11px] text-muted mt-px">
+                          {[v.city, v.state].filter(Boolean).join(", ")}
+                        </div>
+                      )}
+                    </div>
+                    <div
+                      className={cx(
+                        "text-xs",
+                        v.ein ? "text-secondary" : "text-expense",
+                      )}
+                    >
+                      {v.ein || t("vendors.missingEin")}
+                    </div>
+                    <div
+                      className={cx(
+                        "text-md font-semibold text-right",
+                        v.flagged ? "text-expense" : "text-ink",
+                      )}
+                    >
+                      {fmt(v.total_paid)}
+                    </div>
+                    <div className="text-right">
+                      {!v.flagged ? (
+                        <span className="text-[11px] text-muted">
+                          {t("vendors.belowThreshold")}
+                        </span>
+                      ) : incomplete ? (
+                        <Badge
+                          tone="expense"
+                          className="text-left"
+                          title={v.missing_fields.map(fieldLabel).join(", ")}
+                        >
+                          {t("vendors.statusMissing", {
+                            fields: v.missing_fields.map(fieldLabel).join(", "),
+                          })}
+                        </Badge>
+                      ) : (
+                        <Badge tone="income">{t("vendors.statusReady")}</Badge>
+                      )}
+                    </div>
                   </div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: v.ein ? "var(--text-secondary)" : "var(--expense)",
-                    }}
-                  >
-                    {v.ein || t("vendors.missingEin")}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: v.flagged ? "var(--expense)" : "var(--text-primary)",
-                      textAlign: "right",
-                    }}
-                  >
-                    {fmt(v.total_paid)}
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    {!v.flagged ? (
-                      <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                        {t("vendors.belowThreshold")}
-                      </span>
-                    ) : incomplete ? (
-                      <span
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 600,
-                          padding: "2px 7px",
-                          borderRadius: 4,
-                          background: "var(--expense-bg)",
-                          color: "var(--expense)",
-                        }}
-                        title={v.missing_fields.map(fieldLabel).join(", ")}
-                      >
-                        {t("vendors.statusMissing", {
-                          fields: v.missing_fields.map(fieldLabel).join(", "),
-                        })}
-                      </span>
-                    ) : (
-                      <span
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 600,
-                          padding: "2px 7px",
-                          borderRadius: 4,
-                          background: "var(--income-bg)",
-                          color: "var(--income)",
-                          letterSpacing: 0.5,
-                        }}
-                      >
-                        {t("vendors.statusReady")}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </Card>
         </>
       )}
     </div>
@@ -1001,89 +649,50 @@ export default function Vendors() {
   ];
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto" }}>
-      {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          marginBottom: 20,
-          gap: 12,
-          flexWrap: "wrap",
-        }}
-      >
-        <div>
-          <h1
-            style={{
-              fontSize: 20,
-              fontWeight: 700,
-              color: "var(--text-primary)",
-              margin: 0,
+    <div className="max-w-[900px] mx-auto">
+      <PageHeader
+        title={t("vendors.title")}
+        subtitle={t("vendors.subtitle")}
+        actions={
+          <Button
+            variant="primary"
+            icon="ti-plus"
+            onClick={() => {
+              setEditVendor(null);
+              setShowModal(true);
             }}
           >
-            {t("vendors.title")}
-          </h1>
-          <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "4px 0 0" }}>
-            {t("vendors.subtitle")}
-          </p>
-        </div>
-        <button
-          className="btn btn-primary"
-          onClick={() => {
-            setEditVendor(null);
-            setShowModal(true);
-          }}
-          style={{ display: "flex", alignItems: "center", gap: 6 }}
-        >
-          <i className="ti ti-plus" style={{ fontSize: 15 }} />
-          {t("vendors.addVendor")}
-        </button>
-      </div>
+            {t("vendors.addVendor")}
+          </Button>
+        }
+      />
 
       {/* Tabs + search */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 16,
-          gap: 12,
-          flexWrap: "wrap",
-        }}
-      >
-        <div style={{ display: "flex", gap: 4 }}>
+      <div className="flex justify-between items-center mb-4 gap-3 flex-wrap">
+        <div className="flex gap-1">
           {TABS.map((tb) => (
-            <button
+            <Button
               key={tb.key}
-              className={`btn btn-sm ${tab === tb.key ? "btn-primary" : "btn-secondary"}`}
+              size="sm"
+              variant={tab === tb.key ? "primary" : "secondary"}
               onClick={() => setTab(tb.key)}
             >
               {tb.label}
-            </button>
+            </Button>
           ))}
         </div>
         {tab !== "report" && (
-          <div style={{ position: "relative" }}>
+          <div className="relative">
             <i
-              className="ti ti-search"
-              style={{
-                position: "absolute",
-                left: 10,
-                top: "50%",
-                transform: "translateY(-50%)",
-                fontSize: 14,
-                color: "var(--text-muted)",
-                pointerEvents: "none",
-              }}
+              className="ti ti-search absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted pointer-events-none"
+              aria-hidden="true"
             />
-            <input
-              className="input"
+            <Input
               type="text"
               placeholder={t("vendors.search")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ paddingLeft: 30, width: 220 }}
+              className="pl-[30px] w-[220px]"
             />
           </div>
         )}
@@ -1096,192 +705,104 @@ export default function Vendors() {
       {tab !== "report" && (
         <>
           {isLoading && (
-            <div
-              style={{
-                fontSize: 14,
-                color: "var(--text-muted)",
-                padding: "40px 0",
-                textAlign: "center",
-              }}
-            >
+            <div className="text-sm text-muted py-10 text-center">
               {t("common.loading")}
             </div>
           )}
 
           {!isLoading && vendors.length === 0 && (
-            <div className="card" style={{ padding: 48, textAlign: "center" }}>
-              <i
-                className="ti ti-users"
-                style={{
-                  fontSize: 40,
-                  color: "var(--text-muted)",
-                  display: "block",
-                  marginBottom: 12,
-                }}
+            <Card>
+              <EmptyState
+                icon="ti-users"
+                title={search ? t("vendors.noneFound") : t("vendors.noneYet")}
+                message={!search ? t("vendors.noneYetHint") : undefined}
               />
-              <div
-                style={{
-                  fontSize: 15,
-                  fontWeight: 600,
-                  color: "var(--text-primary)",
-                  marginBottom: 6,
-                }}
-              >
-                {search ? t("vendors.noneFound") : t("vendors.noneYet")}
-              </div>
-              {!search && (
-                <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-                  {t("vendors.noneYetHint")}
-                </div>
-              )}
-            </div>
+            </Card>
           )}
 
           {!isLoading && vendors.length > 0 && (
-            <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-              {/* Table header */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 120px 160px 80px 110px 50px",
-                  padding: "10px 16px",
-                  borderBottom: "0.5px solid var(--border-color)",
-                  background: "var(--bg-secondary)",
-                  fontSize: 11,
-                  color: "var(--text-muted)",
-                  fontWeight: 500,
-                  letterSpacing: 0.5,
-                }}
-              >
-                <div>{t("vendors.colName")}</div>
-                <div>{t("vendors.colEin")}</div>
-                <div>{t("vendors.colContact")}</div>
-                <div style={{ textAlign: "center" }}>{t("vendors.col1099")}</div>
-                <div style={{ textAlign: "right" }}>{t("vendors.colYtd")}</div>
-                <div></div>
-              </div>
-
-              {vendors.map((vendor) => (
-                <div
-                  key={vendor.id}
-                  onClick={() => setSelectedVendor(vendor)}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 120px 160px 80px 110px 50px",
-                    padding: "12px 16px",
-                    borderBottom: "0.5px solid var(--border-color)",
-                    alignItems: "center",
-                    cursor: "pointer",
-                    transition: "background 0.15s",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = "var(--bg-secondary)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = "transparent")
-                  }
-                >
-                  <div>
-                    <div
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: "var(--text-primary)",
-                      }}
-                    >
-                      {vendor.name}
-                    </div>
-                    {(vendor.city || vendor.state) && (
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: "var(--text-muted)",
-                          marginTop: 1,
-                        }}
-                      >
-                        {[vendor.city, vendor.state].filter(Boolean).join(", ")}
-                      </div>
-                    )}
-                  </div>
-
-                  <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                    {vendor.ein || "—"}
-                  </div>
-
-                  <div>
-                    {vendor.email && (
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: "var(--text-secondary)",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {vendor.email}
-                      </div>
-                    )}
-                    {vendor.phone && (
-                      <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                        {vendor.phone}
-                      </div>
-                    )}
-                  </div>
-
-                  <div style={{ textAlign: "center" }}>
-                    {vendor.is_1099_eligible ? (
-                      <span
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 600,
-                          padding: "2px 6px",
-                          borderRadius: 4,
-                          background: "var(--income-bg)",
-                          color: "var(--income)",
-                        }}
-                      >
-                        1099
-                      </span>
-                    ) : (
-                      <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                        —
-                      </span>
-                    )}
-                  </div>
-
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color:
-                        parseFloat(vendor.ytd_paid) > 0
-                          ? "var(--expense)"
-                          : "var(--text-muted)",
-                      textAlign: "right",
-                    }}
-                  >
-                    {parseFloat(vendor.ytd_paid) > 0
-                      ? fmt(vendor.ytd_paid)
-                      : "—"}
-                  </div>
-
-                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openEdit(vendor);
-                      }}
-                      style={{ padding: "4px 8px" }}
-                      title={t("common.edit")}
-                    >
-                      <i className="ti ti-pencil" style={{ fontSize: 13 }} />
-                    </button>
-                  </div>
+            <Card padding="none" className="overflow-x-auto">
+              <div className="min-w-[640px]">
+                {/* Table header */}
+                <div className="grid grid-cols-[1fr_120px_160px_80px_110px_50px] px-4 py-2.5 border-b border-line bg-canvas text-[11px] text-muted font-medium tracking-[0.5px]">
+                  <div>{t("vendors.colName")}</div>
+                  <div>{t("vendors.colEin")}</div>
+                  <div>{t("vendors.colContact")}</div>
+                  <div className="text-center">{t("vendors.col1099")}</div>
+                  <div className="text-right">{t("vendors.colYtd")}</div>
+                  <div></div>
                 </div>
-              ))}
-            </div>
+
+                {vendors.map((vendor) => (
+                  <div
+                    key={vendor.id}
+                    onClick={() => setSelectedVendor(vendor)}
+                    className="grid grid-cols-[1fr_120px_160px_80px_110px_50px] px-4 py-3 border-b border-line items-center cursor-pointer transition-colors hover:bg-canvas"
+                  >
+                    <div>
+                      <div className="text-md font-semibold text-ink">
+                        {vendor.name}
+                      </div>
+                      {(vendor.city || vendor.state) && (
+                        <div className="text-[11px] text-muted mt-px">
+                          {[vendor.city, vendor.state].filter(Boolean).join(", ")}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="text-xs text-secondary">
+                      {vendor.ein || "—"}
+                    </div>
+
+                    <div>
+                      {vendor.email && (
+                        <div className="text-[11px] text-secondary truncate">
+                          {vendor.email}
+                        </div>
+                      )}
+                      {vendor.phone && (
+                        <div className="text-[11px] text-muted">
+                          {vendor.phone}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="text-center">
+                      {vendor.is_1099_eligible ? (
+                        <Badge tone="income">1099</Badge>
+                      ) : (
+                        <span className="text-xs text-muted">—</span>
+                      )}
+                    </div>
+
+                    <div
+                      className={cx(
+                        "text-md font-semibold text-right",
+                        parseFloat(vendor.ytd_paid) > 0
+                          ? "text-expense"
+                          : "text-muted",
+                      )}
+                    >
+                      {parseFloat(vendor.ytd_paid) > 0
+                        ? fmt(vendor.ytd_paid)
+                        : "—"}
+                    </div>
+
+                    <div className="flex justify-end">
+                      <Button
+                        size="sm"
+                        icon="ti-pencil"
+                        title={t("common.edit")}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEdit(vendor);
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
           )}
         </>
       )}

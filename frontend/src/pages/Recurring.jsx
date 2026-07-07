@@ -5,6 +5,18 @@ import dayjs from "dayjs";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import { coaToCategories } from "../lib/coaCategories";
+import cx from "../lib/cx";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  Modal,
+  PageHeader,
+  Select,
+} from "../components/ui";
 
 const FREQUENCIES = ["daily", "weekly", "monthly", "quarterly", "yearly"];
 
@@ -126,262 +138,201 @@ function RecurringModal({
   };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.4)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-        padding: 16,
-      }}
+    <Modal
+      open
+      onClose={onClose}
+      title={editItem ? t("recurring.editTitle") : t("recurring.newTitle")}
     >
-      <div
-        className="card fade-in"
-        style={{
-          width: "100%",
-          maxWidth: 520,
-          maxHeight: "90vh",
-          overflow: "auto",
-          padding: 24,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 20,
-          }}
-        >
-          <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)" }}>
-            {editItem ? t("recurring.editTitle") : t("recurring.newTitle")}
-          </h2>
-          <button
-            onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--text-muted)",
-              fontSize: 20,
-            }}
-          >
-            <i className="ti ti-x" aria-hidden="true" />
-          </button>
+      {error && (
+        <div className="bg-danger-bg text-danger border border-danger rounded-lg px-3.5 py-2.5 text-md mb-4">
+          <i className="ti ti-alert-circle mr-1.5" aria-hidden="true" />
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit}>
+        {/* Type toggle */}
+        <div className="flex gap-2 mb-4">
+          {["expense", "income"].map((txType) => (
+            <button
+              key={txType}
+              type="button"
+              onClick={() => setForm({ ...form, type: txType, categoryId: "" })}
+              className={cx(
+                "flex-1 py-2 rounded-lg border text-md font-medium cursor-pointer transition-colors",
+                form.type === txType
+                  ? txType === "income"
+                    ? "border-income bg-income-bg text-income"
+                    : "border-expense bg-expense-bg text-expense"
+                  : "border-line bg-transparent text-muted",
+              )}
+            >
+              <i
+                className={`ti ${txType === "income" ? "ti-arrow-down-left" : "ti-arrow-up-right"} mr-1.5`}
+                aria-hidden="true"
+              />
+              {t(`common.${txType}`)}
+            </button>
+          ))}
         </div>
 
-        {error && (
-          <div
-            style={{
-              background: "var(--danger-bg)",
-              color: "var(--danger)",
-              border: "0.5px solid var(--danger)",
-              borderRadius: 8,
-              padding: "10px 14px",
-              fontSize: 13,
-              marginBottom: 16,
-            }}
+        {/* Amount + Frequency */}
+        <div className="grid grid-cols-2 gap-3 mb-3.5">
+          <Field label={t("common.amount")} htmlFor="amount" className="mb-0">
+            <Input
+              id="amount"
+              type="number"
+              placeholder="0.00"
+              step="0.01"
+              min="0"
+              value={form.amount}
+              onChange={(e) => setForm({ ...form, amount: e.target.value })}
+              required
+            />
+          </Field>
+          <Field
+            label={t("recurring.frequency")}
+            htmlFor="frequency"
+            className="mb-0"
           >
-            <i className="ti ti-alert-circle" style={{ marginRight: 6 }} aria-hidden="true" />
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          {/* Type toggle */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-            {["expense", "income"].map((txType) => (
-              <button
-                key={txType}
-                type="button"
-                onClick={() => setForm({ ...form, type: txType, categoryId: "" })}
-                style={{
-                  flex: 1,
-                  padding: "8px",
-                  borderRadius: 8,
-                  border: "0.5px solid",
-                  borderColor:
-                    form.type === txType
-                      ? txType === "income"
-                        ? "var(--income)"
-                        : "var(--expense)"
-                      : "var(--border-color)",
-                  background:
-                    form.type === txType
-                      ? txType === "income"
-                        ? "var(--income-bg)"
-                        : "var(--expense-bg)"
-                      : "transparent",
-                  color:
-                    form.type === txType
-                      ? txType === "income"
-                        ? "var(--income)"
-                        : "var(--expense)"
-                      : "var(--text-muted)",
-                  cursor: "pointer",
-                  fontSize: 13,
-                  fontWeight: 500,
-                }}
-              >
-                <i
-                  className={`ti ${txType === "income" ? "ti-arrow-down-left" : "ti-arrow-up-right"}`}
-                  style={{ marginRight: 6 }}
-                  aria-hidden="true"
-                />
-                {t(`common.${txType}`)}
-              </button>
-            ))}
-          </div>
-
-          {/* Amount + Frequency */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
-            <div>
-              <label className="label" htmlFor="amount">{t("common.amount")}</label>
-              <input
-                id="amount"
-                className="input"
-                type="number"
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-                value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                required
-              />
-            </div>
-            <div>
-              <label className="label" htmlFor="frequency">{t("recurring.frequency")}</label>
-              <select
-                id="frequency"
-                className="input"
-                value={form.frequency}
-                onChange={(e) => setForm({ ...form, frequency: e.target.value })}
-              >
-                {FREQUENCIES.map((f) => (
-                  <option key={f} value={f}>{t(`recurring.freq_${f}`)}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Start + End date */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
-            <div>
-              <label className="label" htmlFor="startDate">{t("recurring.startDate")}</label>
-              <input
-                id="startDate"
-                className="input"
-                type="date"
-                value={form.startDate}
-                onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-                required
-              />
-            </div>
-            <div>
-              <label className="label" htmlFor="endDate">{t("recurring.endDateOptional")}</label>
-              <input
-                id="endDate"
-                className="input"
-                type="date"
-                min={form.startDate}
-                value={form.endDate}
-                onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-              />
-            </div>
-          </div>
-
-          {/* Funding account */}
-          <div style={{ marginBottom: 14 }}>
-            <label className="label" htmlFor="accountId">{t("recurring.fundingAccount")}</label>
-            <select
-              id="accountId"
-              className="input"
-              value={form.accountId}
-              onChange={(e) => setForm({ ...form, accountId: e.target.value })}
-              required
+            <Select
+              id="frequency"
+              value={form.frequency}
+              onChange={(e) => setForm({ ...form, frequency: e.target.value })}
             >
-              <option value="">{t("recurring.selectAccount")}</option>
-              {accounts?.length > 0 && (
-                <optgroup label={t("transactions.bankAccounts")}>
-                  {accounts.map((a) => (
-                    <option key={a.id} value={`acct:${a.id}`}>{a.name}</option>
-                  ))}
-                </optgroup>
-              )}
-              {ledgerAccounts?.length > 0 && (
-                <optgroup label={t("transactions.ledgerAccounts")}>
-                  {ledgerAccounts.map((a) => (
-                    <option key={a.id} value={`coa:${a.id}`}>
-                      {a.code ? `${a.code} · ${a.name}` : a.name}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
-          </div>
+              {FREQUENCIES.map((f) => (
+                <option key={f} value={f}>
+                  {t(`recurring.freq_${f}`)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
 
-          {/* Category */}
-          <div style={{ marginBottom: 14 }}>
-            <label className="label" htmlFor="categoryId">{t("common.category")}</label>
-            <select
-              id="categoryId"
-              className="input"
-              value={form.categoryId}
-              onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
+        {/* Start + End date */}
+        <div className="grid grid-cols-2 gap-3 mb-3.5">
+          <Field
+            label={t("recurring.startDate")}
+            htmlFor="startDate"
+            className="mb-0"
+          >
+            <Input
+              id="startDate"
+              type="date"
+              value={form.startDate}
+              onChange={(e) => setForm({ ...form, startDate: e.target.value })}
               required
-            >
-              <option value="">{t("recurring.selectCategory")}</option>
-              {categories
-                ?.filter((c) => c.type === form.type)
-                .map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+            />
+          </Field>
+          <Field
+            label={t("recurring.endDateOptional")}
+            htmlFor="endDate"
+            className="mb-0"
+          >
+            <Input
+              id="endDate"
+              type="date"
+              min={form.startDate}
+              value={form.endDate}
+              onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+            />
+          </Field>
+        </div>
+
+        {/* Funding account */}
+        <Field
+          label={t("recurring.fundingAccount")}
+          htmlFor="accountId"
+          className="mb-3.5"
+        >
+          <Select
+            id="accountId"
+            value={form.accountId}
+            onChange={(e) => setForm({ ...form, accountId: e.target.value })}
+            required
+          >
+            <option value="">{t("recurring.selectAccount")}</option>
+            {accounts?.length > 0 && (
+              <optgroup label={t("transactions.bankAccounts")}>
+                {accounts.map((a) => (
+                  <option key={a.id} value={`acct:${a.id}`}>
+                    {a.name}
+                  </option>
                 ))}
-            </select>
-          </div>
+              </optgroup>
+            )}
+            {ledgerAccounts?.length > 0 && (
+              <optgroup label={t("transactions.ledgerAccounts")}>
+                {ledgerAccounts.map((a) => (
+                  <option key={a.id} value={`coa:${a.id}`}>
+                    {a.code ? `${a.code} · ${a.name}` : a.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </Select>
+        </Field>
 
-          {/* Merchant */}
-          <div style={{ marginBottom: 14 }}>
-            <label className="label" htmlFor="merchant">{t("transactions.merchantDescription")}</label>
-            <input
-              id="merchant"
-              className="input"
-              type="text"
-              placeholder={t("recurring.merchantPlaceholder")}
-              value={form.merchant}
-              onChange={(e) => setForm({ ...form, merchant: e.target.value })}
-            />
-          </div>
+        {/* Category */}
+        <Field
+          label={t("common.category")}
+          htmlFor="categoryId"
+          className="mb-3.5"
+        >
+          <Select
+            id="categoryId"
+            value={form.categoryId}
+            onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
+            required
+          >
+            <option value="">{t("recurring.selectCategory")}</option>
+            {categories
+              ?.filter((c) => c.type === form.type)
+              .map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+          </Select>
+        </Field>
 
-          {/* Notes */}
-          <div style={{ marginBottom: 20 }}>
-            <label className="label" htmlFor="notes">{t("common.notes")}</label>
-            <input
-              id="notes"
-              className="input"
-              type="text"
-              value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            />
-          </div>
+        {/* Merchant */}
+        <Field
+          label={t("transactions.merchantDescription")}
+          htmlFor="merchant"
+          className="mb-3.5"
+        >
+          <Input
+            id="merchant"
+            type="text"
+            placeholder={t("recurring.merchantPlaceholder")}
+            value={form.merchant}
+            onChange={(e) => setForm({ ...form, merchant: e.target.value })}
+          />
+        </Field>
 
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <button type="button" onClick={onClose} className="btn btn-secondary">
-              {t("common.cancel")}
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={mutation.isPending}>
-              {mutation.isPending
-                ? t("recurring.saving")
-                : editItem
-                  ? t("common.save")
-                  : t("recurring.create")}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        {/* Notes */}
+        <Field label={t("common.notes")} htmlFor="notes" className="mb-5">
+          <Input
+            id="notes"
+            type="text"
+            value={form.notes}
+            onChange={(e) => setForm({ ...form, notes: e.target.value })}
+          />
+        </Field>
+
+        <div className="flex gap-2 justify-end">
+          <Button onClick={onClose}>{t("common.cancel")}</Button>
+          <Button type="submit" variant="primary" disabled={mutation.isPending}>
+            {mutation.isPending
+              ? t("recurring.saving")
+              : editItem
+                ? t("common.save")
+                : t("recurring.create")}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -394,34 +345,21 @@ function GeneratedList({ recurringId, fmt, currency, t }) {
   });
 
   if (isLoading)
-    return (
-      <div style={{ padding: "8px 0", fontSize: 12, color: "var(--text-muted)" }}>
-        {t("common.loading")}
-      </div>
-    );
+    return <div className="py-2 text-xs text-muted">{t("common.loading")}</div>;
   if (txs.length === 0)
     return (
-      <div style={{ padding: "8px 0", fontSize: 12, color: "var(--text-muted)" }}>
-        {t("recurring.noGenerated")}
-      </div>
+      <div className="py-2 text-xs text-muted">{t("recurring.noGenerated")}</div>
     );
 
   return (
-    <div style={{ marginTop: 8, borderTop: "0.5px solid var(--border-color)" }}>
+    <div className="mt-2 border-t border-line">
       {txs.map((tx) => (
         <div
           key={tx.id}
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            padding: "6px 0",
-            fontSize: 12,
-            color: "var(--text-secondary)",
-            borderBottom: "0.5px solid var(--border-color)",
-          }}
+          className="flex justify-between py-1.5 text-xs text-secondary border-b border-line"
         >
           <span>{dayjs(tx.date).format("MMM D, YYYY")}</span>
-          <span style={{ fontWeight: 500 }}>{fmt(tx.total_amount, currency)}</span>
+          <span className="font-medium">{fmt(tx.total_amount, currency)}</span>
         </div>
       ))}
     </div>
@@ -459,156 +397,135 @@ function RecurringCard({ item, fmt, currency, onEdit, t }) {
   });
 
   const busy =
-    toggleActive.isPending || skip.isPending || generate.isPending || del.isPending;
+    toggleActive.isPending ||
+    skip.isPending ||
+    generate.isPending ||
+    del.isPending;
 
   // Status pill
-  let status = { label: t("recurring.active"), bg: "var(--income-bg)", color: "var(--income)" };
+  let status = { label: t("recurring.active"), tone: "income" };
   if (!item.is_active)
-    status = { label: t("recurring.paused"), bg: "var(--bg-secondary)", color: "var(--text-muted)" };
-  else if (isDue)
-    status = { label: t("recurring.due"), bg: "var(--expense-bg)", color: "var(--expense)" };
-
-  const iconBg = item.type === "income" ? "var(--income-bg)" : "var(--expense-bg)";
-  const iconColor = item.type === "income" ? "var(--income)" : "var(--expense)";
+    status = { label: t("recurring.paused"), tone: "neutral" };
+  else if (isDue) status = { label: t("recurring.due"), tone: "expense" };
 
   return (
-    <div className="card" style={{ padding: "14px 16px" }}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+    <Card padding="none" className="px-4 py-3.5">
+      <div className="flex items-start gap-3">
         <div
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 8,
-            background: iconBg,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
+          className={cx(
+            "flex items-center justify-center w-9 h-9 rounded-lg shrink-0",
+            item.type === "income" ? "bg-income-bg" : "bg-expense-bg",
+          )}
         >
-          <i className="ti ti-repeat" style={{ fontSize: 16, color: iconColor }} aria-hidden="true" />
+          <i
+            className={cx(
+              "ti ti-repeat text-base",
+              item.type === "income" ? "text-income" : "text-expense",
+            )}
+            aria-hidden="true"
+          />
         </div>
 
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)" }}>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium text-ink">
               {item.merchant || t("recurring.untitled")}
             </span>
-            <span
-              style={{
-                fontSize: 10,
-                padding: "1px 6px",
-                borderRadius: 3,
-                background: status.bg,
-                color: status.color,
-                fontWeight: 500,
-              }}
-            >
-              {status.label}
-            </span>
+            <Badge tone={status.tone}>{status.label}</Badge>
           </div>
-          <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
+          <div className="text-xs text-muted mt-0.5">
             {fmt(item.amount, currency)} · {t(`recurring.freq_${item.frequency}`)}
             {" · "}
-            {item.category_name_key ? t(item.category_name_key) : item.category_name}
+            {item.category_name_key
+              ? t(item.category_name_key)
+              : item.category_name}
           </div>
-          <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
+          <div className="text-xs text-muted mt-0.5">
             {item.is_active
               ? `${t("recurring.nextDue")}: ${dayjs(item.next_due).format("MMM D, YYYY")}`
               : item.last_generated
                 ? `${t("recurring.lastGenerated")}: ${dayjs(item.last_generated).format("MMM D, YYYY")}`
                 : "—"}
-            {item.funding_name && ` · ${item.funding_name_key ? t(item.funding_name_key) : item.funding_name}`}
+            {item.funding_name &&
+              ` · ${item.funding_name_key ? t(item.funding_name_key) : item.funding_name}`}
           </div>
 
           {item.generated_count > 0 && (
             <button
               onClick={() => setExpanded(!expanded)}
-              style={{
-                marginTop: 6,
-                background: "none",
-                border: "none",
-                padding: 0,
-                cursor: "pointer",
-                color: "var(--brand)",
-                fontSize: 12,
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-              }}
+              className="flex items-center gap-1 mt-1.5 p-0 text-xs text-brand cursor-pointer"
             >
-              <i className={`ti ${expanded ? "ti-chevron-up" : "ti-chevron-down"}`} aria-hidden="true" />
+              <i
+                className={`ti ${expanded ? "ti-chevron-up" : "ti-chevron-down"}`}
+                aria-hidden="true"
+              />
               {t("recurring.generatedCount", { count: item.generated_count })}
             </button>
           )}
           {expanded && (
-            <GeneratedList recurringId={item.id} fmt={fmt} currency={currency} t={t} />
+            <GeneratedList
+              recurringId={item.id}
+              fmt={fmt}
+              currency={currency}
+              t={t}
+            />
           )}
         </div>
       </div>
 
       {/* Actions */}
-      <div
-        style={{
-          display: "flex",
-          gap: 6,
-          justifyContent: "flex-end",
-          flexWrap: "wrap",
-          marginTop: 10,
-          paddingTop: 10,
-          borderTop: "0.5px solid var(--border-color)",
-        }}
-      >
+      <div className="flex gap-1.5 justify-end flex-wrap mt-2.5 pt-2.5 border-t border-line">
         {isDue && (
-          <button
-            className="btn btn-primary"
-            style={{ fontSize: 12, padding: "5px 10px" }}
+          <Button
+            variant="primary"
+            size="sm"
+            icon="ti-player-play"
             onClick={() => generate.mutate()}
             disabled={busy}
           >
-            <i className="ti ti-player-play" aria-hidden="true" /> {t("recurring.generate")}
-          </button>
+            {t("recurring.generate")}
+          </Button>
         )}
         {item.is_active && (
-          <button
-            className="btn btn-secondary"
-            style={{ fontSize: 12, padding: "5px 10px" }}
+          <Button
+            size="sm"
+            icon="ti-player-skip-forward"
             onClick={() => skip.mutate()}
             disabled={busy}
             title={t("recurring.skipHint")}
           >
-            <i className="ti ti-player-skip-forward" aria-hidden="true" /> {t("recurring.skip")}
-          </button>
+            {t("recurring.skip")}
+          </Button>
         )}
-        <button
-          className="btn btn-secondary"
-          style={{ fontSize: 12, padding: "5px 10px" }}
+        <Button
+          size="sm"
+          icon={item.is_active ? "ti-player-pause" : "ti-player-play"}
           onClick={() => toggleActive.mutate()}
           disabled={busy}
         >
-          <i className={`ti ${item.is_active ? "ti-player-pause" : "ti-player-play"}`} aria-hidden="true" />{" "}
           {item.is_active ? t("recurring.pause") : t("recurring.resume")}
-        </button>
-        <button
-          className="btn btn-secondary"
-          style={{ fontSize: 12, padding: "5px 10px" }}
+        </Button>
+        <Button
+          size="sm"
+          icon="ti-pencil"
           onClick={() => onEdit(item)}
           disabled={busy}
         >
-          <i className="ti ti-pencil" aria-hidden="true" /> {t("common.edit")}
-        </button>
-        <button
-          className="btn btn-secondary"
-          style={{ fontSize: 12, padding: "5px 10px", color: "var(--danger)" }}
+          {t("common.edit")}
+        </Button>
+        <Button
+          variant="danger"
+          size="sm"
+          icon="ti-trash"
           onClick={() => {
             if (window.confirm(t("recurring.confirmDelete"))) del.mutate();
           }}
           disabled={busy}
         >
-          <i className="ti ti-trash" aria-hidden="true" /> {t("common.delete")}
-        </button>
+          {t("common.delete")}
+        </Button>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -672,91 +589,68 @@ export default function Recurring() {
   };
 
   return (
-    <div className="fade-in" style={{ maxWidth: 760, margin: "0 auto" }}>
-      {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 20,
-          gap: 12,
-          flexWrap: "wrap",
-        }}
-      >
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>
-            {t("recurring.title")}
-          </h1>
-          <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-            {t("recurring.count", { count: items.length })}
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button
-            className="btn btn-secondary"
-            onClick={() => generateDue.mutate()}
-            disabled={dueCount === 0 || generateDue.isPending}
-            title={t("recurring.generateDueHint")}
-          >
-            <i className="ti ti-refresh" aria-hidden="true" />{" "}
-            {dueCount > 0
-              ? t("recurring.generateDueCount", { count: dueCount })
-              : t("recurring.nothingDue")}
-          </button>
-          <button
-            className="btn btn-primary"
-            onClick={() => {
-              setEditItem(null);
-              setShowModal(true);
-            }}
-          >
-            <i className="ti ti-plus" aria-hidden="true" /> {t("recurring.new")}
-          </button>
-        </div>
-      </div>
+    <div className="fade-in max-w-[760px] mx-auto">
+      <PageHeader
+        title={t("recurring.title")}
+        subtitle={t("recurring.count", { count: items.length })}
+        actions={
+          <>
+            <Button
+              icon="ti-refresh"
+              onClick={() => generateDue.mutate()}
+              disabled={dueCount === 0 || generateDue.isPending}
+              title={t("recurring.generateDueHint")}
+            >
+              {dueCount > 0
+                ? t("recurring.generateDueCount", { count: dueCount })
+                : t("recurring.nothingDue")}
+            </Button>
+            <Button
+              variant="primary"
+              icon="ti-plus"
+              onClick={() => {
+                setEditItem(null);
+                setShowModal(true);
+              }}
+            >
+              {t("recurring.new")}
+            </Button>
+          </>
+        }
+      />
 
       {toast && (
-        <div
-          className="card"
-          style={{
-            padding: "10px 14px",
-            marginBottom: 16,
-            fontSize: 13,
-            color: "var(--income)",
-            background: "var(--income-bg)",
-          }}
-        >
-          <i className="ti ti-check" style={{ marginRight: 6 }} aria-hidden="true" />
+        <div className="bg-income-bg text-income rounded-lg px-3.5 py-2.5 text-md mb-4">
+          <i className="ti ti-check mr-1.5" aria-hidden="true" />
           {toast}
         </div>
       )}
 
       {isLoading ? (
-        <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>
+        <div className="p-10 text-center text-muted text-sm">
           {t("common.loading")}
         </div>
       ) : items.length === 0 ? (
-        <div className="card" style={{ padding: 60, textAlign: "center" }}>
-          <i className="ti ti-repeat" style={{ fontSize: 36, color: "var(--text-muted)" }} aria-hidden="true" />
-          <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text-primary)", margin: "12px 0 6px" }}>
-            {t("recurring.noneTitle")}
-          </div>
-          <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
-            {t("recurring.noneHint")}
-          </div>
-          <button
-            className="btn btn-primary"
-            onClick={() => {
-              setEditItem(null);
-              setShowModal(true);
-            }}
-          >
-            {t("recurring.addFirst")}
-          </button>
-        </div>
+        <Card>
+          <EmptyState
+            icon="ti-repeat"
+            title={t("recurring.noneTitle")}
+            message={t("recurring.noneHint")}
+            action={
+              <Button
+                variant="primary"
+                onClick={() => {
+                  setEditItem(null);
+                  setShowModal(true);
+                }}
+              >
+                {t("recurring.addFirst")}
+              </Button>
+            }
+          />
+        </Card>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="flex flex-col gap-2">
           {items.map((item) => (
             <RecurringCard
               key={item.id}

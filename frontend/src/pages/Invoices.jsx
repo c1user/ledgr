@@ -5,6 +5,19 @@ import { useSearchParams } from "react-router-dom";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import dayjs from "dayjs";
+import cx from "../lib/cx";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  Modal,
+  PageHeader,
+  Select,
+  Textarea,
+} from "../components/ui";
 
 const IVU_DEFAULT_RATE = 11.5;
 
@@ -16,19 +29,27 @@ const makeFmt = (lang) => (val) =>
 
 const coaName = (a, t) => (a.name_key ? t(a.name_key) : a.name);
 
-const STATUS_COLORS = {
-  draft: { bg: "var(--bg-secondary)", fg: "var(--text-muted)" },
-  sent: { bg: "var(--brand-light)", fg: "var(--brand)" },
-  overdue: { bg: "var(--expense-bg)", fg: "var(--expense)" },
-  paid: { bg: "var(--income-bg)", fg: "var(--income)" },
-  void: { bg: "var(--bg-secondary)", fg: "var(--text-muted)" },
+const STATUS_TONES = {
+  draft: "neutral",
+  sent: "brand",
+  overdue: "expense",
+  paid: "income",
+  void: "neutral",
 };
+
+function StatusBadge({ status, t }) {
+  return (
+    <Badge tone={STATUS_TONES[status] || "neutral"}>
+      {t(`invoices.status.${status}`)}
+    </Badge>
+  );
+}
 
 // Confidence indicator for AI-drafted line items (#12).
 const CONFIDENCE_COLORS = {
-  high: "var(--income, #22c55e)",
+  high: "var(--income)",
   medium: "#eab308",
-  low: "var(--expense, #ef4444)",
+  low: "var(--expense)",
 };
 
 // Flatten the grouped chart-of-accounts response into a flat list of one type.
@@ -89,8 +110,7 @@ function openPrintWindow(invoice, businessName) {
       style: "currency",
       currency: "USD",
     }).format(Number(v) || 0);
-  const d = (v) =>
-    dayjs(v).locale ? dayjs(v).format("YYYY-MM-DD") : v;
+  const d = (v) => (dayjs(v).locale ? dayjs(v).format("YYYY-MM-DD") : v);
 
   const rows = (invoice.line_items || [])
     .map(
@@ -319,10 +339,15 @@ function InvoiceModal({ invoice, clients, revenueAccounts, onClose, t, lang }) {
   }
 
   function updateItem(i, key, val) {
-    setItems((arr) => arr.map((it, idx) => (idx === i ? { ...it, [key]: val } : it)));
+    setItems((arr) =>
+      arr.map((it, idx) => (idx === i ? { ...it, [key]: val } : it)),
+    );
   }
   function addItem() {
-    setItems((arr) => [...arr, { description: "", quantity: "1", unit_price: "" }]);
+    setItems((arr) => [
+      ...arr,
+      { description: "", quantity: "1", unit_price: "" },
+    ]);
   }
   function removeItem(i) {
     setItems((arr) => (arr.length > 1 ? arr.filter((_, idx) => idx !== i) : arr));
@@ -373,456 +398,274 @@ function InvoiceModal({ invoice, clients, revenueAccounts, onClose, t, lang }) {
   }
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.45)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-        padding: 16,
-      }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+    <Modal
+      open
+      onClose={onClose}
+      size="lg"
+      title={isEdit ? t("invoices.editInvoice") : t("invoices.newInvoice")}
     >
-      <div
-        className="card fade-in"
-        style={{
-          width: "100%",
-          maxWidth: 640,
-          padding: 24,
-          maxHeight: "92vh",
-          overflow: "auto",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 20,
-          }}
-        >
-          <h2
-            style={{
-              fontSize: 16,
-              fontWeight: 700,
-              margin: 0,
-              color: "var(--text-primary)",
-            }}
-          >
-            {isEdit ? t("invoices.editInvoice") : t("invoices.newInvoice")}
-          </h2>
-          <button className="btn btn-secondary btn-sm" onClick={onClose}>
-            <i className="ti ti-x" />
-          </button>
+      {error && (
+        <div className="text-md text-expense bg-expense-bg rounded-md px-3 py-2 mb-3.5">
+          {error}
         </div>
+      )}
 
-        {error && (
-          <div
-            style={{
-              fontSize: 13,
-              color: "var(--expense, #ef4444)",
-              background: "var(--expense-bg)",
-              borderRadius: 6,
-              padding: "8px 12px",
-              marginBottom: 14,
-            }}
-          >
-            {error}
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+        {!isEdit && (
+          <div className="bg-canvas rounded-lg p-3 flex flex-col gap-2">
+            <label className="flex items-center gap-1.5 text-xs font-medium text-secondary">
+              <i className="ti ti-sparkles text-brand" />
+              {t("invoices.aiDraftTitle")}
+            </label>
+            <Textarea
+              rows={2}
+              className="min-h-[46px]"
+              placeholder={t("invoices.aiDraftPlaceholder")}
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+            />
+            {aiError && <div className="text-xs text-expense">{aiError}</div>}
+            <Button
+              size="sm"
+              icon="ti-sparkles"
+              onClick={handleAiDraft}
+              disabled={aiDraft.isPending}
+              className="self-start"
+            >
+              {aiDraft.isPending
+                ? t("invoices.aiDraftGenerating")
+                : t("invoices.aiDraftGenerate")}
+            </Button>
           </div>
         )}
 
-        <form
-          onSubmit={handleSubmit}
-          style={{ display: "flex", flexDirection: "column", gap: 14 }}
-        >
-          {!isEdit && (
-            <div
-              style={{
-                background: "var(--bg-secondary)",
-                borderRadius: 8,
-                padding: 12,
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-              }}
-            >
-              <label
-                className="label"
-                style={{ display: "flex", alignItems: "center", gap: 6, margin: 0 }}
-              >
-                <i className="ti ti-sparkles" style={{ color: "var(--brand)" }} />
-                {t("invoices.aiDraftTitle")}
-              </label>
-              <textarea
-                className="input"
-                rows={2}
-                placeholder={t("invoices.aiDraftPlaceholder")}
-                value={aiPrompt}
-                onChange={(e) => setAiPrompt(e.target.value)}
-                style={{ resize: "vertical", minHeight: 46 }}
+        <Field label={t("invoices.clientLabel")} className="mb-0">
+          <Select value={form.clientId} onChange={(e) => setClient(e.target.value)}>
+            <option value="">{t("invoices.selectClient")}</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
+          {taxExempt && (
+            <div className="text-[11px] text-income mt-1">
+              {t("invoices.clientTaxExempt")}
+            </div>
+          )}
+        </Field>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Field label={t("invoices.issueDate")} className="mb-0">
+            <Input
+              type="date"
+              value={form.issueDate}
+              onChange={(e) => setForm({ ...form, issueDate: e.target.value })}
+            />
+          </Field>
+          <Field label={t("invoices.dueDate")} className="mb-0">
+            <Input
+              type="date"
+              value={form.dueDate}
+              onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+            />
+          </Field>
+        </div>
+
+        {/* Line items */}
+        <div>
+          <div className="text-xs font-medium text-secondary mb-1">
+            {t("invoices.lineItems")}
+          </div>
+
+          {aiNotes && (
+            <div className="flex gap-1.5 text-xs text-secondary bg-brand-light rounded-md px-3 py-2 mb-2">
+              <i
+                className="ti ti-info-circle text-brand shrink-0 mt-px"
+                aria-hidden="true"
               />
-              {aiError && (
-                <div style={{ fontSize: 12, color: "var(--expense, #ef4444)" }}>
-                  {aiError}
-                </div>
-              )}
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={handleAiDraft}
-                disabled={aiDraft.isPending}
-                style={{
-                  alignSelf: "flex-start",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                <i className="ti ti-sparkles" style={{ fontSize: 13 }} />
-                {aiDraft.isPending
-                  ? t("invoices.aiDraftGenerating")
-                  : t("invoices.aiDraftGenerate")}
-              </button>
+              <span>
+                <strong>{t("invoices.aiDraftNotesLabel")}</strong> {aiNotes}
+              </span>
             </div>
           )}
 
-          <div>
-            <label className="label">{t("invoices.clientLabel")}</label>
-            <select
-              className="input"
-              value={form.clientId}
-              onChange={(e) => setClient(e.target.value)}
+          {hasConfidence && (
+            <div className="flex items-center gap-3 text-[11px] text-muted mb-2">
+              <span>{t("invoices.aiDraftConfidenceLabel")}</span>
+              {["high", "medium", "low"].map((c) => (
+                <span key={c} className="flex items-center gap-1">
+                  <span
+                    className="w-2 h-2 rounded-full"
+                    style={{ background: CONFIDENCE_COLORS[c] }}
+                  />
+                  {t(`invoices.confidence_${c}`)}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-1.5">
+            {items.map((it, i) => (
+              <div
+                key={i}
+                className="grid grid-cols-[12px_1fr_64px_90px_90px_30px] gap-1.5 items-center"
+              >
+                <span
+                  title={
+                    it.confidence
+                      ? t(`invoices.confidence_${it.confidence}`)
+                      : undefined
+                  }
+                  className="w-2 h-2 rounded-full"
+                  style={{
+                    background: it.confidence
+                      ? CONFIDENCE_COLORS[it.confidence]
+                      : "transparent",
+                  }}
+                />
+                <Input
+                  placeholder={t("invoices.itemDescription")}
+                  value={it.description}
+                  onChange={(e) => updateItem(i, "description", e.target.value)}
+                />
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder={t("invoices.qty")}
+                  value={it.quantity}
+                  onChange={(e) => updateItem(i, "quantity", e.target.value)}
+                  className="text-right"
+                />
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder={t("invoices.unitPrice")}
+                  value={it.unit_price}
+                  onChange={(e) => updateItem(i, "unit_price", e.target.value)}
+                  className="text-right"
+                />
+                <div className="text-xs text-right text-secondary">
+                  {fmt(
+                    (parseFloat(it.quantity) || 0) *
+                      (parseFloat(it.unit_price) || 0),
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeItem(i)}
+                  className="flex items-center justify-center w-[26px] h-[26px] rounded-md text-muted hover:text-danger hover:bg-danger-bg cursor-pointer"
+                  title={t("common.delete")}
+                >
+                  <i className="ti ti-x text-xs" aria-hidden="true" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <Button size="sm" icon="ti-plus" onClick={addItem} className="mt-2">
+            {t("invoices.addLineItem")}
+          </Button>
+        </div>
+
+        {/* Tax + revenue account */}
+        <div className="grid grid-cols-[1fr_110px] gap-2">
+          <Field label={t("invoices.taxType")} className="mb-0">
+            <Select
+              value={form.taxType}
+              onChange={(e) => setTaxType(e.target.value)}
+              disabled={taxExempt}
             >
-              <option value="">{t("invoices.selectClient")}</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
+              <option value="generic">{t("invoices.taxGeneric")}</option>
+              <option value="ivu">{t("invoices.taxIvu")}</option>
+            </Select>
+          </Field>
+          <Field label={t("invoices.taxRate")} className="mb-0">
+            <Input
+              type="number"
+              min="0"
+              step="0.001"
+              value={form.taxRate}
+              onChange={(e) => setForm({ ...form, taxRate: e.target.value })}
+              disabled={taxExempt}
+              className="text-right"
+            />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-[1fr_110px] gap-2">
+          <Field label={t("invoices.revenueAccount")} className="mb-0">
+            <Select
+              value={form.incomeAccountId}
+              onChange={(e) =>
+                setForm({ ...form, incomeAccountId: e.target.value })
+              }
+            >
+              <option value="">{t("invoices.defaultRevenue")}</option>
+              {revenueAccounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {coaName(a, t)}
                 </option>
               ))}
-            </select>
-            {taxExempt && (
-              <div
-                style={{ fontSize: 11, color: "var(--income)", marginTop: 4 }}
-              >
-                {t("invoices.clientTaxExempt")}
-              </div>
-            )}
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <div>
-              <label className="label">{t("invoices.issueDate")}</label>
-              <input
-                className="input"
-                type="date"
-                value={form.issueDate}
-                onChange={(e) =>
-                  setForm({ ...form, issueDate: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <label className="label">{t("invoices.dueDate")}</label>
-              <input
-                className="input"
-                type="date"
-                value={form.dueDate}
-                onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
-              />
-            </div>
-          </div>
-
-          {/* Line items */}
-          <div>
-            <label className="label">{t("invoices.lineItems")}</label>
-
-            {aiNotes && (
-              <div
-                style={{
-                  fontSize: 12,
-                  color: "var(--text-secondary)",
-                  background: "var(--brand-light)",
-                  borderRadius: 6,
-                  padding: "8px 12px",
-                  marginBottom: 8,
-                  display: "flex",
-                  gap: 6,
-                }}
-              >
-                <i
-                  className="ti ti-info-circle"
-                  style={{ color: "var(--brand)", flexShrink: 0, marginTop: 1 }}
-                />
-                <span>
-                  <strong>{t("invoices.aiDraftNotesLabel")}</strong> {aiNotes}
-                </span>
-              </div>
-            )}
-
-            {hasConfidence && (
-              <div
-                style={{
-                  display: "flex",
-                  gap: 12,
-                  fontSize: 11,
-                  color: "var(--text-muted)",
-                  alignItems: "center",
-                  marginBottom: 8,
-                }}
-              >
-                <span>{t("invoices.aiDraftConfidenceLabel")}</span>
-                {["high", "medium", "low"].map((c) => (
-                  <span
-                    key={c}
-                    style={{ display: "flex", alignItems: "center", gap: 4 }}
-                  >
-                    <span
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        background: CONFIDENCE_COLORS[c],
-                      }}
-                    />
-                    {t(`invoices.confidence_${c}`)}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {items.map((it, i) => (
-                <div
-                  key={i}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "12px 1fr 64px 90px 90px 30px",
-                    gap: 6,
-                    alignItems: "center",
-                  }}
-                >
-                  <span
-                    title={
-                      it.confidence
-                        ? t(`invoices.confidence_${it.confidence}`)
-                        : undefined
-                    }
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      background: it.confidence
-                        ? CONFIDENCE_COLORS[it.confidence]
-                        : "transparent",
-                    }}
-                  />
-                  <input
-                    className="input"
-                    placeholder={t("invoices.itemDescription")}
-                    value={it.description}
-                    onChange={(e) =>
-                      updateItem(i, "description", e.target.value)
-                    }
-                  />
-                  <input
-                    className="input"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder={t("invoices.qty")}
-                    value={it.quantity}
-                    onChange={(e) => updateItem(i, "quantity", e.target.value)}
-                    style={{ textAlign: "right" }}
-                  />
-                  <input
-                    className="input"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder={t("invoices.unitPrice")}
-                    value={it.unit_price}
-                    onChange={(e) => updateItem(i, "unit_price", e.target.value)}
-                    style={{ textAlign: "right" }}
-                  />
-                  <div
-                    style={{
-                      fontSize: 12,
-                      textAlign: "right",
-                      color: "var(--text-secondary)",
-                    }}
-                  >
-                    {fmt(
-                      (parseFloat(it.quantity) || 0) *
-                        (parseFloat(it.unit_price) || 0),
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => removeItem(i)}
-                    style={{ padding: "4px 6px" }}
-                    title={t("common.delete")}
-                  >
-                    <i className="ti ti-x" style={{ fontSize: 12 }} />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={addItem}
-              style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}
+            </Select>
+          </Field>
+          <Field label={t("invoices.language")} className="mb-0">
+            <Select
+              value={form.language}
+              onChange={(e) => setForm({ ...form, language: e.target.value })}
             >
-              <i className="ti ti-plus" style={{ fontSize: 13 }} />
-              {t("invoices.addLineItem")}
-            </button>
-          </div>
+              <option value="en">EN</option>
+              <option value="es">ES</option>
+            </Select>
+          </Field>
+        </div>
 
-          {/* Tax + revenue account */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 110px", gap: 8 }}>
-            <div>
-              <label className="label">{t("invoices.taxType")}</label>
-              <select
-                className="input"
-                value={form.taxType}
-                onChange={(e) => setTaxType(e.target.value)}
-                disabled={taxExempt}
-              >
-                <option value="generic">{t("invoices.taxGeneric")}</option>
-                <option value="ivu">{t("invoices.taxIvu")}</option>
-              </select>
-            </div>
-            <div>
-              <label className="label">{t("invoices.taxRate")}</label>
-              <input
-                className="input"
-                type="number"
-                min="0"
-                step="0.001"
-                value={form.taxRate}
-                onChange={(e) => setForm({ ...form, taxRate: e.target.value })}
-                disabled={taxExempt}
-                style={{ textAlign: "right" }}
-              />
-            </div>
-          </div>
+        <Field label={t("invoices.notes")} className="mb-0">
+          <Input
+            type="text"
+            placeholder={t("invoices.notesPlaceholder")}
+            value={form.notes}
+            onChange={(e) => setForm({ ...form, notes: e.target.value })}
+          />
+        </Field>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 110px", gap: 8 }}>
-            <div>
-              <label className="label">{t("invoices.revenueAccount")}</label>
-              <select
-                className="input"
-                value={form.incomeAccountId}
-                onChange={(e) =>
-                  setForm({ ...form, incomeAccountId: e.target.value })
-                }
-              >
-                <option value="">{t("invoices.defaultRevenue")}</option>
-                {revenueAccounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {coaName(a, t)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="label">{t("invoices.language")}</label>
-              <select
-                className="input"
-                value={form.language}
-                onChange={(e) => setForm({ ...form, language: e.target.value })}
-              >
-                <option value="en">EN</option>
-                <option value="es">ES</option>
-              </select>
-            </div>
+        {/* Totals */}
+        <div className="bg-canvas rounded-lg px-3.5 py-3 flex flex-col gap-1 text-md">
+          <div className="flex justify-between">
+            <span className="text-muted">{t("invoices.subtotal")}</span>
+            <span className="text-ink">{fmt(subtotal)}</span>
           </div>
-
-          <div>
-            <label className="label">{t("invoices.notes")}</label>
-            <input
-              className="input"
-              type="text"
-              placeholder={t("invoices.notesPlaceholder")}
-              value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            />
+          <div className="flex justify-between">
+            <span className="text-muted">
+              {form.taxType === "ivu"
+                ? t("invoices.ivuLine", { rate: effectiveRate })
+                : t("invoices.taxLine", { rate: effectiveRate })}
+            </span>
+            <span className="text-ink">{fmt(taxTotal)}</span>
           </div>
+          <div className="flex justify-between font-bold text-[15px] border-t border-line pt-1.5 mt-0.5">
+            <span className="text-ink">{t("invoices.total")}</span>
+            <span className="text-brand">{fmt(total)}</span>
+          </div>
+        </div>
 
-          {/* Totals */}
-          <div
-            style={{
-              background: "var(--bg-secondary)",
-              borderRadius: 8,
-              padding: "12px 14px",
-              display: "flex",
-              flexDirection: "column",
-              gap: 4,
-              fontSize: 13,
-            }}
+        <div className="flex gap-2.5 justify-end mt-1">
+          <Button onClick={onClose}>{t("common.cancel")}</Button>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={saveMutation.isPending}
           >
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "var(--text-muted)" }}>
-                {t("invoices.subtotal")}
-              </span>
-              <span style={{ color: "var(--text-primary)" }}>{fmt(subtotal)}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "var(--text-muted)" }}>
-                {form.taxType === "ivu"
-                  ? t("invoices.ivuLine", { rate: effectiveRate })
-                  : t("invoices.taxLine", { rate: effectiveRate })}
-              </span>
-              <span style={{ color: "var(--text-primary)" }}>{fmt(taxTotal)}</span>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                fontWeight: 700,
-                fontSize: 15,
-                borderTop: "0.5px solid var(--border-color)",
-                paddingTop: 6,
-                marginTop: 2,
-              }}
-            >
-              <span style={{ color: "var(--text-primary)" }}>
-                {t("invoices.total")}
-              </span>
-              <span style={{ color: "var(--brand)" }}>{fmt(total)}</span>
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              gap: 10,
-              justifyContent: "flex-end",
-              marginTop: 4,
-            }}
-          >
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
-              {t("common.cancel")}
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={saveMutation.isPending}
-            >
-              {saveMutation.isPending
-                ? t("invoices.saving")
-                : isEdit
-                  ? t("invoices.saveChanges")
-                  : t("invoices.createInvoice")}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+            {saveMutation.isPending
+              ? t("invoices.saving")
+              : isEdit
+                ? t("invoices.saveChanges")
+                : t("invoices.createInvoice")}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -854,113 +697,73 @@ function PayModal({ invoice, accounts, onClose, onPaid, t, fmt }) {
   });
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.45)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1100,
-        padding: 16,
-      }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="card fade-in" style={{ width: "100%", maxWidth: 380, padding: 24 }}>
-        <h2
-          style={{
-            fontSize: 16,
-            fontWeight: 700,
-            margin: "0 0 4px",
-            color: "var(--text-primary)",
-          }}
-        >
-          {t("invoices.recordPayment")}
-        </h2>
-        <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
-          {invoice.invoice_number} · {fmt(invoice.total)}
+    <Modal open onClose={onClose} size="sm" title={t("invoices.recordPayment")}>
+      <div className="text-md text-muted mb-4 -mt-1">
+        {invoice.invoice_number} · {fmt(invoice.total)}
+      </div>
+
+      {isDraft && (
+        <div className="text-xs text-secondary bg-canvas rounded-md px-3 py-2 mb-3.5">
+          {t("invoices.markPaidDraftHint")}
         </div>
+      )}
 
-        {isDraft && (
-          <div
-            style={{
-              fontSize: 12,
-              color: "var(--text-secondary)",
-              background: "var(--bg-secondary)",
-              borderRadius: 6,
-              padding: "8px 12px",
-              marginBottom: 14,
-            }}
+      {error && (
+        <div className="text-md text-expense bg-expense-bg rounded-md px-3 py-2 mb-3.5">
+          {error}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-3.5">
+        <Field label={t("invoices.depositTo")} className="mb-0">
+          <Select
+            value={accountId}
+            onChange={(e) => setAccountId(e.target.value)}
           >
-            {t("invoices.markPaidDraftHint")}
-          </div>
-        )}
-
-        {error && (
-          <div
-            style={{
-              fontSize: 13,
-              color: "var(--expense)",
-              background: "var(--expense-bg)",
-              borderRadius: 6,
-              padding: "8px 12px",
-              marginBottom: 14,
-            }}
+            {accounts.length === 0 && (
+              <option value="">{t("invoices.noDepositAccounts")}</option>
+            )}
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label={t("invoices.paymentDate")} className="mb-0">
+          <Input
+            type="date"
+            value={paidDate}
+            onChange={(e) => setPaidDate(e.target.value)}
+          />
+        </Field>
+        <div className="flex gap-2.5 justify-end">
+          <Button onClick={onClose}>{t("common.cancel")}</Button>
+          <Button
+            variant="primary"
+            disabled={!accountId || payMutation.isPending}
+            onClick={() => payMutation.mutate()}
           >
-            {error}
-          </div>
-        )}
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div>
-            <label className="label">{t("invoices.depositTo")}</label>
-            <select
-              className="input"
-              value={accountId}
-              onChange={(e) => setAccountId(e.target.value)}
-            >
-              {accounts.length === 0 && (
-                <option value="">{t("invoices.noDepositAccounts")}</option>
-              )}
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="label">{t("invoices.paymentDate")}</label>
-            <input
-              className="input"
-              type="date"
-              value={paidDate}
-              onChange={(e) => setPaidDate(e.target.value)}
-            />
-          </div>
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-            <button className="btn btn-secondary" onClick={onClose}>
-              {t("common.cancel")}
-            </button>
-            <button
-              className="btn btn-primary"
-              disabled={!accountId || payMutation.isPending}
-              onClick={() => payMutation.mutate()}
-            >
-              {payMutation.isPending
-                ? t("invoices.saving")
-                : t("invoices.markPaid")}
-            </button>
-          </div>
+            {payMutation.isPending
+              ? t("invoices.saving")
+              : t("invoices.markPaid")}
+          </Button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
 // ── Invoice detail drawer ─────────────────────────────────────
-function InvoiceDrawer({ invoiceId, accounts, onClose, onEdit, businessName, fmt, t }) {
+function InvoiceDrawer({
+  invoiceId,
+  accounts,
+  onClose,
+  onEdit,
+  businessName,
+  fmt,
+  t,
+}) {
   const qc = useQueryClient();
   const [showPay, setShowPay] = useState(false);
 
@@ -1044,90 +847,35 @@ function InvoiceDrawer({ invoiceId, accounts, onClose, onEdit, businessName, fmt
   });
 
   const eff = invoice?.is_overdue ? "overdue" : invoice?.status;
-  const c = STATUS_COLORS[eff] || STATUS_COLORS.draft;
 
   return (
     <>
-      <div
-        onClick={onClose}
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,0.3)",
-          zIndex: 200,
-        }}
-      />
-      <div
-        className="fade-in"
-        style={{
-          position: "fixed",
-          top: 0,
-          right: 0,
-          bottom: 0,
-          width: 440,
-          maxWidth: "100vw",
-          background: "var(--bg-primary)",
-          borderLeft: "0.5px solid var(--border-color)",
-          zIndex: 201,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            padding: "16px 20px",
-            borderBottom: "0.5px solid var(--border-color)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            gap: 12,
-            flexShrink: 0,
-          }}
-        >
-          <div style={{ minWidth: 0 }}>
-            <div
-              style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}
-            >
+      <div onClick={onClose} className="fixed inset-0 bg-black/30 z-[150]" />
+      <div className="fade-in fixed top-0 right-0 bottom-0 w-[440px] max-w-full bg-surface border-l border-line z-[151] flex flex-col overflow-hidden">
+        <div className="flex justify-between items-start gap-3 px-5 py-4 border-b border-line shrink-0">
+          <div className="min-w-0">
+            <div className="text-base font-bold text-ink">
               {invoice?.invoice_number || "…"}
             </div>
             {invoice && (
-              <span
-                style={{
-                  display: "inline-block",
-                  marginTop: 4,
-                  fontSize: 10,
-                  fontWeight: 700,
-                  padding: "2px 7px",
-                  borderRadius: 4,
-                  background: c.bg,
-                  color: c.fg,
-                  letterSpacing: 0.5,
-                }}
-              >
-                {t(`invoices.status.${eff}`)}
-              </span>
+              <div className="mt-1">
+                <StatusBadge status={eff} t={t} />
+              </div>
             )}
           </div>
-          <button className="btn btn-secondary btn-sm" onClick={onClose}>
-            <i className="ti ti-x" />
-          </button>
+          <Button size="sm" icon="ti-x" onClick={onClose} aria-label="Close" />
         </div>
 
-        <div style={{ flex: 1, overflow: "auto", padding: "16px 20px" }}>
+        <div className="flex-1 overflow-auto px-5 py-4">
           {isLoading || !invoice ? (
-            <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-              {t("common.loading")}
-            </div>
+            <div className="text-md text-muted">{t("common.loading")}</div>
           ) : (
             <>
-              <div style={{ marginBottom: 16 }}>
-                <div
-                  style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}
-                >
+              <div className="mb-4">
+                <div className="text-sm font-semibold text-ink">
                   {invoice.client_name}
                 </div>
-                <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
+                <div className="text-xs text-muted mt-0.5">
                   {t("invoices.issued", {
                     date: dayjs(invoice.issue_date).format("MMM D, YYYY"),
                   })}{" "}
@@ -1139,120 +887,82 @@ function InvoiceDrawer({ invoiceId, accounts, onClose, onEdit, businessName, fmt
               </div>
 
               {/* Line items */}
-              <div className="card" style={{ padding: 0, overflow: "hidden", marginBottom: 16 }}>
+              <Card padding="none" className="overflow-hidden mb-4">
                 {invoice.line_items.map((li) => (
                   <div
                     key={li.id}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      padding: "10px 14px",
-                      borderBottom: "0.5px solid var(--border-color)",
-                      gap: 8,
-                    }}
+                    className="flex justify-between gap-2 px-3.5 py-2.5 border-b border-line"
                   >
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 13, color: "var(--text-primary)" }}>
-                        {li.description}
-                      </div>
-                      <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                    <div className="min-w-0">
+                      <div className="text-md text-ink">{li.description}</div>
+                      <div className="text-[11px] text-muted">
                         {Number(li.quantity)} × {fmt(li.unit_price)}
                       </div>
                     </div>
-                    <div
-                      style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}
-                    >
+                    <div className="text-md font-semibold text-ink">
                       {fmt(li.total)}
                     </div>
                   </div>
                 ))}
-                <div style={{ padding: "10px 14px" }}>
+                <div className="px-3.5 py-2.5">
                   <Row label={t("invoices.subtotal")} value={fmt(invoice.subtotal)} />
                   {Number(invoice.tax_total) > 0 && (
                     <Row
                       label={
                         invoice.tax_type === "ivu"
-                          ? t("invoices.ivuLine", { rate: Number(invoice.tax_rate) })
-                          : t("invoices.taxLine", { rate: Number(invoice.tax_rate) })
+                          ? t("invoices.ivuLine", {
+                              rate: Number(invoice.tax_rate),
+                            })
+                          : t("invoices.taxLine", {
+                              rate: Number(invoice.tax_rate),
+                            })
                       }
                       value={fmt(invoice.tax_total)}
                     />
                   )}
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      fontWeight: 700,
-                      fontSize: 15,
-                      borderTop: "0.5px solid var(--border-color)",
-                      paddingTop: 6,
-                      marginTop: 4,
-                    }}
-                  >
-                    <span style={{ color: "var(--text-primary)" }}>
-                      {t("invoices.total")}
-                    </span>
-                    <span style={{ color: "var(--brand)" }}>{fmt(invoice.total)}</span>
+                  <div className="flex justify-between font-bold text-[15px] border-t border-line pt-1.5 mt-1">
+                    <span className="text-ink">{t("invoices.total")}</span>
+                    <span className="text-brand">{fmt(invoice.total)}</span>
                   </div>
                 </div>
-              </div>
+              </Card>
 
               {invoice.notes && (
-                <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 16 }}>
-                  {invoice.notes}
-                </div>
+                <div className="text-xs text-secondary mb-4">{invoice.notes}</div>
               )}
 
               {emailMsg && (
                 <div
-                  style={{
-                    fontSize: 12,
-                    padding: "8px 12px",
-                    borderRadius: 8,
-                    marginBottom: 10,
-                    background: emailMsg.ok
-                      ? "var(--income-bg)"
-                      : "var(--expense-bg)",
-                    color: emailMsg.ok ? "var(--income)" : "var(--expense)",
-                  }}
+                  className={cx(
+                    "text-xs px-3 py-2 rounded-lg mb-2.5",
+                    emailMsg.ok
+                      ? "bg-income-bg text-income"
+                      : "bg-expense-bg text-expense",
+                  )}
                 >
                   <i
-                    className={`ti ${emailMsg.ok ? "ti-mail-check" : "ti-alert-circle"}`}
-                    style={{ marginRight: 6 }}
+                    className={`ti ${emailMsg.ok ? "ti-mail-check" : "ti-alert-circle"} mr-1.5`}
+                    aria-hidden="true"
                   />
                   {emailMsg.text}
                 </div>
               )}
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  className="btn btn-secondary"
+              <div className="flex gap-2">
+                <Button
+                  icon="ti-download"
                   onClick={() => downloadPdf.mutate()}
                   disabled={downloadPdf.isPending}
-                  style={{
-                    flex: 1,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    justifyContent: "center",
-                  }}
+                  className="flex-1 justify-center"
                 >
-                  <i className="ti ti-download" style={{ fontSize: 14 }} />
                   {t("invoices.downloadPdf")}
-                </button>
-                <button
-                  className="btn btn-secondary"
+                </Button>
+                <Button
+                  icon="ti-printer"
                   onClick={() => openPrintWindow(invoice, businessName)}
-                  style={{
-                    flex: 1,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    justifyContent: "center",
-                  }}
+                  className="flex-1 justify-center"
                 >
-                  <i className="ti ti-printer" style={{ fontSize: 14 }} />
                   {t("invoices.printPdf")}
-                </button>
+                </Button>
               </div>
             </>
           )}
@@ -1260,42 +970,30 @@ function InvoiceDrawer({ invoiceId, accounts, onClose, onEdit, businessName, fmt
 
         {/* Action footer — depends on status */}
         {invoice && invoice.status !== "void" && (
-          <div
-            style={{
-              padding: "12px 20px",
-              borderTop: "0.5px solid var(--border-color)",
-              flexShrink: 0,
-              display: "flex",
-              gap: 8,
-              flexWrap: "wrap",
-            }}
-          >
+          <div className="flex gap-2 flex-wrap px-5 py-3 border-t border-line shrink-0">
             {invoice.status === "draft" && (
               <>
-                <div style={{ display: "flex", gap: 8, width: "100%" }}>
-                  <button
-                    className="btn btn-secondary"
+                <div className="flex gap-2 w-full">
+                  <Button
+                    icon="ti-pencil"
                     onClick={onEdit}
-                    style={{ flex: 1 }}
+                    className="flex-1 justify-center"
                   >
-                    <i className="ti ti-pencil" style={{ fontSize: 14, marginRight: 6 }} />
                     {t("common.edit")}
-                  </button>
-                  <button
-                    className="btn btn-secondary"
+                  </Button>
+                  <Button
+                    variant="danger"
+                    icon="ti-trash"
+                    title={t("common.delete")}
                     onClick={() => {
                       if (window.confirm(t("invoices.confirmDelete")))
                         deleteMutation.mutate();
                     }}
-                    style={{ color: "var(--expense)" }}
-                    title={t("common.delete")}
-                  >
-                    <i className="ti ti-trash" style={{ fontSize: 14 }} />
-                  </button>
+                  />
                 </div>
-                <div style={{ display: "flex", gap: 8, width: "100%" }}>
-                  <button
-                    className="btn btn-secondary"
+                <div className="flex gap-2 w-full">
+                  <Button
+                    icon="ti-cash"
                     onClick={() => setShowPay(true)}
                     disabled={accounts.length === 0}
                     title={
@@ -1303,73 +1001,65 @@ function InvoiceDrawer({ invoiceId, accounts, onClose, onEdit, businessName, fmt
                         ? t("invoices.noDepositAccounts")
                         : undefined
                     }
-                    style={{ flex: 1 }}
+                    className="flex-1 justify-center"
                   >
-                    <i className="ti ti-cash" style={{ fontSize: 14, marginRight: 6 }} />
                     {t("invoices.markPaid")}
-                  </button>
-                  <button
-                    className="btn btn-primary"
+                  </Button>
+                  <Button
+                    variant="primary"
+                    icon="ti-send"
                     onClick={() => sendMutation.mutate()}
                     disabled={sendMutation.isPending}
-                    style={{ flex: 1 }}
+                    className="flex-1 justify-center"
                   >
-                    <i className="ti ti-send" style={{ fontSize: 14, marginRight: 6 }} />
                     {t("invoices.send")}
-                  </button>
+                  </Button>
                 </div>
               </>
             )}
             {(invoice.status === "sent" || invoice.status === "overdue") && (
               <>
-                <button
-                  className="btn btn-secondary"
+                <Button
+                  icon="ti-send"
                   onClick={() => resendMutation.mutate()}
                   disabled={resendMutation.isPending}
-                  style={{
-                    width: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    justifyContent: "center",
-                  }}
+                  full
                 >
-                  <i className="ti ti-send" style={{ fontSize: 14 }} />
                   {resendMutation.isPending
                     ? t("invoices.sending")
                     : t("invoices.resend")}
-                </button>
-                <button
-                  className="btn btn-secondary"
+                </Button>
+                <Button
+                  variant="danger"
                   onClick={() => {
                     if (window.confirm(t("invoices.confirmVoid")))
                       voidMutation.mutate();
                   }}
-                  style={{ flex: 1, color: "var(--expense)" }}
+                  className="flex-1 justify-center"
                 >
                   {t("invoices.void")}
-                </button>
-                <button
-                  className="btn btn-primary"
+                </Button>
+                <Button
+                  variant="primary"
+                  icon="ti-cash"
                   onClick={() => setShowPay(true)}
-                  style={{ flex: 1 }}
+                  className="flex-1 justify-center"
                 >
-                  <i className="ti ti-cash" style={{ fontSize: 14, marginRight: 6 }} />
                   {t("invoices.recordPayment")}
-                </button>
+                </Button>
               </>
             )}
             {invoice.status === "paid" && (
-              <button
-                className="btn btn-secondary"
+              <Button
+                variant="danger"
+                full
                 onClick={() => {
                   if (window.confirm(t("invoices.confirmVoid")))
                     voidMutation.mutate();
                 }}
-                style={{ width: "100%", color: "var(--expense)" }}
               >
                 {t("invoices.void")}
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -1394,17 +1084,9 @@ function InvoiceDrawer({ invoiceId, accounts, onClose, onEdit, businessName, fmt
 
 function Row({ label, value }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        fontSize: 13,
-        color: "var(--text-muted)",
-        marginBottom: 2,
-      }}
-    >
+    <div className="flex justify-between text-md text-muted mb-0.5">
       <span>{label}</span>
-      <span style={{ color: "var(--text-primary)" }}>{value}</span>
+      <span className="text-ink">{value}</span>
     </div>
   );
 }
@@ -1476,8 +1158,7 @@ export default function Invoices() {
   // so the header is stable regardless of the active tab.
   const { data: outstanding = [] } = useQuery({
     queryKey: ["invoices", "outstanding"],
-    queryFn: () =>
-      api.get("/invoices?status=outstanding").then((r) => r.data),
+    queryFn: () => api.get("/invoices?status=outstanding").then((r) => r.data),
   });
   const totalOutstanding = outstanding.reduce(
     (s, i) => s + parseFloat(i.total),
@@ -1512,277 +1193,152 @@ export default function Invoices() {
   ];
 
   return (
-    <div style={{ maxWidth: 960, margin: "0 auto" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          marginBottom: 20,
-          gap: 12,
-          flexWrap: "wrap",
-        }}
-      >
-        <div>
-          <h1
-            style={{
-              fontSize: 20,
-              fontWeight: 700,
-              color: "var(--text-primary)",
-              margin: 0,
+    <div className="max-w-[960px] mx-auto">
+      <PageHeader
+        title={t("invoices.title")}
+        subtitle={t("invoices.subtitle")}
+        actions={
+          <Button
+            variant="primary"
+            icon="ti-plus"
+            onClick={() => {
+              setEditInvoice(null);
+              setShowBuilder(true);
             }}
+            disabled={clients.length === 0}
+            title={clients.length === 0 ? t("invoices.needClient") : undefined}
           >
-            {t("invoices.title")}
-          </h1>
-          <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "4px 0 0" }}>
-            {t("invoices.subtitle")}
-          </p>
-        </div>
-        <button
-          className="btn btn-primary"
-          onClick={() => {
-            setEditInvoice(null);
-            setShowBuilder(true);
-          }}
-          disabled={clients.length === 0}
-          title={clients.length === 0 ? t("invoices.needClient") : undefined}
-          style={{ display: "flex", alignItems: "center", gap: 6 }}
-        >
-          <i className="ti ti-plus" style={{ fontSize: 15 }} />
-          {t("invoices.newInvoice")}
-        </button>
-      </div>
+            {t("invoices.newInvoice")}
+          </Button>
+        }
+      />
 
       {/* Summary cards */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-          gap: 12,
-          marginBottom: 20,
-        }}
-      >
-        <div className="card" style={{ padding: "14px 16px" }}>
-          <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3 mb-5">
+        <Card padding="none" className="px-4 py-3.5">
+          <div className="text-[11px] text-muted mb-1">
             {t("invoices.totalOutstanding")}
           </div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: "var(--brand)" }}>
+          <div className="text-xl font-bold text-brand">
             {fmt(totalOutstanding)}
           </div>
-        </div>
-        <div className="card" style={{ padding: "14px 16px" }}>
-          <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>
+        </Card>
+        <Card padding="none" className="px-4 py-3.5">
+          <div className="text-[11px] text-muted mb-1">
             {t("invoices.overdueCount")}
           </div>
           <div
-            style={{
-              fontSize: 20,
-              fontWeight: 700,
-              color: overdueCount > 0 ? "var(--expense)" : "var(--text-primary)",
-            }}
+            className={cx(
+              "text-xl font-bold",
+              overdueCount > 0 ? "text-expense" : "text-ink",
+            )}
           >
             {overdueCount}
           </div>
-        </div>
-        <div className="card" style={{ padding: "14px 16px" }}>
-          <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>
+        </Card>
+        <Card padding="none" className="px-4 py-3.5">
+          <div className="text-[11px] text-muted mb-1">
             {t("invoices.openInvoices")}
           </div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)" }}>
-            {outstanding.length}
-          </div>
-        </div>
+          <div className="text-xl font-bold text-ink">{outstanding.length}</div>
+        </Card>
       </div>
 
       {/* Status tabs */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 16, flexWrap: "wrap" }}>
+      <div className="flex gap-1 mb-4 flex-wrap">
         {TABS.map((tb) => (
-          <button
+          <Button
             key={tb.key}
-            className={`btn btn-sm ${statusTab === tb.key ? "btn-primary" : "btn-secondary"}`}
+            size="sm"
+            variant={statusTab === tb.key ? "primary" : "secondary"}
             onClick={() => setStatusTab(tb.key)}
           >
             {tb.label}
-          </button>
+          </Button>
         ))}
       </div>
 
       {/* Active client filter (from a deep link) */}
       {clientFilter && (
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            marginBottom: 16,
-            padding: "6px 8px 6px 12px",
-            borderRadius: 16,
-            background: "var(--brand-light)",
-            color: "var(--brand)",
-            fontSize: 12,
-            fontWeight: 500,
-          }}
-        >
-          <i className="ti ti-filter" style={{ fontSize: 14 }} />
-          <span>{t("invoices.filteredByClient", { name: filteredClientName })}</span>
+        <div className="inline-flex items-center gap-2 mb-4 py-1.5 pl-3 pr-2 rounded-2xl bg-brand-light text-brand text-xs font-medium">
+          <i className="ti ti-filter text-sm" aria-hidden="true" />
+          <span>
+            {t("invoices.filteredByClient", { name: filteredClientName })}
+          </span>
           <button
             onClick={() => updateParams((p) => p.delete("client"))}
             aria-label={t("invoices.clearFilter")}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              border: "none",
-              background: "transparent",
-              color: "inherit",
-              cursor: "pointer",
-              padding: 2,
-            }}
+            className="flex items-center text-inherit cursor-pointer p-0.5"
           >
-            <i className="ti ti-x" style={{ fontSize: 14 }} />
+            <i className="ti ti-x text-sm" aria-hidden="true" />
           </button>
         </div>
       )}
 
       {isLoading && (
-        <div
-          style={{
-            fontSize: 14,
-            color: "var(--text-muted)",
-            padding: "40px 0",
-            textAlign: "center",
-          }}
-        >
+        <div className="text-sm text-muted py-10 text-center">
           {t("common.loading")}
         </div>
       )}
 
       {!isLoading && invoices.length === 0 && (
-        <div className="card" style={{ padding: 48, textAlign: "center" }}>
-          <i
-            className="ti ti-file-invoice"
-            style={{
-              fontSize: 40,
-              color: "var(--text-muted)",
-              display: "block",
-              marginBottom: 12,
-            }}
+        <Card>
+          <EmptyState
+            icon="ti-file-invoice"
+            title={t("invoices.noneYet")}
+            message={
+              clients.length === 0
+                ? t("invoices.needClient")
+                : t("invoices.noneYetHint")
+            }
           />
-          <div
-            style={{
-              fontSize: 15,
-              fontWeight: 600,
-              color: "var(--text-primary)",
-              marginBottom: 6,
-            }}
-          >
-            {t("invoices.noneYet")}
-          </div>
-          <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-            {clients.length === 0
-              ? t("invoices.needClient")
-              : t("invoices.noneYetHint")}
-          </div>
-        </div>
+        </Card>
       )}
 
       {!isLoading && invoices.length > 0 && (
-        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "120px 1fr 120px 120px 110px",
-              padding: "10px 16px",
-              borderBottom: "0.5px solid var(--border-color)",
-              background: "var(--bg-secondary)",
-              fontSize: 11,
-              color: "var(--text-muted)",
-              fontWeight: 500,
-              letterSpacing: 0.5,
-            }}
-          >
-            <div>{t("invoices.colNumber")}</div>
-            <div>{t("invoices.colClient")}</div>
-            <div>{t("invoices.colDue")}</div>
-            <div style={{ textAlign: "right" }}>{t("invoices.colTotal")}</div>
-            <div style={{ textAlign: "right" }}>{t("common.status")}</div>
-          </div>
+        <Card padding="none" className="overflow-x-auto">
+          <div className="min-w-[600px]">
+            <div className="grid grid-cols-[120px_1fr_120px_120px_110px] px-4 py-2.5 border-b border-line bg-canvas text-[11px] text-muted font-medium tracking-[0.5px]">
+              <div>{t("invoices.colNumber")}</div>
+              <div>{t("invoices.colClient")}</div>
+              <div>{t("invoices.colDue")}</div>
+              <div className="text-right">{t("invoices.colTotal")}</div>
+              <div className="text-right">{t("common.status")}</div>
+            </div>
 
-          {invoices.map((inv) => {
-            const eff = inv.is_overdue ? "overdue" : inv.status;
-            const c = STATUS_COLORS[eff] || STATUS_COLORS.draft;
-            return (
-              <div
-                key={inv.id}
-                onClick={() => setSelectedId(inv.id)}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "120px 1fr 120px 120px 110px",
-                  padding: "12px 16px",
-                  borderBottom: "0.5px solid var(--border-color)",
-                  alignItems: "center",
-                  cursor: "pointer",
-                  transition: "background 0.15s",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "var(--bg-secondary)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "transparent")
-                }
-              >
+            {invoices.map((inv) => {
+              const eff = inv.is_overdue ? "overdue" : inv.status;
+              return (
                 <div
-                  style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}
+                  key={inv.id}
+                  onClick={() => setSelectedId(inv.id)}
+                  className="grid grid-cols-[120px_1fr_120px_120px_110px] px-4 py-3 border-b border-line items-center cursor-pointer transition-colors hover:bg-canvas"
                 >
-                  {inv.invoice_number}
+                  <div className="text-md font-semibold text-ink">
+                    {inv.invoice_number}
+                  </div>
+                  <div className="text-md text-secondary truncate">
+                    {inv.client_name}
+                  </div>
+                  <div className="text-xs text-muted">
+                    {dayjs(inv.due_date).format("MMM D, YYYY")}
+                    {inv.is_overdue && (
+                      <span className="text-expense ml-1">
+                        ({t("invoices.daysLate", { days: inv.days_overdue })})
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-md font-semibold text-ink text-right">
+                    {fmt(inv.total)}
+                  </div>
+                  <div className="text-right">
+                    <StatusBadge status={eff} t={t} />
+                  </div>
                 </div>
-                <div
-                  style={{
-                    fontSize: 13,
-                    color: "var(--text-secondary)",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {inv.client_name}
-                </div>
-                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  {dayjs(inv.due_date).format("MMM D, YYYY")}
-                  {inv.is_overdue && (
-                    <span style={{ color: "var(--expense)", marginLeft: 4 }}>
-                      ({t("invoices.daysLate", { days: inv.days_overdue })})
-                    </span>
-                  )}
-                </div>
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: "var(--text-primary)",
-                    textAlign: "right",
-                  }}
-                >
-                  {fmt(inv.total)}
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      padding: "2px 7px",
-                      borderRadius: 4,
-                      background: c.bg,
-                      color: c.fg,
-                      letterSpacing: 0.5,
-                    }}
-                  >
-                    {t(`invoices.status.${eff}`)}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        </Card>
       )}
 
       {selectedId && (

@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import { coaToCategories, resolveCatName } from "../lib/coaCategories";
+import cx from "../lib/cx";
+import { Button, Card, Input } from "../components/ui";
 
 function currentYM() {
   const now = new Date();
@@ -41,29 +43,16 @@ function fmt(n) {
 function ProgressBar({ actual, budget, type }) {
   const pct = budget > 0 ? Math.min((actual / budget) * 100, 100) : 0;
   const over = actual > budget && budget > 0;
-  const color = over
-    ? "var(--error, #e53e3e)"
+  const barCls = over
+    ? "bg-danger"
     : type === "income"
-      ? "var(--income, #38a169)"
-      : "var(--brand)";
+      ? "bg-income"
+      : "bg-brand";
   return (
-    <div
-      style={{
-        height: 6,
-        background: "var(--border-color)",
-        borderRadius: 3,
-        overflow: "hidden",
-        flex: 1,
-      }}
-    >
+    <div className="h-1.5 bg-line rounded-sm overflow-hidden flex-1">
       <div
-        style={{
-          height: "100%",
-          width: `${pct}%`,
-          background: color,
-          borderRadius: 3,
-          transition: "width 0.3s",
-        }}
+        className={cx("h-full rounded-sm transition-all duration-300", barCls)}
+        style={{ width: `${pct}%` }}
       />
     </div>
   );
@@ -71,26 +60,33 @@ function ProgressBar({ actual, budget, type }) {
 
 function MonthNav({ month, setMonth }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <button
-        className="btn btn-sm btn-secondary"
+    <div className="flex items-center gap-2">
+      <Button
+        size="sm"
         onClick={() => setMonth(prevYM(month))}
         aria-label="Previous month"
-        style={{ padding: "4px 10px" }}
       >
         ‹
-      </button>
-      <span style={{ fontSize: 14, fontWeight: 600, minWidth: 140, textAlign: "center" }}>
+      </Button>
+      <span className="text-sm font-semibold min-w-[140px] text-center text-ink">
         {formatYM(month)}
       </span>
-      <button
-        className="btn btn-sm btn-secondary"
+      <Button
+        size="sm"
         onClick={() => setMonth(nextYM(month))}
         aria-label="Next month"
-        style={{ padding: "4px 10px" }}
       >
         ›
-      </button>
+      </Button>
+    </div>
+  );
+}
+
+// Uppercase section label used by the budget cards.
+function SectionLabel({ children }) {
+  return (
+    <div className="py-3 text-[11px] font-semibold text-muted uppercase tracking-[0.5px]">
+      {children}
     </div>
   );
 }
@@ -106,22 +102,18 @@ function OverviewTab({ month }) {
 
   if (isLoading) {
     return (
-      <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>
-        Loading…
-      </div>
+      <div className="p-10 text-center text-muted text-sm">Loading…</div>
     );
   }
 
   if (rows.length === 0) {
     return (
-      <div style={{ padding: 60, textAlign: "center" }}>
-        <div style={{ fontSize: 32, marginBottom: 12 }}>📊</div>
-        <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text-primary)", marginBottom: 6 }}>
+      <div className="py-14 text-center">
+        <div className="text-[32px] mb-3">📊</div>
+        <div className="text-[15px] font-medium text-ink mb-1.5">
           {t("budget.noBudget")}
         </div>
-        <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-          {t("budget.noBudgetHint")}
-        </div>
+        <div className="text-md text-muted">{t("budget.noBudgetHint")}</div>
       </div>
     );
   }
@@ -140,44 +132,28 @@ function OverviewTab({ month }) {
     const pct = budget > 0 ? Math.round((actual / budget) * 100) : 0;
 
     return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          padding: "10px 0",
-          borderBottom: "0.5px solid var(--border-color)",
-        }}
-      >
+      <div className="flex items-center gap-3 py-2.5 border-b border-line">
         <div
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: "50%",
-            background: row.color || "var(--brand)",
-            flexShrink: 0,
-          }}
+          className="w-2.5 h-2.5 rounded-full shrink-0"
+          style={{ background: row.color || "var(--brand)" }}
         />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-md font-medium text-ink">
               {resolveCatName(row.name_key, row.name, t)}
             </span>
             <span
-              style={{
-                fontSize: 10,
-                padding: "1px 6px",
-                borderRadius: 3,
-                background: over ? "var(--expense-bg, #fff5f5)" : "var(--income-bg, #f0fff4)",
-                color: over ? "var(--error, #e53e3e)" : "var(--income, #38a169)",
-              }}
+              className={cx(
+                "text-[10px] px-1.5 py-px rounded-sm",
+                over ? "bg-danger-bg text-danger" : "bg-income-bg text-income",
+              )}
             >
               {over ? t("budget.overBudget") : t("budget.underBudget")} ({pct}%)
             </span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div className="flex items-center gap-2">
             <ProgressBar actual={actual} budget={budget} type={row.type} />
-            <span style={{ fontSize: 12, color: "var(--text-muted)", whiteSpace: "nowrap" }}>
+            <span className="text-xs text-muted whitespace-nowrap">
               {fmt(actual)} / {fmt(budget)}
             </span>
           </div>
@@ -189,61 +165,60 @@ function OverviewTab({ month }) {
   return (
     <div>
       {/* KPI summary */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 12,
-          marginBottom: 24,
-        }}
-      >
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
         {[
-          { label: t("budget.totalBudgeted"), value: fmt(totalBudget), color: "var(--brand)" },
-          { label: t("budget.totalSpent"), value: fmt(totalActual), color: totalActual > totalBudget ? "var(--error, #e53e3e)" : "var(--text-primary)" },
-          { label: t("budget.remaining"), value: fmt(totalRemaining), color: totalRemaining < 0 ? "var(--error, #e53e3e)" : "var(--income, #38a169)" },
+          {
+            label: t("budget.totalBudgeted"),
+            value: fmt(totalBudget),
+            cls: "text-brand",
+          },
+          {
+            label: t("budget.totalSpent"),
+            value: fmt(totalActual),
+            cls: totalActual > totalBudget ? "text-danger" : "text-ink",
+          },
+          {
+            label: t("budget.remaining"),
+            value: fmt(totalRemaining),
+            cls: totalRemaining < 0 ? "text-danger" : "text-income",
+          },
         ].map((kpi) => (
-          <div
-            key={kpi.label}
-            className="card"
-            style={{ padding: 16 }}
-          >
-            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>
-              {kpi.label}
-            </div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: kpi.color }}>
-              {kpi.value}
-            </div>
-          </div>
+          <Card key={kpi.label} padding="none" className="p-4">
+            <div className="text-[11px] text-muted mb-1">{kpi.label}</div>
+            <div className={cx("text-xl font-bold", kpi.cls)}>{kpi.value}</div>
+          </Card>
         ))}
       </div>
 
       {/* Overall progress bar */}
-      <div className="card" style={{ padding: 16, marginBottom: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 12, color: "var(--text-muted)" }}>
+      <Card padding="none" className="p-4 mb-4">
+        <div className="flex justify-between mb-2 text-xs text-muted">
           <span>{fmt(totalActual)} spent</span>
           <span>{fmt(totalBudget)} budgeted</span>
         </div>
-        <ProgressBar actual={totalActual} budget={totalBudget} type="expense" />
-      </div>
+        <div className="flex">
+          <ProgressBar actual={totalActual} budget={totalBudget} type="expense" />
+        </div>
+      </Card>
 
       {/* Expense categories */}
       {expenseRows.length > 0 && (
-        <div className="card" style={{ padding: "0 16px", marginBottom: 16 }}>
-          <div style={{ padding: "12px 0", fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.5 }}>
-            {t("budget.expenseSection")}
-          </div>
-          {expenseRows.map((r) => <CategoryRow key={r.id} row={r} />)}
-        </div>
+        <Card padding="none" className="px-4 mb-4">
+          <SectionLabel>{t("budget.expenseSection")}</SectionLabel>
+          {expenseRows.map((r) => (
+            <CategoryRow key={r.id} row={r} />
+          ))}
+        </Card>
       )}
 
       {/* Income categories */}
       {incomeRows.length > 0 && (
-        <div className="card" style={{ padding: "0 16px" }}>
-          <div style={{ padding: "12px 0", fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.5 }}>
-            {t("budget.incomeSection")}
-          </div>
-          {incomeRows.map((r) => <CategoryRow key={r.id} row={r} />)}
-        </div>
+        <Card padding="none" className="px-4">
+          <SectionLabel>{t("budget.incomeSection")}</SectionLabel>
+          {incomeRows.map((r) => (
+            <CategoryRow key={r.id} row={r} />
+          ))}
+        </Card>
       )}
     </div>
   );
@@ -279,7 +254,9 @@ function SetupTab({ month }) {
   });
 
   // Re-seed local state when existing data loads or month changes
-  const existingKey = existing.map((r) => r.category_id + r.amount + r.rollover).join("|");
+  const existingKey = existing
+    .map((r) => r.category_id + r.amount + r.rollover)
+    .join("|");
   const [lastKey, setLastKey] = useState("");
   if (existingKey !== lastKey) {
     setLastKey(existingKey);
@@ -302,7 +279,8 @@ function SetupTab({ month }) {
   });
 
   const copyMutation = useMutation({
-    mutationFn: (targetMonth) => api.post("/budgets/copy-previous", { targetMonth }),
+    mutationFn: (targetMonth) =>
+      api.post("/budgets/copy-previous", { targetMonth }),
     onSuccess: (res) => {
       if (res.data.copied === 0) {
         setCopyMsg(t("budget.copyEmpty"));
@@ -315,7 +293,11 @@ function SetupTab({ month }) {
     },
     onError: (err) => {
       const msg = err.response?.data?.error;
-      setCopyMsg(msg === "No budget found for previous month" ? t("budget.copyEmpty") : t("budget.copyEmpty"));
+      setCopyMsg(
+        msg === "No budget found for previous month"
+          ? t("budget.copyEmpty")
+          : t("budget.copyEmpty"),
+      );
       setTimeout(() => setCopyMsg(null), 3000);
     },
   });
@@ -333,7 +315,10 @@ function SetupTab({ month }) {
     setSaved(false);
     setAmounts((prev) => ({
       ...prev,
-      [catId]: { ...(prev[catId] || { amount: 0, rollover: false }), [field]: value },
+      [catId]: {
+        ...(prev[catId] || { amount: 0, rollover: false }),
+        [field]: value,
+      },
     }));
   }
 
@@ -343,62 +328,40 @@ function SetupTab({ month }) {
   const CategoryInputRow = ({ cat }) => {
     const line = amounts[cat.id] || { amount: "", rollover: false };
     return (
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr auto auto",
-          gap: 12,
-          alignItems: "center",
-          padding: "8px 0",
-          borderBottom: "0.5px solid var(--border-color)",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div className="grid grid-cols-[1fr_auto_auto] gap-3 items-center py-2 border-b border-line">
+        <div className="flex items-center gap-2">
           <div
-            style={{
-              width: 10,
-              height: 10,
-              borderRadius: "50%",
-              background: cat.color || "var(--brand)",
-              flexShrink: 0,
-            }}
+            className="w-2.5 h-2.5 rounded-full shrink-0"
+            style={{ background: cat.color || "var(--brand)" }}
           />
-          <span style={{ fontSize: 13, color: "var(--text-primary)" }}>{cat.name}</span>
+          <span className="text-md text-ink">{cat.name}</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <label style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap" }} title={t("budget.rolloverHint")}>
+        <div className="flex items-center gap-1.5">
+          <label
+            className="text-[11px] text-muted whitespace-nowrap"
+            title={t("budget.rolloverHint")}
+          >
             <input
               type="checkbox"
               checked={!!line.rollover}
               onChange={(e) => setLine(cat.id, "rollover", e.target.checked)}
-              style={{ marginRight: 4 }}
+              className="mr-1"
             />
             {t("budget.rollover")}
           </label>
         </div>
-        <div style={{ position: "relative" }}>
-          <span
-            style={{
-              position: "absolute",
-              left: 8,
-              top: "50%",
-              transform: "translateY(-50%)",
-              fontSize: 13,
-              color: "var(--text-muted)",
-              pointerEvents: "none",
-            }}
-          >
+        <div className="relative">
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-md text-muted pointer-events-none">
             $
           </span>
-          <input
+          <Input
             type="number"
             min="0"
             step="1"
             value={line.amount || ""}
             placeholder="0"
             onChange={(e) => setLine(cat.id, "amount", e.target.value)}
-            className="input"
-            style={{ width: 110, paddingLeft: 20, textAlign: "right" }}
+            className="w-[110px] pl-5 text-right"
           />
         </div>
       </div>
@@ -408,53 +371,50 @@ function SetupTab({ month }) {
   return (
     <div>
       {/* Actions row */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
-        <button
-          className="btn btn-secondary btn-sm"
+      <div className="flex items-center gap-2.5 mb-5 flex-wrap">
+        <Button
+          size="sm"
+          icon="ti-copy"
           onClick={() => copyMutation.mutate(month)}
           disabled={copyMutation.isPending}
-          style={{ display: "flex", alignItems: "center", gap: 6 }}
         >
-          <i className="ti ti-copy" style={{ fontSize: 14 }} />
           {t("budget.copyLastMonth")}
-        </button>
-        {copyMsg && (
-          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{copyMsg}</span>
-        )}
+        </Button>
+        {copyMsg && <span className="text-xs text-muted">{copyMsg}</span>}
       </div>
 
       {/* Expense section */}
       {expenseCats.length > 0 && (
-        <div className="card" style={{ padding: "0 16px", marginBottom: 16 }}>
-          <div style={{ padding: "12px 0", fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.5 }}>
-            {t("budget.expenseSection")}
-          </div>
-          {expenseCats.map((c) => <CategoryInputRow key={c.id} cat={c} />)}
-        </div>
+        <Card padding="none" className="px-4 mb-4">
+          <SectionLabel>{t("budget.expenseSection")}</SectionLabel>
+          {expenseCats.map((c) => (
+            <CategoryInputRow key={c.id} cat={c} />
+          ))}
+        </Card>
       )}
 
       {/* Income section */}
       {incomeCats.length > 0 && (
-        <div className="card" style={{ padding: "0 16px", marginBottom: 16 }}>
-          <div style={{ padding: "12px 0", fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.5 }}>
-            {t("budget.incomeSection")}
-          </div>
-          {incomeCats.map((c) => <CategoryInputRow key={c.id} cat={c} />)}
-        </div>
+        <Card padding="none" className="px-4 mb-4">
+          <SectionLabel>{t("budget.incomeSection")}</SectionLabel>
+          {incomeCats.map((c) => (
+            <CategoryInputRow key={c.id} cat={c} />
+          ))}
+        </Card>
       )}
 
       {/* Save button */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
-        <button
-          className="btn btn-primary"
+      <div className="flex items-center gap-3 mt-2">
+        <Button
+          variant="primary"
           onClick={handleSave}
           disabled={saveMutation.isPending}
         >
           {saveMutation.isPending ? "Saving…" : t("budget.saveBudget")}
-        </button>
+        </Button>
         {saved && (
-          <span style={{ fontSize: 12, color: "var(--income, #38a169)" }}>
-            <i className="ti ti-check" style={{ marginRight: 4 }} />
+          <span className="text-xs text-income">
+            <i className="ti ti-check mr-1" aria-hidden="true" />
             {t("budget.saveSuccess")}
           </span>
         )}
@@ -475,34 +435,24 @@ export default function Budget() {
   ];
 
   return (
-    <div style={{ maxWidth: 760, margin: "0 auto" }}>
+    <div className="max-w-[760px] mx-auto">
       {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 20,
-          flexWrap: "wrap",
-          gap: 12,
-        }}
-      >
-        <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>
-          {t("budget.title")}
-        </h1>
+      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+        <h1 className="text-xl font-bold text-ink">{t("budget.title")}</h1>
         <MonthNav month={month} setMonth={setMonth} />
       </div>
 
       {/* Tab pills */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
+      <div className="flex gap-1.5 mb-5">
         {tabs.map((tb) => (
-          <button
+          <Button
             key={tb.key}
+            size="sm"
+            variant={tab === tb.key ? "primary" : "secondary"}
             onClick={() => setTab(tb.key)}
-            className={`btn btn-sm ${tab === tb.key ? "btn-primary" : "btn-secondary"}`}
           >
             {tb.label}
-          </button>
+          </Button>
         ))}
       </div>
 

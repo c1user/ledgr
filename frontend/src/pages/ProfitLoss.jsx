@@ -16,6 +16,8 @@ import dayjs from "dayjs";
 import quarterOfYear from "dayjs/plugin/quarterOfYear";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
+import cx from "../lib/cx";
+import { Button, Card, Input } from "../components/ui";
 
 dayjs.extend(quarterOfYear);
 
@@ -81,39 +83,47 @@ function getDateRange(period) {
 }
 
 // ── Period Selector ───────────────────────────────────────────
-function PeriodSelector({ period, setPeriod, customStart, setCustomStart, customEnd, setCustomEnd, t }) {
+function PeriodSelector({
+  period,
+  setPeriod,
+  customStart,
+  setCustomStart,
+  customEnd,
+  setCustomEnd,
+  t,
+}) {
   return (
-    <div className="print-hide" style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+    <div className="print-hide flex flex-wrap gap-2 items-center">
       {PRESETS.map((p) => (
-        <button
+        <Button
           key={p}
-          className={`btn btn-sm ${period === p ? "btn-primary" : "btn-secondary"}`}
+          size="sm"
+          variant={period === p ? "primary" : "secondary"}
           onClick={() => setPeriod(p)}
         >
           {t(`reports.period_${p}`)}
-        </button>
+        </Button>
       ))}
-      <button
-        className={`btn btn-sm ${period === "custom" ? "btn-primary" : "btn-secondary"}`}
+      <Button
+        size="sm"
+        variant={period === "custom" ? "primary" : "secondary"}
         onClick={() => setPeriod("custom")}
       >
         {t("reports.periodCustom")}
-      </button>
+      </Button>
       {period === "custom" && (
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <label style={{ fontSize: 13, color: "var(--text-muted)" }}>{t("reports.customFrom")}</label>
-          <input
+        <div className="flex gap-2 items-center flex-wrap">
+          <label className="text-md text-muted">{t("reports.customFrom")}</label>
+          <Input
             type="date"
-            className="form-input"
-            style={{ width: "auto", padding: "4px 8px", fontSize: 13 }}
+            className="w-auto px-2 py-1"
             value={customStart}
             onChange={(e) => setCustomStart(e.target.value)}
           />
-          <label style={{ fontSize: 13, color: "var(--text-muted)" }}>{t("reports.customTo")}</label>
-          <input
+          <label className="text-md text-muted">{t("reports.customTo")}</label>
+          <Input
             type="date"
-            className="form-input"
-            style={{ width: "auto", padding: "4px 8px", fontSize: 13 }}
+            className="w-auto px-2 py-1"
             value={customEnd}
             onChange={(e) => setCustomEnd(e.target.value)}
           />
@@ -126,28 +136,15 @@ function PeriodSelector({ period, setPeriod, customStart, setCustomStart, custom
 // ── P&L Row ───────────────────────────────────────────────────
 function PLRow({ color, name, total, fmt, currency }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "8px 0",
-        borderBottom: "0.5px solid var(--border-color)",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <div className="flex items-center justify-between py-2 border-b border-line">
+      <div className="flex items-center gap-2">
         <div
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: "50%",
-            background: color || "#888888",
-            flexShrink: 0,
-          }}
+          className="w-2.5 h-2.5 rounded-full shrink-0"
+          style={{ background: color || "#888888" }}
         />
-        <span style={{ fontSize: 14, color: "var(--text-primary)" }}>{name}</span>
+        <span className="text-sm text-ink">{name}</span>
       </div>
-      <span style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)" }}>
+      <span className="text-sm font-medium text-ink">
         {fmt(total, currency)}
       </span>
     </div>
@@ -157,23 +154,12 @@ function PLRow({ color, name, total, fmt, currency }) {
 // ── P&L Section ───────────────────────────────────────────────
 function PLSection({ title, categories, total, totalLabel, fmt, currency, t }) {
   return (
-    <div style={{ marginBottom: 16 }}>
-      <div
-        style={{
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: 1.5,
-          color: "var(--text-muted)",
-          textTransform: "uppercase",
-          paddingBottom: 8,
-          borderBottom: "1.5px solid var(--border-color)",
-          marginBottom: 4,
-        }}
-      >
+    <div className="mb-4">
+      <div className="text-[11px] font-bold tracking-[1.5px] text-muted uppercase pb-2 border-b-[1.5px] border-line mb-1">
         {title}
       </div>
       {categories.length === 0 ? (
-        <div style={{ fontSize: 13, color: "var(--text-muted)", padding: "10px 0" }}>—</div>
+        <div className="text-md text-muted py-2.5">—</div>
       ) : (
         categories.map((cat) => (
           <PLRow
@@ -186,16 +172,7 @@ function PLSection({ title, categories, total, totalLabel, fmt, currency, t }) {
           />
         ))
       )}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          padding: "10px 0 4px",
-          fontWeight: 700,
-          fontSize: 14,
-          color: "var(--text-primary)",
-        }}
-      >
+      <div className="flex justify-between pt-2.5 pb-1 font-bold text-sm text-ink">
         <span>{totalLabel}</span>
         <span>{fmt(total, currency)}</span>
       </div>
@@ -207,25 +184,14 @@ function PLSection({ title, categories, total, totalLabel, fmt, currency, t }) {
 function TrendTooltip({ active, payload, label, fmt, currency }) {
   if (!active || !payload?.length) return null;
   return (
-    <div
-      style={{
-        background: "var(--bg-primary)",
-        border: "0.5px solid var(--border-color)",
-        borderRadius: 8,
-        padding: "10px 14px",
-        boxShadow: "var(--card-shadow)",
-        minWidth: 140,
-      }}
-    >
-      <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 6 }}>
+    <div className="bg-surface border border-line rounded-lg px-3.5 py-2.5 shadow-card min-w-[140px]">
+      <div className="text-xs text-muted mb-1.5">
         {dayjs(label).format("MMMM YYYY")}
       </div>
       {payload.map((p) => (
-        <div key={p.dataKey} style={{ display: "flex", justifyContent: "space-between", gap: 16, fontSize: 13 }}>
+        <div key={p.dataKey} className="flex justify-between gap-4 text-md">
           <span style={{ color: p.color }}>{p.name}</span>
-          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
-            {fmt(p.value, currency)}
-          </span>
+          <span className="font-semibold text-ink">{fmt(p.value, currency)}</span>
         </div>
       ))}
     </div>
@@ -246,13 +212,17 @@ function TrendChart({ data, fmt, currency, t }) {
   const expensesKey = t("reports.trendExpenses");
 
   return (
-    <div className="card" style={{ padding: "20px" }}>
-      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 16 }}>
+    <Card padding="none" className="p-5">
+      <div className="text-md font-semibold text-ink mb-4">
         {t("reports.monthlyTrend")}
       </div>
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={chartData} barGap={4} barCategoryGap="30%">
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke="var(--border-color)"
+            vertical={false}
+          />
           <XAxis
             dataKey="month"
             tickFormatter={(v) => dayjs(v).format("MMM")}
@@ -279,11 +249,15 @@ function TrendChart({ data, fmt, currency, t }) {
             iconSize={8}
             wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
           />
-          <Bar dataKey={incomeKey} fill="var(--income, #22c55e)" radius={[3, 3, 0, 0]} />
-          <Bar dataKey={expensesKey} fill="var(--expense, #ef4444)" radius={[3, 3, 0, 0]} />
+          <Bar dataKey={incomeKey} fill="var(--income)" radius={[3, 3, 0, 0]} />
+          <Bar
+            dataKey={expensesKey}
+            fill="var(--expense)"
+            radius={[3, 3, 0, 0]}
+          />
         </BarChart>
       </ResponsiveContainer>
-    </div>
+    </Card>
   );
 }
 
@@ -292,15 +266,16 @@ function PLStatement({ data, startDate, endDate, fmt, currency, t }) {
   const isProfit = data.net_income >= 0;
 
   return (
-    <div className="card" style={{ padding: "24px" }}>
+    <Card padding="none" className="p-6">
       {/* Header */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 17, fontWeight: 700, color: "var(--text-primary)" }}>
+      <div className="mb-5">
+        <div className="text-[17px] font-bold text-ink">
           {t("reports.profitLoss")}
         </div>
         {startDate && endDate && (
-          <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
-            {dayjs(startDate).format("MMM D, YYYY")} – {dayjs(endDate).format("MMM D, YYYY")}
+          <div className="text-xs text-muted mt-1">
+            {dayjs(startDate).format("MMM D, YYYY")} –{" "}
+            {dayjs(endDate).format("MMM D, YYYY")}
           </div>
         )}
       </div>
@@ -326,29 +301,20 @@ function PLStatement({ data, startDate, endDate, fmt, currency, t }) {
       />
 
       {/* Net income line */}
-      <div
-        style={{
-          borderTop: "2px solid var(--border-color)",
-          paddingTop: 12,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>
+      <div className="border-t-2 border-line pt-3 flex justify-between items-center">
+        <span className="text-[15px] font-bold text-ink">
           {isProfit ? t("reports.netIncome") : t("reports.netLoss")}
         </span>
         <span
-          style={{
-            fontSize: 18,
-            fontWeight: 700,
-            color: isProfit ? "var(--income, #22c55e)" : "var(--expense, #ef4444)",
-          }}
+          className={cx(
+            "text-lg font-bold",
+            isProfit ? "text-income" : "text-expense",
+          )}
         >
           {fmt(Math.abs(data.net_income), currency)}
         </span>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -356,79 +322,39 @@ function PLStatement({ data, startDate, endDate, fmt, currency, t }) {
 function FXSummary({ currencies, baseCurrency, fmt, t }) {
   if (!currencies || currencies.length === 0) return null;
   return (
-    <div className="card" style={{ padding: "20px", marginTop: 16 }}>
-      <div
-        style={{
-          fontSize: 13,
-          fontWeight: 600,
-          color: "var(--text-primary)",
-          marginBottom: 12,
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-        }}
-      >
-        <i className="ti ti-currency-dollar" style={{ fontSize: 16 }} aria-hidden="true" />
+    <Card padding="none" className="p-5 mt-4">
+      <div className="flex items-center gap-2 text-md font-semibold text-ink mb-3">
+        <i className="ti ti-currency-dollar text-base" aria-hidden="true" />
         {t("fx.fxSectionTitle")}
       </div>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "auto 1fr auto auto",
-          columnGap: 16,
-          rowGap: 0,
-          alignItems: "center",
-          fontSize: 12,
-          color: "var(--text-muted)",
-          fontWeight: 600,
-          letterSpacing: 0.5,
-          textTransform: "uppercase",
-          paddingBottom: 6,
-          borderBottom: "1.5px solid var(--border-color)",
-          marginBottom: 4,
-        }}
-      >
+      <div className="grid grid-cols-[auto_1fr_auto_auto] gap-x-4 items-center text-xs text-muted font-semibold tracking-[0.5px] uppercase pb-1.5 border-b-[1.5px] border-line mb-1">
         <span>{t("fx.fxCurrencyCol")}</span>
         <span />
-        <span style={{ textAlign: "right" }}>{t("fx.fxOriginalCol")}</span>
-        <span style={{ textAlign: "right" }}>{t("fx.fxConvertedCol", { base: baseCurrency })}</span>
+        <span className="text-right">{t("fx.fxOriginalCol")}</span>
+        <span className="text-right">
+          {t("fx.fxConvertedCol", { base: baseCurrency })}
+        </span>
       </div>
       {currencies.map((row) => (
         <div
           key={row.currency}
-          style={{
-            display: "grid",
-            gridTemplateColumns: "auto 1fr auto auto",
-            columnGap: 16,
-            alignItems: "center",
-            padding: "8px 0",
-            borderBottom: "0.5px solid var(--border-color)",
-          }}
+          className="grid grid-cols-[auto_1fr_auto_auto] gap-x-4 items-center py-2 border-b border-line"
         >
-          <span
-            style={{
-              fontSize: 12,
-              fontWeight: 700,
-              background: "var(--brand-light)",
-              color: "var(--brand)",
-              padding: "2px 8px",
-              borderRadius: 4,
-            }}
-          >
+          <span className="text-xs font-bold bg-brand-light text-brand px-2 py-0.5 rounded">
             {row.currency}
           </span>
-          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+          <span className="text-xs text-muted">
             {row.count} {t("fx.fxTransactions")}
           </span>
-          <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)", textAlign: "right" }}>
+          <span className="text-md font-medium text-ink text-right">
             {fmt(parseFloat(row.original_total), row.currency)}
           </span>
-          <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)", textAlign: "right" }}>
+          <span className="text-md font-medium text-ink text-right">
             {fmt(parseFloat(row.converted_total), baseCurrency)}
           </span>
         </div>
       ))}
-    </div>
+    </Card>
   );
 }
 
@@ -458,36 +384,22 @@ export default function ProfitLoss() {
   });
 
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+    <div className="max-w-[1100px] mx-auto">
       {/* Page header */}
-      <div
-        className="print-hide"
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 20,
-          flexWrap: "wrap",
-          gap: 12,
-        }}
-      >
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
-            {t("reports.profitLoss")}
-          </h1>
-        </div>
-        <button
-          className="btn btn-secondary btn-sm print-hide"
+      <div className="print-hide flex justify-between items-center mb-5 flex-wrap gap-3">
+        <h1 className="text-xl font-bold text-ink">{t("reports.profitLoss")}</h1>
+        <Button
+          size="sm"
+          icon="ti-printer"
+          className="print-hide"
           onClick={() => window.print()}
-          style={{ display: "flex", alignItems: "center", gap: 6 }}
         >
-          <i className="ti ti-printer" style={{ fontSize: 15 }} />
           {t("reports.print")}
-        </button>
+        </Button>
       </div>
 
       {/* Period selector */}
-      <div style={{ marginBottom: 20 }}>
+      <div className="mb-5">
         <PeriodSelector
           period={period}
           setPeriod={setPeriod}
@@ -501,37 +413,27 @@ export default function ProfitLoss() {
 
       {/* Content */}
       {isLoading && (
-        <div style={{ color: "var(--text-muted)", fontSize: 14, padding: "40px 0", textAlign: "center" }}>
+        <div className="text-muted text-sm py-10 text-center">
           {t("reports.loading")}
         </div>
       )}
 
       {isError && (
-        <div style={{ color: "var(--expense, #ef4444)", fontSize: 14, padding: "40px 0", textAlign: "center" }}>
+        <div className="text-expense text-sm py-10 text-center">
           {t("reports.error")}
         </div>
       )}
 
       {data && !isLoading && (
         <>
-          {data.income_categories.length === 0 && data.expense_categories.length === 0 ? (
-            <div
-              className="card"
-              style={{ padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}
-            >
+          {data.income_categories.length === 0 &&
+          data.expense_categories.length === 0 ? (
+            <Card className="text-center text-muted text-sm">
               {t("reports.noData")}
-            </div>
+            </Card>
           ) : (
             <>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "minmax(280px, 1fr) minmax(280px, 1.2fr)",
-                  gap: 16,
-                  alignItems: "start",
-                }}
-                className="pl-grid"
-              >
+              <div className="grid grid-cols-1 md:grid-cols-[minmax(280px,1fr)_minmax(280px,1.2fr)] gap-4 items-start">
                 <PLStatement
                   data={data}
                   startDate={startDate}
@@ -559,19 +461,10 @@ export default function ProfitLoss() {
       )}
 
       <style>{`
-        @media (max-width: 768px) {
-          .pl-grid {
-            grid-template-columns: 1fr !important;
-          }
-        }
         @media print {
           .print-hide { display: none !important; }
           .sidebar, header, nav { display: none !important; }
           body { background: white !important; }
-          .card {
-            box-shadow: none !important;
-            border: 1px solid #ddd !important;
-          }
         }
       `}</style>
     </div>

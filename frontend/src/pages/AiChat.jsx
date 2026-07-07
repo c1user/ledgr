@@ -4,77 +4,48 @@ import { useTranslation, Trans } from "react-i18next";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import dayjs from "dayjs";
+import cx from "../lib/cx";
+import { Button, Card } from "../components/ui";
 
 const SUGGESTED_KEYS = ["q1", "q2", "q3", "q4", "q5", "q6"];
+
+// Round avatar with a tabler icon, used by chat bubbles.
+function Avatar({ icon }) {
+  return (
+    <div className="flex items-center justify-center w-7 h-7 rounded-full bg-brand-light shrink-0 mt-0.5">
+      <i className={cx("ti", icon, "text-sm text-brand")} aria-hidden="true" />
+    </div>
+  );
+}
 
 // ── Message bubble ────────────────────────────────────────────
 function Message({ msg }) {
   const isUser = msg.role === "user";
   return (
     <div
-      style={{
-        display: "flex",
-        justifyContent: isUser ? "flex-end" : "flex-start",
-        marginBottom: 16,
-      }}
+      className={cx(
+        "flex mb-4",
+        isUser ? "justify-end" : "justify-start",
+      )}
     >
       {!isUser && (
-        <div
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: "50%",
-            background: "var(--brand-light)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-            marginRight: 8,
-            marginTop: 2,
-          }}
-        >
-          <i
-            className="ti ti-sparkles"
-            style={{ fontSize: 14, color: "var(--brand)" }}
-            aria-hidden="true"
-          />
+        <div className="mr-2">
+          <Avatar icon="ti-sparkles" />
         </div>
       )}
       <div
-        style={{
-          maxWidth: "75%",
-          padding: "10px 14px",
-          borderRadius: isUser ? "12px 12px 2px 12px" : "12px 12px 12px 2px",
-          background: isUser ? "var(--brand)" : "var(--bg-secondary)",
-          color: isUser ? "#fff" : "var(--text-primary)",
-          fontSize: 13,
-          lineHeight: 1.7,
-          border: isUser ? "none" : "0.5px solid var(--border-color)",
-          whiteSpace: "pre-wrap",
-        }}
+        className={cx(
+          "max-w-[75%] px-3.5 py-2.5 text-md leading-[1.7] whitespace-pre-wrap",
+          isUser
+            ? "rounded-xl rounded-br-sm bg-brand text-white"
+            : "rounded-xl rounded-bl-sm bg-canvas text-ink border border-line",
+        )}
       >
         {msg.content}
       </div>
       {isUser && (
-        <div
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: "50%",
-            background: "var(--brand-light)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-            marginLeft: 8,
-            marginTop: 2,
-          }}
-        >
-          <i
-            className="ti ti-user"
-            style={{ fontSize: 14, color: "var(--brand)" }}
-            aria-hidden="true"
-          />
+        <div className="ml-2">
+          <Avatar icon="ti-user" />
         </div>
       )}
     </div>
@@ -84,62 +55,17 @@ function Message({ msg }) {
 // ── Typing indicator ──────────────────────────────────────────
 function TypingIndicator() {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        marginBottom: 16,
-      }}
-    >
-      <div
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: "50%",
-          background: "var(--brand-light)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
-        <i
-          className="ti ti-sparkles"
-          style={{ fontSize: 14, color: "var(--brand)" }}
-          aria-hidden="true"
-        />
-      </div>
-      <div
-        style={{
-          padding: "10px 14px",
-          borderRadius: "12px 12px 12px 2px",
-          background: "var(--bg-secondary)",
-          border: "0.5px solid var(--border-color)",
-          display: "flex",
-          gap: 4,
-          alignItems: "center",
-        }}
-      >
+    <div className="flex items-center gap-2 mb-4">
+      <Avatar icon="ti-sparkles" />
+      <div className="flex items-center gap-1 px-3.5 py-2.5 rounded-xl rounded-bl-sm bg-canvas border border-line">
         {[0, 1, 2].map((i) => (
           <div
             key={i}
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              background: "var(--text-muted)",
-              animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`,
-            }}
+            className="w-1.5 h-1.5 rounded-full bg-muted animate-bounce"
+            style={{ animationDelay: `${i * 0.2}s` }}
           />
         ))}
       </div>
-      <style>{`
-        @keyframes bounce {
-          0%, 60%, 100% { transform: translateY(0); }
-          30% { transform: translateY(-6px); }
-        }
-      `}</style>
     </div>
   );
 }
@@ -255,165 +181,63 @@ export default function AiChat() {
   };
 
   return (
-    <div
-      className="fade-in"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "calc(100vh - 52px - 48px)",
-      }}
-    >
+    <div className="fade-in flex flex-col h-[calc(100vh-52px-48px)]">
       {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 16,
-          flexShrink: 0,
-        }}
-      >
+      <div className="flex justify-between items-center mb-4 shrink-0">
         <div>
-          <h1
-            style={{
-              fontSize: 20,
-              fontWeight: 600,
-              color: "var(--text-primary)",
-              marginBottom: 4,
-            }}
-          >
+          <h1 className="text-xl font-semibold text-ink mb-1">
             {t("aichat.title")}
           </h1>
-          <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
+          <div className="text-md text-muted">
             <Trans
               i18nKey="aichat.subtitle"
               values={{ name: business?.name }}
               components={{
-                strong: <strong style={{ color: "var(--text-secondary)" }} />,
+                strong: <strong className="text-secondary" />,
               }}
             />
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button
-            className="btn btn-secondary"
+        <div className="flex gap-2">
+          <Button
+            icon="ti-history"
             onClick={() => setShowHistory(!showHistory)}
           >
-            <i className="ti ti-history" aria-hidden="true" />{" "}
             {t("aichat.history")}
-          </button>
-          <button className="btn btn-secondary" onClick={startNew}>
-            <i className="ti ti-plus" aria-hidden="true" />{" "}
+          </Button>
+          <Button icon="ti-plus" onClick={startNew}>
             {t("aichat.newChat")}
-          </button>
+          </Button>
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 16, flex: 1, minHeight: 0 }}>
+      <div className="flex gap-4 flex-1 min-h-0">
         {/* Chat area */}
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            minHeight: 0,
-          }}
-        >
+        <div className="flex-1 flex flex-col min-h-0">
           {/* Messages */}
-          <div
-            className="card"
-            style={{
-              flex: 1,
-              overflowY: "auto",
-              padding: "20px",
-              marginBottom: 12,
-            }}
-          >
+          <Card padding="none" className="flex-1 overflow-y-auto p-5 mb-3">
             {messages.length === 0 ? (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  height: "100%",
-                  textAlign: "center",
-                }}
-              >
-                <div
-                  style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: "50%",
-                    background: "var(--brand-light)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginBottom: 16,
-                  }}
-                >
+              <div className="flex flex-col items-center justify-center h-full text-center">
+                <div className="flex items-center justify-center w-14 h-14 rounded-full bg-brand-light mb-4">
                   <i
-                    className="ti ti-sparkles"
-                    style={{ fontSize: 28, color: "var(--brand)" }}
+                    className="ti ti-sparkles text-[28px] text-brand"
                     aria-hidden="true"
                   />
                 </div>
-                <div
-                  style={{
-                    fontSize: 16,
-                    fontWeight: 500,
-                    color: "var(--text-primary)",
-                    marginBottom: 6,
-                  }}
-                >
+                <div className="text-base font-medium text-ink mb-1.5">
                   {t("aichat.emptyTitle")}
                 </div>
-                <div
-                  style={{
-                    fontSize: 13,
-                    color: "var(--text-muted)",
-                    marginBottom: 24,
-                    maxWidth: 360,
-                  }}
-                >
+                <div className="text-md text-muted mb-6 max-w-[360px]">
                   {t("aichat.emptySubtitle")}
                 </div>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 8,
-                    width: "100%",
-                    maxWidth: 500,
-                  }}
-                >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-[500px]">
                   {SUGGESTED_KEYS.map((key) => {
                     const q = t(`aichat.suggested.${key}`);
                     return (
                       <button
                         key={key}
                         onClick={() => handleSuggestion(q)}
-                        style={{
-                          padding: "10px 12px",
-                          borderRadius: 8,
-                          border: "0.5px solid var(--border-color)",
-                          background: "var(--bg-secondary)",
-                          color: "var(--text-secondary)",
-                          cursor: "pointer",
-                          fontSize: 12,
-                          textAlign: "left",
-                          lineHeight: 1.4,
-                          transition: "all 0.15s",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.borderColor = "var(--brand)";
-                          e.currentTarget.style.color = "var(--brand)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.borderColor =
-                            "var(--border-color)";
-                          e.currentTarget.style.color = "var(--text-secondary)";
-                        }}
+                        className="px-3 py-2.5 rounded-lg border border-line bg-canvas text-secondary cursor-pointer text-xs text-left leading-snug transition-all hover:border-brand hover:text-brand"
                       >
                         {q}
                       </button>
@@ -430,18 +254,12 @@ export default function AiChat() {
                 <div ref={bottomRef} />
               </>
             )}
-          </div>
+          </Card>
 
           {/* Input bar */}
-          <div
-            className="card"
-            style={{
-              padding: "10px 14px",
-              display: "flex",
-              gap: 10,
-              alignItems: "flex-end",
-              flexShrink: 0,
-            }}
+          <Card
+            padding="none"
+            className="flex gap-2.5 items-end px-3.5 py-2.5 shrink-0"
           >
             <textarea
               ref={inputRef}
@@ -450,124 +268,49 @@ export default function AiChat() {
               onKeyDown={handleKeyDown}
               placeholder={t("aichat.inputPlaceholder")}
               rows={1}
-              style={{
-                flex: 1,
-                border: "none",
-                background: "transparent",
-                color: "var(--text-primary)",
-                fontSize: 13,
-                fontFamily: "inherit",
-                resize: "none",
-                outline: "none",
-                lineHeight: 1.6,
-                maxHeight: 120,
-                overflow: "auto",
-              }}
+              className="flex-1 border-none bg-transparent text-ink text-md font-sans resize-none outline-none leading-relaxed max-h-[120px] overflow-auto placeholder:text-muted"
             />
             <button
               onClick={handleSend}
               disabled={!input.trim() || isTyping}
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 8,
-                background:
-                  input.trim() && !isTyping
-                    ? "var(--brand)"
-                    : "var(--border-color)",
-                border: "none",
-                cursor: input.trim() && !isTyping ? "pointer" : "not-allowed",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-                transition: "background 0.15s",
-              }}
+              className={cx(
+                "flex items-center justify-center w-[34px] h-[34px] rounded-lg shrink-0 transition-colors",
+                input.trim() && !isTyping
+                  ? "bg-brand text-white cursor-pointer"
+                  : "bg-line text-muted cursor-not-allowed",
+              )}
             >
-              <i
-                className="ti ti-send"
-                style={{
-                  fontSize: 16,
-                  color:
-                    input.trim() && !isTyping ? "#fff" : "var(--text-muted)",
-                }}
-                aria-hidden="true"
-              />
+              <i className="ti ti-send text-base" aria-hidden="true" />
             </button>
-          </div>
-          <div
-            style={{
-              fontSize: 11,
-              color: "var(--text-muted)",
-              marginTop: 6,
-              textAlign: "center",
-            }}
-          >
+          </Card>
+          <div className="text-[11px] text-muted mt-1.5 text-center">
             {t("aichat.footer")}
           </div>
         </div>
 
         {/* History panel */}
         {showHistory && (
-          <div
-            className="card"
-            style={{
-              width: 260,
-              padding: 0,
-              overflow: "hidden",
-              flexShrink: 0,
-              display: "flex",
-              flexDirection: "column",
-            }}
+          <Card
+            padding="none"
+            className="w-[260px] overflow-hidden shrink-0 flex flex-col"
           >
-            <div
-              style={{
-                padding: "14px 16px",
-                borderBottom: "0.5px solid var(--border-color)",
-                fontSize: 13,
-                fontWeight: 500,
-                color: "var(--text-primary)",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
+            <div className="flex justify-between items-center px-4 py-3.5 border-b border-line text-md font-medium text-ink">
               {t("aichat.pastConversations")}
               <button
                 onClick={() => setShowHistory(false)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "var(--text-muted)",
-                  fontSize: 16,
-                }}
+                className="text-base text-muted cursor-pointer"
               >
                 <i className="ti ti-x" aria-hidden="true" />
               </button>
             </div>
             {panelError && (
-              <div
-                style={{
-                  padding: "8px 16px",
-                  fontSize: 12,
-                  color: "var(--danger)",
-                  borderBottom: "0.5px solid var(--border-color)",
-                }}
-              >
+              <div className="px-4 py-2 text-xs text-danger border-b border-line">
                 {panelError}
               </div>
             )}
-            <div style={{ overflowY: "auto", flex: 1 }}>
+            <div className="overflow-y-auto flex-1">
               {!conversations?.length ? (
-                <div
-                  style={{
-                    padding: 20,
-                    textAlign: "center",
-                    color: "var(--text-muted)",
-                    fontSize: 13,
-                  }}
-                >
+                <div className="p-5 text-center text-muted text-md">
                   {t("aichat.noPastConversations")}
                 </div>
               ) : (
@@ -575,63 +318,27 @@ export default function AiChat() {
                   <div
                     key={conv.id}
                     onClick={() => loadConversation(conv)}
-                    style={{
-                      padding: "12px 16px",
-                      borderBottom: "0.5px solid var(--border-color)",
-                      cursor: "pointer",
-                      transition: "background 0.15s",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.background = "var(--bg-secondary)")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = "transparent")
-                    }
+                    className="flex justify-between items-start px-4 py-3 border-b border-line cursor-pointer transition-colors hover:bg-canvas"
                   >
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: "var(--text-primary)",
-                          fontWeight: 500,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                          marginBottom: 3,
-                        }}
-                      >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs text-ink font-medium truncate mb-0.5">
                         {conv.first_message || t("aichat.newConversation")}
                       </div>
-                      <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                      <div className="text-[11px] text-muted">
                         {dayjs(conv.updated_at).format("MMM D, YYYY")}
                       </div>
                     </div>
                     <button
                       onClick={(e) => deleteConversation(conv.id, e)}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        color: "var(--danger)",
-                        padding: "2px 4px",
-                        flexShrink: 0,
-                        marginLeft: 6,
-                      }}
+                      className="px-1 py-0.5 shrink-0 ml-1.5 text-danger cursor-pointer"
                     >
-                      <i
-                        className="ti ti-trash"
-                        style={{ fontSize: 13 }}
-                        aria-hidden="true"
-                      />
+                      <i className="ti ti-trash text-md" aria-hidden="true" />
                     </button>
                   </div>
                 ))
               )}
             </div>
-          </div>
+          </Card>
         )}
       </div>
     </div>

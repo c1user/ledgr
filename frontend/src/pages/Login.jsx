@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import BRAND from "../config/brand";
+import { Button, Card, Field, Input } from "../components/ui";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -49,86 +50,36 @@ export default function Login() {
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "var(--bg-secondary)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 24,
-      }}
-    >
+    <div className="min-h-screen bg-canvas flex items-center justify-center p-6">
       {/* Theme toggle */}
-      <button
+      <Button
+        size="sm"
+        icon={theme === "dark" ? "ti-sun" : "ti-moon"}
         onClick={toggleTheme}
-        style={{
-          position: "fixed",
-          top: 16,
-          right: 16,
-          background: "var(--bg-primary)",
-          border: "0.5px solid var(--border-color)",
-          borderRadius: 8,
-          padding: "8px 14px",
-          cursor: "pointer",
-          color: "var(--text-secondary)",
-          fontSize: 13,
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-        }}
+        className="fixed top-4 right-4 bg-surface"
       >
-        <i className={`ti ${theme === "dark" ? "ti-sun" : "ti-moon"}`} />
         {theme === "dark" ? "Light mode" : "Dark mode"}
-      </button>
+      </Button>
 
-      <div
-        className="card fade-in"
-        style={{ width: "100%", maxWidth: 400, padding: 32 }}
-      >
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div
-            style={{
-              color: "var(--brand)",
-              fontSize: 22,
-              fontWeight: 700,
-              letterSpacing: 4,
-              marginBottom: 6,
-              textTransform: "uppercase",
-            }}
-          >
+      <Card padding="lg" className="w-full max-w-[400px] fade-in">
+        <div className="text-center mb-7">
+          <div className="text-brand text-[22px] font-bold tracking-[4px] uppercase mb-1.5">
             {BRAND.name}
           </div>
-          <div style={{ color: "var(--text-muted)", fontSize: 13 }}>
-            Sign in to your account
-          </div>
+          <div className="text-muted text-md">Sign in to your account</div>
         </div>
 
         {error && (
-          <div
-            style={{
-              background: "var(--danger-bg)",
-              color: "var(--danger)",
-              border: "0.5px solid var(--danger)",
-              borderRadius: 8,
-              padding: "10px 14px",
-              fontSize: 13,
-              marginBottom: 16,
-            }}
-          >
-            <i className="ti ti-alert-circle" style={{ marginRight: 6 }} />
+          <div className="bg-danger-bg text-danger border border-danger rounded-lg px-3.5 py-2.5 text-md mb-4">
+            <i className="ti ti-alert-circle mr-1.5" aria-hidden="true" />
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: 16 }}>
-            <label className="label" htmlFor="email">
-              Email
-            </label>
-            <input
+          <Field label="Email" htmlFor="email">
+            <Input
               id="email"
-              className="input"
               type="email"
               name="email"
               placeholder="you@example.com"
@@ -137,15 +88,11 @@ export default function Login() {
               required
               autoFocus
             />
-          </div>
+          </Field>
 
-          <div style={{ marginBottom: 24 }}>
-            <label className="label" htmlFor="password">
-              Password
-            </label>
-            <input
+          <Field label="Password" htmlFor="password" className="mb-6">
+            <Input
               id="password"
-              className="input"
               type="password"
               name="password"
               placeholder="••••••••"
@@ -153,60 +100,26 @@ export default function Login() {
               onChange={handleChange}
               required
             />
-          </div>
+          </Field>
 
-          <button
+          <Button
             type="submit"
-            className="btn btn-primary"
-            disabled={loading}
-            style={{
-              width: "100%",
-              justifyContent: "center",
-              padding: "10px 14px",
-            }}
+            variant="primary"
+            full
+            loading={loading}
+            icon="ti-login"
           >
-            {loading ? (
-              <>
-                <i
-                  className="ti ti-loader-2"
-                  style={{ animation: "spin 1s linear infinite" }}
-                />
-                Signing in...
-              </>
-            ) : (
-              <>
-                <i className="ti ti-login" />
-                Sign in
-              </>
-            )}
-          </button>
+            {loading ? "Signing in..." : "Sign in"}
+          </Button>
         </form>
 
-        <div
-          style={{
-            textAlign: "center",
-            marginTop: 20,
-            fontSize: 13,
-            color: "var(--text-muted)",
-          }}
-        >
+        <div className="text-center mt-5 text-md text-muted">
           Don't have an account?{" "}
-          <Link
-            to="/register"
-            style={{
-              color: "var(--brand)",
-              textDecoration: "none",
-              fontWeight: 500,
-            }}
-          >
+          <Link to="/register" className="text-brand font-medium">
             Create one
           </Link>
         </div>
-      </div>
-
-      <style>{`
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-      `}</style>
+      </Card>
     </div>
   );
 }

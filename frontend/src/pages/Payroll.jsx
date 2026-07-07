@@ -1,8 +1,22 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import dayjs from "dayjs";
+import cx from "../lib/cx";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  Modal,
+  PageHeader,
+  Select,
+  Tabs,
+  Toggle,
+} from "../components/ui";
 
 const makeFmt =
   (lang) =>
@@ -25,6 +39,27 @@ const emptyEmployee = {
   startDate: dayjs().format("YYYY-MM-DD"),
   federalExempt: true,
 };
+
+// Uppercase section label inside modals.
+function SectionLabel({ children }) {
+  return (
+    <div className="text-[11px] text-muted tracking-[1px] uppercase mb-2.5">
+      {children}
+    </div>
+  );
+}
+
+// Small label+value tile on a muted background.
+function StatTile({ label, value, className }) {
+  return (
+    <div className="bg-canvas rounded-lg px-3.5 py-3">
+      <div className="text-[11px] text-muted mb-1">{label}</div>
+      <div className={cx("text-lg font-semibold", className || "text-ink")}>
+        {value}
+      </div>
+    </div>
+  );
+}
 
 // ── Employee Modal ────────────────────────────────────────────
 function EmployeeModal({ onClose, editEmployee, t }) {
@@ -76,373 +111,187 @@ function EmployeeModal({ onClose, editEmployee, t }) {
   };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.4)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-        padding: 16,
-      }}
+    <Modal
+      open
+      onClose={onClose}
+      title={
+        editEmployee ? t("payroll.editEmployee") : t("payroll.newEmployee")
+      }
     >
-      <div
-        className="card fade-in"
-        style={{
-          width: "100%",
-          maxWidth: 520,
-          maxHeight: "90vh",
-          overflow: "auto",
-          padding: 24,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 20,
-          }}
-        >
-          <h2
-            style={{
-              fontSize: 16,
-              fontWeight: 600,
-              color: "var(--text-primary)",
-            }}
+      {error && (
+        <div className="bg-danger-bg text-danger border border-danger rounded-lg px-3.5 py-2.5 text-md mb-4">
+          <i className="ti ti-alert-circle mr-1.5" aria-hidden="true" />
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit}>
+        <SectionLabel>{t("payroll.basicInfo")}</SectionLabel>
+        <div className="grid grid-cols-2 gap-3 mb-3.5">
+          <Field label={t("payroll.fullName")} htmlFor="emp-name" className="mb-0">
+            <Input
+              id="emp-name"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="Maria Lopez"
+              required
+              autoFocus
+            />
+          </Field>
+          <Field label={t("common.email")} htmlFor="emp-email" className="mb-0">
+            <Input
+              id="emp-email"
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              placeholder="maria@example.com"
+            />
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          <Field label={t("payroll.ssnLast4")} htmlFor="emp-ssn" className="mb-0">
+            <Input
+              id="emp-ssn"
+              value={form.ssnLast4}
+              onChange={(e) => setForm({ ...form, ssnLast4: e.target.value })}
+              placeholder="1234"
+              maxLength={4}
+            />
+          </Field>
+          <Field
+            label={t("payroll.startDate")}
+            htmlFor="emp-start"
+            className="mb-0"
           >
-            {editEmployee
-              ? t("payroll.editEmployee")
-              : t("payroll.newEmployee")}
-          </h2>
-          <button
-            onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--text-muted)",
-              fontSize: 20,
-            }}
-          >
-            <i className="ti ti-x" aria-hidden="true" />
-          </button>
+            <Input
+              id="emp-start"
+              type="date"
+              value={form.startDate}
+              onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+              required
+            />
+          </Field>
         </div>
 
-        {error && (
-          <div
-            style={{
-              background: "var(--danger-bg)",
-              color: "var(--danger)",
-              border: "0.5px solid var(--danger)",
-              borderRadius: 8,
-              padding: "10px 14px",
-              fontSize: 13,
-              marginBottom: 16,
-            }}
+        <SectionLabel>{t("payroll.payInfo")}</SectionLabel>
+        <div className="grid grid-cols-2 gap-3 mb-3.5">
+          <Field
+            label={t("payroll.payType")}
+            htmlFor="emp-paytype"
+            className="mb-0"
           >
-            <i
-              className="ti ti-alert-circle"
-              style={{ marginRight: 6 }}
-              aria-hidden="true"
+            <Select
+              id="emp-paytype"
+              value={form.payType}
+              onChange={(e) => setForm({ ...form, payType: e.target.value })}
+            >
+              <option value="salary">{t("payroll.payTypeSalary")}</option>
+              <option value="hourly">{t("payroll.payTypeHourly")}</option>
+            </Select>
+          </Field>
+          <Field
+            label={
+              form.payType === "salary"
+                ? t("payroll.annualSalary")
+                : t("payroll.hourlyRate")
+            }
+            htmlFor="emp-payrate"
+            className="mb-0"
+          >
+            <Input
+              id="emp-payrate"
+              type="number"
+              step="0.01"
+              value={form.payRate}
+              onChange={(e) => setForm({ ...form, payRate: e.target.value })}
+              placeholder={form.payType === "salary" ? "42000" : "18.50"}
+              required
             />
-            {error}
-          </div>
-        )}
+          </Field>
+        </div>
+        <Field
+          label={t("payroll.payFrequency")}
+          htmlFor="emp-freq"
+          className="mb-5"
+        >
+          <Select
+            id="emp-freq"
+            value={form.payFrequency}
+            onChange={(e) => setForm({ ...form, payFrequency: e.target.value })}
+          >
+            <option value="weekly">{t("payroll.freqWeekly")}</option>
+            <option value="biweekly">{t("payroll.freqBiweekly")}</option>
+            <option value="monthly">{t("payroll.freqMonthly")}</option>
+          </Select>
+        </Field>
 
-        <form onSubmit={handleSubmit}>
-          <div
-            style={{
-              fontSize: 11,
-              color: "var(--text-muted)",
-              letterSpacing: 1,
-              marginBottom: 10,
-              textTransform: "uppercase",
-            }}
-          >
-            {t("payroll.basicInfo")}
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 12,
-              marginBottom: 14,
-            }}
-          >
-            <div>
-              <label className="label" htmlFor="emp-name">
-                {t("payroll.fullName")}
-              </label>
-              <input
-                id="emp-name"
-                className="input"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="Maria Lopez"
-                required
-                autoFocus
-              />
+        <SectionLabel>{t("payroll.taxInfo")}</SectionLabel>
+        <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-canvas rounded-lg mb-3.5">
+          <Toggle
+            checked={form.federalExempt}
+            onChange={() =>
+              setForm({ ...form, federalExempt: !form.federalExempt })
+            }
+            aria-label={t("payroll.federalExempt")}
+          />
+          <div>
+            <div className="text-md font-medium text-ink">
+              {t("payroll.federalExempt")}
             </div>
-            <div>
-              <label className="label" htmlFor="emp-email">
-                {t("common.email")}
-              </label>
-              <input
-                id="emp-email"
-                className="input"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                placeholder="maria@example.com"
-              />
+            <div className="text-[11px] text-muted">
+              {t("payroll.federalExemptHint")}
             </div>
           </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 12,
-              marginBottom: 20,
-            }}
+        </div>
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <Field
+            label={t("payroll.prStateTaxRate")}
+            htmlFor="emp-pr-rate"
+            className="mb-0"
           >
-            <div>
-              <label className="label" htmlFor="emp-ssn">
-                {t("payroll.ssnLast4")}
-              </label>
-              <input
-                id="emp-ssn"
-                className="input"
-                value={form.ssnLast4}
-                onChange={(e) => setForm({ ...form, ssnLast4: e.target.value })}
-                placeholder="1234"
-                maxLength={4}
-              />
-            </div>
-            <div>
-              <label className="label" htmlFor="emp-start">
-                {t("payroll.startDate")}
-              </label>
-              <input
-                id="emp-start"
-                className="input"
-                type="date"
-                value={form.startDate}
-                onChange={(e) =>
-                  setForm({ ...form, startDate: e.target.value })
-                }
-                required
-              />
-            </div>
-          </div>
-
-          <div
-            style={{
-              fontSize: 11,
-              color: "var(--text-muted)",
-              letterSpacing: 1,
-              marginBottom: 10,
-              textTransform: "uppercase",
-            }}
-          >
-            {t("payroll.payInfo")}
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 12,
-              marginBottom: 14,
-            }}
-          >
-            <div>
-              <label className="label" htmlFor="emp-paytype">
-                {t("payroll.payType")}
-              </label>
-              <select
-                id="emp-paytype"
-                className="input"
-                value={form.payType}
-                onChange={(e) => setForm({ ...form, payType: e.target.value })}
-              >
-                <option value="salary">{t("payroll.payTypeSalary")}</option>
-                <option value="hourly">{t("payroll.payTypeHourly")}</option>
-              </select>
-            </div>
-            <div>
-              <label className="label" htmlFor="emp-payrate">
-                {form.payType === "salary"
-                  ? t("payroll.annualSalary")
-                  : t("payroll.hourlyRate")}
-              </label>
-              <input
-                id="emp-payrate"
-                className="input"
-                type="number"
-                step="0.01"
-                value={form.payRate}
-                onChange={(e) => setForm({ ...form, payRate: e.target.value })}
-                placeholder={form.payType === "salary" ? "42000" : "18.50"}
-                required
-              />
-            </div>
-          </div>
-          <div style={{ marginBottom: 20 }}>
-            <label className="label" htmlFor="emp-freq">
-              {t("payroll.payFrequency")}
-            </label>
-            <select
-              id="emp-freq"
-              className="input"
-              value={form.payFrequency}
+            <Input
+              id="emp-pr-rate"
+              type="number"
+              step="0.001"
+              min="0"
+              max="1"
+              value={form.prStateTaxRate}
               onChange={(e) =>
-                setForm({ ...form, payFrequency: e.target.value })
+                setForm({ ...form, prStateTaxRate: e.target.value })
               }
-            >
-              <option value="weekly">{t("payroll.freqWeekly")}</option>
-              <option value="biweekly">{t("payroll.freqBiweekly")}</option>
-              <option value="monthly">{t("payroll.freqMonthly")}</option>
-            </select>
-          </div>
-
-          <div
-            style={{
-              fontSize: 11,
-              color: "var(--text-muted)",
-              letterSpacing: 1,
-              marginBottom: 10,
-              textTransform: "uppercase",
-            }}
+            />
+          </Field>
+          <Field
+            label={t("payroll.federalFilingStatus")}
+            htmlFor="emp-filing"
+            className="mb-0"
           >
-            {t("payroll.taxInfo")}
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "10px 14px",
-              background: "var(--bg-secondary)",
-              borderRadius: 8,
-              marginBottom: 14,
-            }}
-          >
-            <button
-              type="button"
-              onClick={() =>
-                setForm({ ...form, federalExempt: !form.federalExempt })
+            <Select
+              id="emp-filing"
+              value={form.federalFilingStatus}
+              onChange={(e) =>
+                setForm({ ...form, federalFilingStatus: e.target.value })
               }
-              style={{
-                width: 36,
-                height: 20,
-                borderRadius: 10,
-                background: form.federalExempt
-                  ? "var(--brand)"
-                  : "var(--border-color)",
-                border: "none",
-                cursor: "pointer",
-                position: "relative",
-                flexShrink: 0,
-                transition: "background 0.2s",
-              }}
+              disabled={form.federalExempt}
             >
-              <div
-                style={{
-                  position: "absolute",
-                  top: 3,
-                  left: form.federalExempt ? 18 : 3,
-                  width: 14,
-                  height: 14,
-                  background: "#fff",
-                  borderRadius: "50%",
-                  transition: "left 0.2s",
-                }}
-              />
-            </button>
-            <div>
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: "var(--text-primary)",
-                }}
-              >
-                {t("payroll.federalExempt")}
-              </div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                {t("payroll.federalExemptHint")}
-              </div>
-            </div>
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 12,
-              marginBottom: 24,
-            }}
-          >
-            <div>
-              <label className="label" htmlFor="emp-pr-rate">
-                {t("payroll.prStateTaxRate")}
-              </label>
-              <input
-                id="emp-pr-rate"
-                className="input"
-                type="number"
-                step="0.001"
-                min="0"
-                max="1"
-                value={form.prStateTaxRate}
-                onChange={(e) =>
-                  setForm({ ...form, prStateTaxRate: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <label className="label" htmlFor="emp-filing">
-                {t("payroll.federalFilingStatus")}
-              </label>
-              <select
-                id="emp-filing"
-                className="input"
-                value={form.federalFilingStatus}
-                onChange={(e) =>
-                  setForm({ ...form, federalFilingStatus: e.target.value })
-                }
-                disabled={form.federalExempt}
-              >
-                <option value="single">{t("payroll.filingSingle")}</option>
-                <option value="married">{t("payroll.filingMarried")}</option>
-              </select>
-            </div>
-          </div>
+              <option value="single">{t("payroll.filingSingle")}</option>
+              <option value="married">{t("payroll.filingMarried")}</option>
+            </Select>
+          </Field>
+        </div>
 
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn btn-secondary"
-            >
-              {t("common.cancel")}
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={mutation.isPending}
-            >
-              {mutation.isPending
-                ? t("payroll.saving")
-                : editEmployee
-                  ? t("payroll.saveChanges")
-                  : t("payroll.addEmployee")}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="flex gap-2 justify-end">
+          <Button onClick={onClose}>{t("common.cancel")}</Button>
+          <Button type="submit" variant="primary" disabled={mutation.isPending}>
+            {mutation.isPending
+              ? t("payroll.saving")
+              : editEmployee
+                ? t("payroll.saveChanges")
+                : t("payroll.addEmployee")}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -482,210 +331,89 @@ function RunPayrollModal({ onClose, employees, t }) {
   };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.4)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-        padding: 16,
-      }}
-    >
-      <div
-        className="card fade-in"
-        style={{ width: "100%", maxWidth: 460, padding: 24 }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 20,
-          }}
-        >
-          <h2
-            style={{
-              fontSize: 16,
-              fontWeight: 600,
-              color: "var(--text-primary)",
-            }}
+    <Modal open onClose={onClose} title={t("payroll.runPayroll")}>
+      {error && (
+        <div className="bg-danger-bg text-danger border border-danger rounded-lg px-3.5 py-2.5 text-md mb-4">
+          <i className="ti ti-alert-circle mr-1.5" aria-hidden="true" />
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit}>
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <Field
+            label={t("payroll.periodStart")}
+            htmlFor="period-start"
+            className="mb-0"
           >
-            {t("payroll.runPayroll")}
-          </h2>
-          <button
-            onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--text-muted)",
-              fontSize: 20,
-            }}
+            <Input
+              id="period-start"
+              type="date"
+              value={form.periodStart}
+              onChange={(e) =>
+                setForm({ ...form, periodStart: e.target.value })
+              }
+              required
+            />
+          </Field>
+          <Field
+            label={t("payroll.periodEnd")}
+            htmlFor="period-end"
+            className="mb-0"
           >
-            <i className="ti ti-x" aria-hidden="true" />
-          </button>
+            <Input
+              id="period-end"
+              type="date"
+              value={form.periodEnd}
+              onChange={(e) => setForm({ ...form, periodEnd: e.target.value })}
+              required
+            />
+          </Field>
         </div>
 
-        {error && (
-          <div
-            style={{
-              background: "var(--danger-bg)",
-              color: "var(--danger)",
-              border: "0.5px solid var(--danger)",
-              borderRadius: 8,
-              padding: "10px 14px",
-              fontSize: 13,
-              marginBottom: 16,
-            }}
-          >
-            <i
-              className="ti ti-alert-circle"
-              style={{ marginRight: 6 }}
-              aria-hidden="true"
-            />
-            {error}
+        {hourlyEmployees.length > 0 && (
+          <div className="mb-4">
+            <div className="text-xs font-medium text-secondary mb-2">
+              {t("payroll.hoursWorkedHourly")}
+            </div>
+            {hourlyEmployees.map((emp) => (
+              <div key={emp.id} className="flex items-center gap-2.5 mb-2">
+                <span className="text-md text-ink flex-1">{emp.name}</span>
+                <Input
+                  type="number"
+                  className="w-[100px]"
+                  placeholder="0"
+                  value={hoursWorked[emp.id] || ""}
+                  onChange={(e) =>
+                    setHoursWorked({
+                      ...hoursWorked,
+                      [emp.id]: parseFloat(e.target.value),
+                    })
+                  }
+                />
+                <span className="text-xs text-muted">{t("payroll.hrs")}</span>
+              </div>
+            ))}
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 12,
-              marginBottom: 16,
-            }}
-          >
-            <div>
-              <label className="label" htmlFor="period-start">
-                {t("payroll.periodStart")}
-              </label>
-              <input
-                id="period-start"
-                className="input"
-                type="date"
-                value={form.periodStart}
-                onChange={(e) =>
-                  setForm({ ...form, periodStart: e.target.value })
-                }
-                required
-              />
-            </div>
-            <div>
-              <label className="label" htmlFor="period-end">
-                {t("payroll.periodEnd")}
-              </label>
-              <input
-                id="period-end"
-                className="input"
-                type="date"
-                value={form.periodEnd}
-                onChange={(e) =>
-                  setForm({ ...form, periodEnd: e.target.value })
-                }
-                required
-              />
-            </div>
-          </div>
+        <div className="bg-canvas rounded-lg px-3.5 py-2.5 mb-4 text-md text-secondary">
+          <i className="ti ti-users mr-1.5" aria-hidden="true" />
+          {t("payroll.willProcess")}{" "}
+          <strong className="text-ink">{employees?.length || 0}</strong>{" "}
+          {t("payroll.activeEmployeesLower")}
+        </div>
 
-          {hourlyEmployees.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: "var(--text-secondary)",
-                  marginBottom: 8,
-                }}
-              >
-                {t("payroll.hoursWorkedHourly")}
-              </div>
-              {hourlyEmployees.map((emp) => (
-                <div
-                  key={emp.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    marginBottom: 8,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: 13,
-                      color: "var(--text-primary)",
-                      flex: 1,
-                    }}
-                  >
-                    {emp.name}
-                  </span>
-                  <input
-                    className="input"
-                    type="number"
-                    style={{ width: 100 }}
-                    placeholder="0"
-                    value={hoursWorked[emp.id] || ""}
-                    onChange={(e) =>
-                      setHoursWorked({
-                        ...hoursWorked,
-                        [emp.id]: parseFloat(e.target.value),
-                      })
-                    }
-                  />
-                  <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                    {t("payroll.hrs")}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div
-            style={{
-              background: "var(--bg-secondary)",
-              borderRadius: 8,
-              padding: "10px 14px",
-              marginBottom: 16,
-              fontSize: 13,
-              color: "var(--text-secondary)",
-            }}
-          >
-            <i
-              className="ti ti-users"
-              style={{ marginRight: 6 }}
-              aria-hidden="true"
-            />
-            {t("payroll.willProcess")}{" "}
-            <strong style={{ color: "var(--text-primary)" }}>
-              {employees?.length || 0}
-            </strong>{" "}
-            {t("payroll.activeEmployeesLower")}
-          </div>
-
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn btn-secondary"
-            >
-              {t("common.cancel")}
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={mutation.isPending}
-            >
-              {mutation.isPending
-                ? t("payroll.processing")
-                : t("payroll.runPayroll")}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="flex gap-2 justify-end">
+          <Button onClick={onClose}>{t("common.cancel")}</Button>
+          <Button type="submit" variant="primary" disabled={mutation.isPending}>
+            {mutation.isPending
+              ? t("payroll.processing")
+              : t("payroll.runPayroll")}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -718,306 +446,131 @@ function PayrollRunModal({ run, onClose, fmt, t }) {
   const statusLabel = t(`payroll.status.${run.status}`, run.status);
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.4)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-        padding: 16,
-      }}
+    <Modal
+      open
+      onClose={onClose}
+      size="lg"
+      title={
+        <span className="flex items-center gap-2">
+          {t("payroll.payrollRun")}
+          <Badge tone={run.status === "finalized" ? "income" : "payroll"}>
+            {statusLabel}
+          </Badge>
+        </span>
+      }
     >
-      <div
-        className="card fade-in"
-        style={{
-          width: "100%",
-          maxWidth: 600,
-          maxHeight: "90vh",
-          overflow: "auto",
-          padding: 24,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 16,
-          }}
-        >
-          <div>
-            <h2
-              style={{
-                fontSize: 16,
-                fontWeight: 600,
-                color: "var(--text-primary)",
-              }}
-            >
-              {t("payroll.payrollRun")}
-            </h2>
-            <div
-              style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}
-            >
-              {dayjs(run.period_start).format("MMM D")} —{" "}
-              {dayjs(run.period_end).format("MMM D, YYYY")}
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <span
-              style={{
-                fontSize: 11,
-                padding: "3px 10px",
-                borderRadius: 4,
-                fontWeight: 500,
-                background:
-                  run.status === "finalized"
-                    ? "var(--income-bg)"
-                    : "var(--payroll-bg)",
-                color:
-                  run.status === "finalized"
-                    ? "var(--income)"
-                    : "var(--payroll)",
-              }}
-            >
-              {statusLabel}
-            </span>
-            <button
-              onClick={onClose}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "var(--text-muted)",
-                fontSize: 20,
-              }}
-            >
-              <i className="ti ti-x" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
+      <div className="text-xs text-muted mb-4">
+        {dayjs(run.period_start).format("MMM D")} —{" "}
+        {dayjs(run.period_end).format("MMM D, YYYY")}
+      </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
-            gap: 10,
-            marginBottom: 20,
-          }}
-        >
-          {[
-            {
-              label: t("payroll.totalGross"),
-              value: run.total_gross,
-              color: "var(--text-primary)",
-            },
-            {
-              label: t("payroll.totalTaxes"),
-              value: run.total_taxes,
-              color: "var(--expense)",
-            },
-            {
-              label: t("payroll.totalNet"),
-              value: run.total_net,
-              color: "var(--income)",
-            },
-          ].map((s) => (
-            <div
-              key={s.label}
-              style={{
-                background: "var(--bg-secondary)",
-                borderRadius: 8,
-                padding: "12px 14px",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "var(--text-muted)",
-                  marginBottom: 4,
-                }}
-              >
-                {s.label}
+      <div className="grid grid-cols-3 gap-2.5 mb-5">
+        <StatTile label={t("payroll.totalGross")} value={fmt(run.total_gross)} />
+        <StatTile
+          label={t("payroll.totalTaxes")}
+          value={fmt(run.total_taxes)}
+          className="text-expense"
+        />
+        <StatTile
+          label={t("payroll.totalNet")}
+          value={fmt(run.total_net)}
+          className="text-income"
+        />
+      </div>
+
+      {isLoading ? (
+        <div className="p-5 text-center text-muted">
+          {t("payroll.loadingPayslips")}
+        </div>
+      ) : (
+        <div>
+          <div className="text-xs font-medium text-secondary mb-2.5">
+            {t("payroll.employeePayslips")}
+          </div>
+          {data?.payslips?.map((ps, i) => (
+            <div key={i} className="bg-canvas rounded-lg p-3.5 mb-2">
+              <div className="flex justify-between mb-2.5">
+                <div className="text-sm font-medium text-ink">
+                  {ps.employee_name}
+                </div>
+                <div className="text-sm font-semibold text-income">
+                  {t("payroll.netSuffix", { amount: fmt(ps.net_pay) })}
+                </div>
               </div>
-              <div style={{ fontSize: 18, fontWeight: 600, color: s.color }}>
-                {fmt(s.value)}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                {[
+                  { label: t("payroll.gross"), value: ps.gross_pay, cls: "text-ink" },
+                  {
+                    label: t("payroll.federal"),
+                    value: ps.federal_tax,
+                    cls: "text-expense",
+                  },
+                  {
+                    label: t("payroll.socSec"),
+                    value: ps.social_security,
+                    cls: "text-expense",
+                  },
+                  {
+                    label: t("payroll.medicare"),
+                    value: ps.medicare,
+                    cls: "text-expense",
+                  },
+                  {
+                    label: t("payroll.prTax"),
+                    value: ps.pr_state_tax,
+                    cls: "text-expense",
+                  },
+                ].map((d) => (
+                  <div key={d.label}>
+                    <div className="text-[10px] text-muted mb-0.5">
+                      {d.label}
+                    </div>
+                    <div className={cx("text-xs font-medium", d.cls)}>
+                      {fmt(d.value)}
+                    </div>
+                  </div>
+                ))}
               </div>
+              {ps.hours_worked && (
+                <div className="text-[11px] text-muted mt-2">
+                  {t("payroll.hoursWorkedLabel", { hours: ps.hours_worked })}
+                </div>
+              )}
             </div>
           ))}
         </div>
+      )}
 
-        {isLoading ? (
-          <div
-            style={{
-              padding: 20,
-              textAlign: "center",
-              color: "var(--text-muted)",
+      <div className="flex gap-2 justify-between mt-4">
+        {run.status === "draft" && (
+          <Button
+            variant="danger"
+            icon="ti-trash"
+            disabled={deleteMutation.isPending}
+            onClick={() => {
+              if (window.confirm(t("payroll.confirmDeleteRun")))
+                deleteMutation.mutate();
             }}
           >
-            {t("payroll.loadingPayslips")}
-          </div>
-        ) : (
-          <div>
-            <div
-              style={{
-                fontSize: 12,
-                fontWeight: 500,
-                color: "var(--text-secondary)",
-                marginBottom: 10,
-              }}
-            >
-              {t("payroll.employeePayslips")}
-            </div>
-            {data?.payslips?.map((ps, i) => (
-              <div
-                key={i}
-                style={{
-                  background: "var(--bg-secondary)",
-                  borderRadius: 8,
-                  padding: "14px",
-                  marginBottom: 8,
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginBottom: 10,
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 500,
-                      color: "var(--text-primary)",
-                    }}
-                  >
-                    {ps.employee_name}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 600,
-                      color: "var(--income)",
-                    }}
-                  >
-                    {t("payroll.netSuffix", { amount: fmt(ps.net_pay) })}
-                  </div>
-                </div>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(5, 1fr)",
-                    gap: 8,
-                  }}
-                >
-                  {[
-                    {
-                      label: t("payroll.gross"),
-                      value: ps.gross_pay,
-                      color: "var(--text-primary)",
-                    },
-                    {
-                      label: t("payroll.federal"),
-                      value: ps.federal_tax,
-                      color: "var(--expense)",
-                    },
-                    {
-                      label: t("payroll.socSec"),
-                      value: ps.social_security,
-                      color: "var(--expense)",
-                    },
-                    {
-                      label: t("payroll.medicare"),
-                      value: ps.medicare,
-                      color: "var(--expense)",
-                    },
-                    {
-                      label: t("payroll.prTax"),
-                      value: ps.pr_state_tax,
-                      color: "var(--expense)",
-                    },
-                  ].map((d) => (
-                    <div key={d.label}>
-                      <div
-                        style={{
-                          fontSize: 10,
-                          color: "var(--text-muted)",
-                          marginBottom: 2,
-                        }}
-                      >
-                        {d.label}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 500,
-                          color: d.color,
-                        }}
-                      >
-                        {fmt(d.value)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {ps.hours_worked && (
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: "var(--text-muted)",
-                      marginTop: 8,
-                    }}
-                  >
-                    {t("payroll.hoursWorkedLabel", { hours: ps.hours_worked })}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+            {t("common.delete")}
+          </Button>
         )}
-
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            justifyContent: "space-between",
-            marginTop: 16,
-          }}
-        >
+        <div className="ml-auto flex gap-2">
+          <Button onClick={onClose}>{t("common.close")}</Button>
           {run.status === "draft" && (
-            <button
-              onClick={() => {
-                if (window.confirm(t("payroll.confirmDeleteRun")))
-                  deleteMutation.mutate();
-              }}
-              className="btn btn-danger"
-              disabled={deleteMutation.isPending}
+            <Button
+              variant="primary"
+              disabled={finalizeMutation.isPending}
+              onClick={() => finalizeMutation.mutate()}
             >
-              <i className="ti ti-trash" aria-hidden="true" />{" "}
-              {t("common.delete")}
-            </button>
+              {finalizeMutation.isPending
+                ? t("payroll.finalizing")
+                : t("payroll.finalizePayroll")}
+            </Button>
           )}
-          <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-            <button onClick={onClose} className="btn btn-secondary">
-              {t("common.close")}
-            </button>
-            {run.status === "draft" && (
-              <button
-                onClick={() => finalizeMutation.mutate()}
-                className="btn btn-primary"
-                disabled={finalizeMutation.isPending}
-              >
-                {finalizeMutation.isPending
-                  ? t("payroll.finalizing")
-                  : t("payroll.finalizePayroll")}
-              </button>
-            )}
-          </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -1031,13 +584,6 @@ export default function Payroll() {
   const [showRunModal, setShowRunModal] = useState(false);
   const [editEmployee, setEditEmployee] = useState(null);
   const [selectedRun, setSelectedRun] = useState(null);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
 
   const { data: employees, isLoading: empLoading } = useQuery({
     queryKey: ["employees"],
@@ -1062,522 +608,276 @@ export default function Payroll() {
   // Localized pay frequency label for the cells (DB stores weekly/biweekly/monthly)
   const freqLabel = (f) => t(`payroll.freqShort.${f}`, f);
 
+  const loadingState = (
+    <div className="p-8 text-center text-muted">{t("common.loading")}</div>
+  );
+
+  const empStatusBadge = (emp) => (
+    <Badge tone={emp.is_active ? "income" : "expense"}>
+      {emp.is_active ? t("payroll.active") : t("payroll.inactive")}
+    </Badge>
+  );
+
+  const runStatusBadge = (run) => (
+    <Badge tone={run.status === "finalized" ? "income" : "payroll"}>
+      {t(`payroll.status.${run.status}`, run.status)}
+    </Badge>
+  );
+
   return (
     <div className="fade-in">
-      {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 20,
-        }}
-      >
-        <div>
-          <h1
-            style={{
-              fontSize: 20,
-              fontWeight: 600,
-              color: "var(--text-primary)",
-              marginBottom: 4,
-            }}
-          >
-            {t("payroll.title")}
-          </h1>
-          <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-            {t("payroll.activeEmployeeCount", {
-              count: employees?.length || 0,
-            })}
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button
-            className="btn btn-secondary"
-            onClick={() => {
-              setEditEmployee(null);
-              setShowEmployeeModal(true);
-            }}
-          >
-            <i className="ti ti-user-plus" aria-hidden="true" />
-            {!isMobile && ` ${t("payroll.addEmployee")}`}
-          </button>
-          <button
-            className="btn btn-primary"
-            onClick={() => setShowRunModal(true)}
-          >
-            <i className="ti ti-report-money" aria-hidden="true" />
-            {!isMobile && ` ${t("payroll.runPayroll")}`}
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title={t("payroll.title")}
+        subtitle={t("payroll.activeEmployeeCount", {
+          count: employees?.length || 0,
+        })}
+        actions={
+          <>
+            <Button
+              icon="ti-user-plus"
+              title={t("payroll.addEmployee")}
+              onClick={() => {
+                setEditEmployee(null);
+                setShowEmployeeModal(true);
+              }}
+            >
+              <span className="hidden sm:inline">
+                {t("payroll.addEmployee")}
+              </span>
+            </Button>
+            <Button
+              variant="primary"
+              icon="ti-report-money"
+              title={t("payroll.runPayroll")}
+              onClick={() => setShowRunModal(true)}
+            >
+              <span className="hidden sm:inline">{t("payroll.runPayroll")}</span>
+            </Button>
+          </>
+        }
+      />
 
       {/* YTD Summary */}
       {ytd && (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
-            gap: 12,
-            marginBottom: 24,
-          }}
-        >
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3 mb-6">
           {[
-            {
-              label: t("payroll.ytdGross"),
-              value: ytd.ytd_gross,
-              color: "var(--text-primary)",
-            },
+            { label: t("payroll.ytdGross"), value: fmt(ytd.ytd_gross), cls: "text-ink" },
             {
               label: t("payroll.ytdTaxes"),
-              value: ytd.ytd_taxes,
-              color: "var(--expense)",
+              value: fmt(ytd.ytd_taxes),
+              cls: "text-expense",
             },
             {
               label: t("payroll.ytdNetPaid"),
-              value: ytd.ytd_net,
-              color: "var(--income)",
+              value: fmt(ytd.ytd_net),
+              cls: "text-income",
             },
             {
               label: t("payroll.payrollRuns"),
               value: ytd.total_runs,
-              color: "var(--payroll)",
-              isCount: true,
+              cls: "text-payroll",
             },
           ].map((s) => (
-            <div
-              key={s.label}
-              className="card"
-              style={{ padding: "14px 16px" }}
-            >
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "var(--text-muted)",
-                  letterSpacing: 1,
-                  marginBottom: 6,
-                  textTransform: "uppercase",
-                }}
-              >
+            <Card key={s.label} padding="none" className="px-4 py-3.5">
+              <div className="text-[11px] text-muted tracking-[1px] uppercase mb-1.5">
                 {s.label}
               </div>
-              <div style={{ fontSize: 20, fontWeight: 600, color: s.color }}>
-                {s.isCount ? s.value : fmt(s.value)}
+              <div className={cx("text-xl font-semibold", s.cls)}>
+                {s.value}
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}
 
       {/* Tabs */}
-      <div
-        style={{
-          display: "flex",
-          gap: 4,
-          marginBottom: 16,
-          borderBottom: "0.5px solid var(--border-color)",
-        }}
-      >
-        {["employees", "runs"].map((tabKey) => (
-          <button
-            key={tabKey}
-            onClick={() => setTab(tabKey)}
-            style={{
-              padding: "8px 16px",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              fontSize: 13,
-              color: tab === tabKey ? "var(--brand)" : "var(--text-muted)",
-              borderBottom:
-                tab === tabKey
-                  ? "2px solid var(--brand)"
-                  : "2px solid transparent",
-              fontWeight: tab === tabKey ? 500 : 400,
-            }}
-          >
-            {tabKey === "runs"
-              ? t("payroll.tabRuns")
-              : t("payroll.tabEmployees")}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        className="mb-4"
+        tabs={[
+          { id: "employees", label: t("payroll.tabEmployees") },
+          { id: "runs", label: t("payroll.tabRuns") },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
 
       {/* ── EMPLOYEES TAB ── */}
       {tab === "employees" && (
         <div>
           {empLoading ? (
-            <div
-              style={{
-                padding: 32,
-                textAlign: "center",
-                color: "var(--text-muted)",
-              }}
-            >
-              {t("common.loading")}
-            </div>
+            loadingState
           ) : employees?.length === 0 ? (
-            <div className="card" style={{ padding: 48, textAlign: "center" }}>
-              <i
-                className="ti ti-users"
-                style={{ fontSize: 40, color: "var(--text-muted)" }}
-                aria-hidden="true"
+            <Card>
+              <EmptyState
+                icon="ti-users"
+                message={t("payroll.noEmployees")}
+                action={
+                  <Button
+                    variant="primary"
+                    onClick={() => setShowEmployeeModal(true)}
+                  >
+                    {t("payroll.addFirstEmployee")}
+                  </Button>
+                }
               />
-              <div
-                style={{
-                  color: "var(--text-muted)",
-                  fontSize: 13,
-                  marginTop: 12,
-                }}
-              >
-                {t("payroll.noEmployees")}
+            </Card>
+          ) : (
+            <>
+              {/* Mobile card layout */}
+              <div className="md:hidden flex flex-col gap-2.5">
+                {employees.map((emp) => (
+                  <Card
+                    key={emp.id}
+                    padding="none"
+                    className={cx("px-4 py-3.5", !emp.is_active && "opacity-60")}
+                  >
+                    <div className="flex justify-between items-start mb-2.5">
+                      <div>
+                        <div className="text-sm font-medium text-ink">
+                          {emp.name}
+                        </div>
+                        <div className="text-xs text-muted mt-0.5">
+                          {emp.email || "—"}
+                        </div>
+                      </div>
+                      {empStatusBadge(emp)}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      <div className="bg-canvas rounded-md px-2.5 py-2">
+                        <div className="text-[10px] text-muted mb-0.5">
+                          {t("payroll.payRate")}
+                        </div>
+                        <div className="text-md font-medium text-ink">
+                          {fmt(emp.pay_rate)}
+                          {emp.pay_type === "hourly"
+                            ? t("payroll.perHr")
+                            : t("payroll.perYr")}
+                        </div>
+                      </div>
+                      <div className="bg-canvas rounded-md px-2.5 py-2">
+                        <div className="text-[10px] text-muted mb-0.5">
+                          {t("payroll.frequency")}
+                        </div>
+                        <div className="text-md font-medium text-ink">
+                          {freqLabel(emp.pay_frequency)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2.5 justify-end">
+                      <button
+                        onClick={() => {
+                          setEditEmployee(emp);
+                          setShowEmployeeModal(true);
+                        }}
+                        className="flex items-center gap-1 px-2 py-1 text-md text-muted cursor-pointer"
+                      >
+                        <i className="ti ti-pencil" aria-hidden="true" />{" "}
+                        {t("common.edit")}
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              t("payroll.confirmDeactivate", {
+                                name: emp.name,
+                              }),
+                            )
+                          )
+                            deactivateMutation.mutate(emp.id);
+                        }}
+                        className="flex items-center gap-1 px-2 py-1 text-md text-danger cursor-pointer"
+                      >
+                        <i className="ti ti-user-off" aria-hidden="true" />{" "}
+                        {t("payroll.deactivate")}
+                      </button>
+                    </div>
+                  </Card>
+                ))}
               </div>
-              <button
-                className="btn btn-primary"
-                style={{ marginTop: 16 }}
-                onClick={() => setShowEmployeeModal(true)}
-              >
-                {t("payroll.addFirstEmployee")}
-              </button>
-            </div>
-          ) : isMobile ? (
-            // Mobile card layout
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {employees.map((emp) => (
-                <div
-                  key={emp.id}
-                  className="card"
-                  style={{
-                    padding: "14px 16px",
-                    opacity: emp.is_active ? 1 : 0.6,
-                  }}
-                >
+
+              {/* Desktop table layout */}
+              <Card padding="none" className="hidden md:block overflow-hidden">
+                <div className="grid grid-cols-[1fr_100px_120px_110px_90px_70px] px-[18px] py-2.5 border-b border-line bg-canvas">
+                  {[
+                    t("payroll.colEmployee"),
+                    t("common.type"),
+                    t("payroll.colRate"),
+                    t("payroll.frequency"),
+                    t("common.status"),
+                    "",
+                  ].map((h, idx) => (
+                    <div
+                      key={idx}
+                      className="text-[11px] text-muted font-medium tracking-[0.5px]"
+                    >
+                      {h}
+                    </div>
+                  ))}
+                </div>
+                {employees.map((emp) => (
                   <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                      marginBottom: 10,
-                    }}
+                    key={emp.id}
+                    className="grid grid-cols-[1fr_100px_120px_110px_90px_70px] px-[18px] py-3 border-b border-line items-center"
                   >
                     <div>
-                      <div
-                        style={{
-                          fontSize: 14,
-                          fontWeight: 500,
-                          color: "var(--text-primary)",
-                        }}
-                      >
+                      <div className="text-md font-medium text-ink">
                         {emp.name}
                       </div>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: "var(--text-muted)",
-                          marginTop: 2,
-                        }}
-                      >
+                      <div className="text-[11px] text-muted">
                         {emp.email || "—"}
                       </div>
                     </div>
-                    <span
-                      style={{
-                        fontSize: 10,
-                        padding: "2px 8px",
-                        borderRadius: 4,
-                        fontWeight: 500,
-                        background: emp.is_active
-                          ? "var(--income-bg)"
-                          : "var(--expense-bg)",
-                        color: emp.is_active
-                          ? "var(--income)"
-                          : "var(--expense)",
-                      }}
-                    >
-                      {emp.is_active
-                        ? t("payroll.active")
-                        : t("payroll.inactive")}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: 8,
-                      marginBottom: 12,
-                    }}
-                  >
-                    <div
-                      style={{
-                        background: "var(--bg-secondary)",
-                        borderRadius: 6,
-                        padding: "8px 10px",
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontSize: 10,
-                          color: "var(--text-muted)",
-                          marginBottom: 2,
-                        }}
-                      >
-                        {t("payroll.payRate")}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 13,
-                          fontWeight: 500,
-                          color: "var(--text-primary)",
-                        }}
-                      >
-                        {fmt(emp.pay_rate)}
-                        {emp.pay_type === "hourly"
-                          ? t("payroll.perHr")
-                          : t("payroll.perYr")}
-                      </div>
+                    <div className="text-xs text-secondary">
+                      {t(`payroll.payTypeShort.${emp.pay_type}`, emp.pay_type)}
                     </div>
-                    <div
-                      style={{
-                        background: "var(--bg-secondary)",
-                        borderRadius: 6,
-                        padding: "8px 10px",
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontSize: 10,
-                          color: "var(--text-muted)",
-                          marginBottom: 2,
-                        }}
-                      >
-                        {t("payroll.frequency")}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 13,
-                          fontWeight: 500,
-                          color: "var(--text-primary)",
-                        }}
-                      >
-                        {freqLabel(emp.pay_frequency)}
-                      </div>
+                    <div className="text-md font-medium text-ink">
+                      {fmt(emp.pay_rate)}
+                      {emp.pay_type === "hourly"
+                        ? t("payroll.perHr")
+                        : t("payroll.perYr")}
                     </div>
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 10,
-                      justifyContent: "flex-end",
-                    }}
-                  >
-                    <button
-                      onClick={() => {
-                        setEditEmployee(emp);
-                        setShowEmployeeModal(true);
-                      }}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        color: "var(--text-muted)",
-                        fontSize: 13,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                        padding: "4px 8px",
-                      }}
-                    >
-                      <i className="ti ti-pencil" aria-hidden="true" />{" "}
-                      {t("common.edit")}
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            t("payroll.confirmDeactivate", { name: emp.name }),
+                    <div className="text-xs text-secondary">
+                      {freqLabel(emp.pay_frequency)}
+                    </div>
+                    <div>{empStatusBadge(emp)}</div>
+                    <div className="flex gap-1 justify-end">
+                      <button
+                        onClick={() => {
+                          setEditEmployee(emp);
+                          setShowEmployeeModal(true);
+                        }}
+                        className="p-1 text-muted hover:text-ink cursor-pointer"
+                        title={t("common.edit")}
+                      >
+                        <i
+                          className="ti ti-pencil text-[15px]"
+                          aria-hidden="true"
+                        />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              t("payroll.confirmDeactivate", {
+                                name: emp.name,
+                              }),
+                            )
                           )
-                        )
-                          deactivateMutation.mutate(emp.id);
-                      }}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        color: "var(--danger)",
-                        fontSize: 13,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                        padding: "4px 8px",
-                      }}
-                    >
-                      <i className="ti ti-user-off" aria-hidden="true" />{" "}
-                      {t("payroll.deactivate")}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            // Desktop table layout
-            <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 100px 120px 110px 90px 70px",
-                  padding: "10px 18px",
-                  borderBottom: "0.5px solid var(--border-color)",
-                  background: "var(--bg-secondary)",
-                }}
-              >
-                {[
-                  t("payroll.colEmployee"),
-                  t("common.type"),
-                  t("payroll.colRate"),
-                  t("payroll.frequency"),
-                  t("common.status"),
-                  "",
-                ].map((h, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      fontSize: 11,
-                      color: "var(--text-muted)",
-                      fontWeight: 500,
-                      letterSpacing: 0.5,
-                    }}
-                  >
-                    {h}
+                            deactivateMutation.mutate(emp.id);
+                        }}
+                        className="p-1 text-danger cursor-pointer"
+                        title={t("payroll.deactivate")}
+                      >
+                        <i
+                          className="ti ti-user-off text-[15px]"
+                          aria-hidden="true"
+                        />
+                      </button>
+                    </div>
                   </div>
                 ))}
-              </div>
-              {employees.map((emp) => (
-                <div
-                  key={emp.id}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 100px 120px 110px 90px 70px",
-                    padding: "12px 18px",
-                    borderBottom: "0.5px solid var(--border-color)",
-                    alignItems: "center",
-                  }}
-                >
-                  <div>
-                    <div
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 500,
-                        color: "var(--text-primary)",
-                      }}
-                    >
-                      {emp.name}
-                    </div>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                      {emp.email || "—"}
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: "var(--text-secondary)",
-                    }}
-                  >
-                    {t(`payroll.payTypeShort.${emp.pay_type}`, emp.pay_type)}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 500,
-                      color: "var(--text-primary)",
-                    }}
-                  >
-                    {fmt(emp.pay_rate)}
-                    {emp.pay_type === "hourly"
-                      ? t("payroll.perHr")
-                      : t("payroll.perYr")}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: "var(--text-secondary)",
-                    }}
-                  >
-                    {freqLabel(emp.pay_frequency)}
-                  </div>
-                  <div>
-                    <span
-                      style={{
-                        fontSize: 10,
-                        padding: "2px 8px",
-                        borderRadius: 4,
-                        fontWeight: 500,
-                        background: emp.is_active
-                          ? "var(--income-bg)"
-                          : "var(--expense-bg)",
-                        color: emp.is_active
-                          ? "var(--income)"
-                          : "var(--expense)",
-                      }}
-                    >
-                      {emp.is_active
-                        ? t("payroll.active")
-                        : t("payroll.inactive")}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 4,
-                      justifyContent: "flex-end",
-                    }}
-                  >
-                    <button
-                      onClick={() => {
-                        setEditEmployee(emp);
-                        setShowEmployeeModal(true);
-                      }}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        color: "var(--text-muted)",
-                        padding: 4,
-                      }}
-                      title={t("common.edit")}
-                    >
-                      <i
-                        className="ti ti-pencil"
-                        style={{ fontSize: 15 }}
-                        aria-hidden="true"
-                      />
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            t("payroll.confirmDeactivate", { name: emp.name }),
-                          )
-                        )
-                          deactivateMutation.mutate(emp.id);
-                      }}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        color: "var(--danger)",
-                        padding: 4,
-                      }}
-                      title={t("payroll.deactivate")}
-                    >
-                      <i
-                        className="ti ti-user-off"
-                        style={{ fontSize: 15 }}
-                        aria-hidden="true"
-                      />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+              </Card>
+            </>
           )}
         </div>
       )}
@@ -1586,260 +886,129 @@ export default function Payroll() {
       {tab === "runs" && (
         <div>
           {runsLoading ? (
-            <div
-              style={{
-                padding: 32,
-                textAlign: "center",
-                color: "var(--text-muted)",
-              }}
-            >
-              {t("common.loading")}
-            </div>
+            loadingState
           ) : payrollRuns?.length === 0 ? (
-            <div className="card" style={{ padding: 48, textAlign: "center" }}>
-              <i
-                className="ti ti-report-money"
-                style={{ fontSize: 40, color: "var(--text-muted)" }}
-                aria-hidden="true"
+            <Card>
+              <EmptyState
+                icon="ti-report-money"
+                message={t("payroll.noRuns")}
+                action={
+                  <Button variant="primary" onClick={() => setShowRunModal(true)}>
+                    {t("payroll.runFirst")}
+                  </Button>
+                }
               />
-              <div
-                style={{
-                  color: "var(--text-muted)",
-                  fontSize: 13,
-                  marginTop: 12,
-                }}
-              >
-                {t("payroll.noRuns")}
-              </div>
-              <button
-                className="btn btn-primary"
-                style={{ marginTop: 16 }}
-                onClick={() => setShowRunModal(true)}
-              >
-                {t("payroll.runFirst")}
-              </button>
-            </div>
-          ) : isMobile ? (
-            // Mobile card layout
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {payrollRuns.map((run) => (
-                <div
-                  key={run.id}
-                  className="card"
-                  style={{ padding: "14px 16px", cursor: "pointer" }}
-                  onClick={() => setSelectedRun(run)}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                      marginBottom: 10,
-                    }}
-                  >
-                    <div>
-                      <div
-                        style={{
-                          fontSize: 13,
-                          fontWeight: 500,
-                          color: "var(--text-primary)",
-                        }}
-                      >
-                        {dayjs(run.period_start).format("MMM D")} —{" "}
-                        {dayjs(run.period_end).format("MMM D, YYYY")}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: "var(--text-muted)",
-                          marginTop: 2,
-                        }}
-                      >
-                        {t("payroll.runOn", {
-                          date: dayjs(run.run_date).format("MMM D, YYYY"),
-                        })}{" "}
-                        · {t("payroll.empCount", { count: run.employee_count })}
-                      </div>
-                    </div>
-                    <span
-                      style={{
-                        fontSize: 10,
-                        padding: "2px 8px",
-                        borderRadius: 4,
-                        fontWeight: 500,
-                        background:
-                          run.status === "finalized"
-                            ? "var(--income-bg)"
-                            : "var(--payroll-bg)",
-                        color:
-                          run.status === "finalized"
-                            ? "var(--income)"
-                            : "var(--payroll)",
-                      }}
-                    >
-                      {t(`payroll.status.${run.status}`, run.status)}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr 1fr",
-                      gap: 8,
-                    }}
-                  >
-                    {[
-                      {
-                        label: t("payroll.gross"),
-                        value: run.total_gross,
-                        color: "var(--text-primary)",
-                      },
-                      {
-                        label: t("payroll.taxes"),
-                        value: run.total_taxes,
-                        color: "var(--expense)",
-                      },
-                      {
-                        label: t("payroll.net"),
-                        value: run.total_net,
-                        color: "var(--income)",
-                      },
-                    ].map((s) => (
-                      <div
-                        key={s.label}
-                        style={{
-                          background: "var(--bg-secondary)",
-                          borderRadius: 6,
-                          padding: "8px 10px",
-                        }}
-                      >
-                        <div
-                          style={{
-                            fontSize: 10,
-                            color: "var(--text-muted)",
-                            marginBottom: 2,
-                          }}
-                        >
-                          {s.label}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 13,
-                            fontWeight: 600,
-                            color: s.color,
-                          }}
-                        >
-                          {fmt(s.value)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+            </Card>
           ) : (
-            // Desktop table layout
-            <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr 110px 110px 90px 70px",
-                  padding: "10px 18px",
-                  borderBottom: "0.5px solid var(--border-color)",
-                  background: "var(--bg-secondary)",
-                }}
-              >
-                {[
-                  t("payroll.colPeriod"),
-                  t("payroll.colRunDate"),
-                  t("payroll.gross"),
-                  t("payroll.net"),
-                  t("common.status"),
-                  "",
-                ].map((h, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      fontSize: 11,
-                      color: "var(--text-muted)",
-                      fontWeight: 500,
-                      letterSpacing: 0.5,
-                    }}
+            <>
+              {/* Mobile card layout */}
+              <div className="md:hidden flex flex-col gap-2.5">
+                {payrollRuns.map((run) => (
+                  <Card
+                    key={run.id}
+                    padding="none"
+                    className="px-4 py-3.5 cursor-pointer"
+                    onClick={() => setSelectedRun(run)}
                   >
-                    {h}
-                  </div>
+                    <div className="flex justify-between items-start mb-2.5">
+                      <div>
+                        <div className="text-md font-medium text-ink">
+                          {dayjs(run.period_start).format("MMM D")} —{" "}
+                          {dayjs(run.period_end).format("MMM D, YYYY")}
+                        </div>
+                        <div className="text-[11px] text-muted mt-0.5">
+                          {t("payroll.runOn", {
+                            date: dayjs(run.run_date).format("MMM D, YYYY"),
+                          })}{" "}
+                          ·{" "}
+                          {t("payroll.empCount", {
+                            count: run.employee_count,
+                          })}
+                        </div>
+                      </div>
+                      {runStatusBadge(run)}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        {
+                          label: t("payroll.gross"),
+                          value: run.total_gross,
+                          cls: "text-ink",
+                        },
+                        {
+                          label: t("payroll.taxes"),
+                          value: run.total_taxes,
+                          cls: "text-expense",
+                        },
+                        {
+                          label: t("payroll.net"),
+                          value: run.total_net,
+                          cls: "text-income",
+                        },
+                      ].map((s) => (
+                        <div
+                          key={s.label}
+                          className="bg-canvas rounded-md px-2.5 py-2"
+                        >
+                          <div className="text-[10px] text-muted mb-0.5">
+                            {s.label}
+                          </div>
+                          <div className={cx("text-md font-semibold", s.cls)}>
+                            {fmt(s.value)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
                 ))}
               </div>
-              {payrollRuns.map((run) => (
-                <div
-                  key={run.id}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr 110px 110px 90px 70px",
-                    padding: "12px 18px",
-                    borderBottom: "0.5px solid var(--border-color)",
-                    alignItems: "center",
-                    cursor: "pointer",
-                    transition: "background 0.15s",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = "var(--bg-secondary)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = "transparent")
-                  }
-                  onClick={() => setSelectedRun(run)}
-                >
-                  <div style={{ fontSize: 13, color: "var(--text-primary)" }}>
-                    {dayjs(run.period_start).format("MMM D")} —{" "}
-                    {dayjs(run.period_end).format("MMM D, YYYY")}
-                  </div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                    {dayjs(run.run_date).format("MMM D, YYYY")}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 500,
-                      color: "var(--text-primary)",
-                    }}
-                  >
-                    {fmt(run.total_gross)}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 500,
-                      color: "var(--income)",
-                    }}
-                  >
-                    {fmt(run.total_net)}
-                  </div>
-                  <div>
-                    <span
-                      style={{
-                        fontSize: 10,
-                        padding: "2px 8px",
-                        borderRadius: 4,
-                        fontWeight: 500,
-                        background:
-                          run.status === "finalized"
-                            ? "var(--income-bg)"
-                            : "var(--payroll-bg)",
-                        color:
-                          run.status === "finalized"
-                            ? "var(--income)"
-                            : "var(--payroll)",
-                      }}
+
+              {/* Desktop table layout */}
+              <Card padding="none" className="hidden md:block overflow-hidden">
+                <div className="grid grid-cols-[1fr_1fr_110px_110px_90px_70px] px-[18px] py-2.5 border-b border-line bg-canvas">
+                  {[
+                    t("payroll.colPeriod"),
+                    t("payroll.colRunDate"),
+                    t("payroll.gross"),
+                    t("payroll.net"),
+                    t("common.status"),
+                    "",
+                  ].map((h, idx) => (
+                    <div
+                      key={idx}
+                      className="text-[11px] text-muted font-medium tracking-[0.5px]"
                     >
-                      {t(`payroll.status.${run.status}`, run.status)}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                    {t("payroll.empShort", { count: run.employee_count })}
-                  </div>
+                      {h}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+                {payrollRuns.map((run) => (
+                  <div
+                    key={run.id}
+                    className="grid grid-cols-[1fr_1fr_110px_110px_90px_70px] px-[18px] py-3 border-b border-line items-center cursor-pointer transition-colors hover:bg-canvas"
+                    onClick={() => setSelectedRun(run)}
+                  >
+                    <div className="text-md text-ink">
+                      {dayjs(run.period_start).format("MMM D")} —{" "}
+                      {dayjs(run.period_end).format("MMM D, YYYY")}
+                    </div>
+                    <div className="text-xs text-muted">
+                      {dayjs(run.run_date).format("MMM D, YYYY")}
+                    </div>
+                    <div className="text-md font-medium text-ink">
+                      {fmt(run.total_gross)}
+                    </div>
+                    <div className="text-md font-medium text-income">
+                      {fmt(run.total_net)}
+                    </div>
+                    <div>{runStatusBadge(run)}</div>
+                    <div className="text-xs text-muted">
+                      {t("payroll.empShort", { count: run.employee_count })}
+                    </div>
+                  </div>
+                ))}
+              </Card>
+            </>
           )}
         </div>
       )}

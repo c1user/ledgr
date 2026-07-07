@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import { setAppLanguage } from "../i18n";
+import cx from "../lib/cx";
 
 /**
  * EN | ES segmented toggle.
@@ -36,39 +37,29 @@ export default function LanguageToggle() {
     }
   };
 
-  const btnStyle = (lang) => ({
-    padding: "3px 10px",
-    fontSize: 11,
-    fontWeight: 500,
-    border: "none",
-    cursor: "pointer",
-    background: current === lang ? "var(--brand)" : "transparent",
-    color: current === lang ? "#fff" : "var(--text-secondary)",
-    transition: "all 0.15s",
-  });
+  const btnClass = (lang) =>
+    cx(
+      "px-2.5 py-[3px] text-[11px] font-medium cursor-pointer transition-all",
+      current === lang ? "bg-brand text-white" : "bg-transparent text-secondary",
+    );
 
   return (
-    <div style={{ position: "relative", display: "inline-flex" }}>
+    <div className="relative inline-flex">
       <div
         role="group"
         aria-label="Language"
-        style={{
-          display: "inline-flex",
-          borderRadius: 6,
-          overflow: "hidden",
-          border: "0.5px solid var(--border-color)",
-        }}
+        className="inline-flex rounded-md overflow-hidden border border-line"
       >
         <button
           onClick={() => changeLanguage("en")}
-          style={btnStyle("en")}
+          className={btnClass("en")}
           aria-pressed={current === "en"}
         >
           EN
         </button>
         <button
           onClick={() => changeLanguage("es")}
-          style={btnStyle("es")}
+          className={btnClass("es")}
           aria-pressed={current === "es"}
         >
           ES
@@ -78,26 +69,9 @@ export default function LanguageToggle() {
       {saveFailed && (
         <div
           role="alert"
-          style={{
-            position: "absolute",
-            top: "calc(100% + 6px)",
-            right: 0,
-            whiteSpace: "nowrap",
-            background: "var(--danger-bg)",
-            color: "var(--danger)",
-            border: "0.5px solid var(--danger)",
-            borderRadius: 6,
-            padding: "5px 10px",
-            fontSize: 11,
-            fontWeight: 500,
-            zIndex: 200,
-          }}
+          className="absolute top-[calc(100%+6px)] right-0 whitespace-nowrap bg-danger-bg text-danger border border-danger rounded-md px-2.5 py-1 text-[11px] font-medium z-[200]"
         >
-          <i
-            className="ti ti-alert-circle"
-            style={{ marginRight: 5 }}
-            aria-hidden="true"
-          />
+          <i className="ti ti-alert-circle mr-1" aria-hidden="true" />
           {t("nav.languageSaveFailed")}
         </div>
       )}

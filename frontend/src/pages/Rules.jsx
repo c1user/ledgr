@@ -3,6 +3,17 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import { coaToCategories, resolveCatName } from "../lib/coaCategories";
+import cx from "../lib/cx";
+import {
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  Modal,
+  PageHeader,
+  Select,
+} from "../components/ui";
 
 const MATCH_TYPES = ["contains", "equals", "regex"];
 
@@ -17,16 +28,16 @@ const emptyForm = {
 // ── Match type pill ───────────────────────────────────────────
 function MatchTypePills({ value, onChange, t }) {
   return (
-    <div style={{ display: "flex", gap: 6 }}>
+    <div className="flex gap-1.5">
       {MATCH_TYPES.map((mt) => (
-        <button
+        <Button
           key={mt}
-          type="button"
-          className={`btn btn-sm ${value === mt ? "btn-primary" : "btn-secondary"}`}
+          size="sm"
+          variant={value === mt ? "primary" : "secondary"}
           onClick={() => onChange(mt)}
         >
           {t(`rules.${mt}`)}
-        </button>
+        </Button>
       ))}
     </div>
   );
@@ -39,21 +50,21 @@ function TestPreview({ matchType, pattern, t }) {
   const { data, isFetching, isError } = useQuery({
     queryKey: ["rules-test", matchType, pattern],
     queryFn: () =>
-      api.post("/rules/test", { match_type: matchType, pattern }).then((r) => r.data),
+      api
+        .post("/rules/test", { match_type: matchType, pattern })
+        .then((r) => r.data),
     enabled,
     staleTime: 0,
     retry: false,
   });
 
   if (!enabled) return null;
-  if (isFetching) return (
-    <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>…</div>
-  );
-  if (isError || data?.error) return (
-    <div style={{ fontSize: 12, color: "var(--expense, #ef4444)", marginTop: 6 }}>
-      {t("rules.testError")}
-    </div>
-  );
+  if (isFetching)
+    return <div className="text-xs text-muted mt-1.5">…</div>;
+  if (isError || data?.error)
+    return (
+      <div className="text-xs text-expense mt-1.5">{t("rules.testError")}</div>
+    );
   if (!data) return null;
 
   const samples = (data.samples || [])
@@ -63,10 +74,10 @@ function TestPreview({ matchType, pattern, t }) {
     .join(", ");
 
   return (
-    <div style={{ fontSize: 12, color: "var(--income, #22c55e)", marginTop: 6 }}>
+    <div className="text-xs text-income mt-1.5">
       {t("rules.testResult", { count: data.count })}
       {samples && (
-        <span style={{ color: "var(--text-muted)", marginLeft: 4 }}>
+        <span className="text-muted ml-1">
           {t("rules.testSamples", { samples })}
         </span>
       )}
@@ -101,7 +112,8 @@ function RuleModal({ rule, onClose, categories, t }) {
       qc.invalidateQueries({ queryKey: ["rules"] });
       onClose();
     },
-    onError: (err) => setError(err.response?.data?.error || t("rules.saveFailed")),
+    onError: (err) =>
+      setError(err.response?.data?.error || t("rules.saveFailed")),
   });
 
   function validate() {
@@ -114,147 +126,118 @@ function RuleModal({ rule, onClose, categories, t }) {
   function handleSubmit(e) {
     e.preventDefault();
     const err = validate();
-    if (err) { setError(err); return; }
+    if (err) {
+      setError(err);
+      return;
+    }
     setError("");
     saveMutation.mutate(form);
   }
 
   // Group categories by type for the optgroup selector
   const incomeCategories = (categories || []).filter((c) => c.type === "income");
-  const expenseCategories = (categories || []).filter((c) => c.type === "expense");
+  const expenseCategories = (categories || []).filter(
+    (c) => c.type === "expense",
+  );
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.45)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-        padding: 16,
-      }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+    <Modal
+      open
+      onClose={onClose}
+      title={isEdit ? t("rules.editTitle") : t("rules.newTitle")}
     >
-      <div
-        className="card fade-in"
-        style={{ width: "100%", maxWidth: 480, padding: 24, maxHeight: "90vh", overflow: "auto" }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 20,
-          }}
-        >
-          <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--text-primary)" }}>
-            {isEdit ? t("rules.editTitle") : t("rules.newTitle")}
-          </h2>
-          <button className="btn btn-secondary btn-sm" onClick={onClose}>
-            <i className="ti ti-x" />
-          </button>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+        {/* Name */}
+        <Field label={t("rules.ruleName")} className="mb-0">
+          <Input
+            type="text"
+            placeholder={t("rules.namePlaceholder")}
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+          />
+        </Field>
+
+        {/* Match type */}
+        <Field label={t("rules.matchType")} className="mb-0">
+          <MatchTypePills
+            value={form.match_type}
+            onChange={(mt) => setForm({ ...form, match_type: mt })}
+            t={t}
+          />
+        </Field>
+
+        {/* Pattern + test preview */}
+        <Field label={t("rules.pattern")} className="mb-0">
+          <Input
+            type="text"
+            placeholder={t("rules.patternPlaceholder")}
+            value={form.pattern}
+            onChange={(e) => setForm({ ...form, pattern: e.target.value })}
+            autoComplete="off"
+          />
+          <TestPreview matchType={form.match_type} pattern={form.pattern} t={t} />
+        </Field>
+
+        {/* Category */}
+        <Field label={t("rules.assignCategory")} className="mb-0">
+          <Select
+            value={form.category_id}
+            onChange={(e) => setForm({ ...form, category_id: e.target.value })}
+          >
+            <option value="">{t("transactions.selectACategory")}</option>
+            {expenseCategories.length > 0 && (
+              <optgroup label={t("common.expense")}>
+                {expenseCategories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {incomeCategories.length > 0 && (
+              <optgroup label={t("common.income")}>
+                {incomeCategories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </Select>
+        </Field>
+
+        {/* Active toggle */}
+        <div className="flex items-center gap-2.5">
+          <input
+            type="checkbox"
+            id="rule-active"
+            checked={form.is_active}
+            onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+            className="w-4 h-4 cursor-pointer"
+          />
+          <label htmlFor="rule-active" className="text-md text-ink cursor-pointer">
+            {t("rules.active")}
+          </label>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {/* Name */}
-          <div>
-            <label className="label">{t("rules.ruleName")}</label>
-            <input
-              className="input"
-              type="text"
-              placeholder={t("rules.namePlaceholder")}
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
-          </div>
+        {error && <div className="text-md text-expense">{error}</div>}
 
-          {/* Match type */}
-          <div>
-            <label className="label" style={{ display: "block", marginBottom: 6 }}>
-              {t("rules.matchType")}
-            </label>
-            <MatchTypePills
-              value={form.match_type}
-              onChange={(mt) => setForm({ ...form, match_type: mt })}
-              t={t}
-            />
-          </div>
-
-          {/* Pattern + test preview */}
-          <div>
-            <label className="label">{t("rules.pattern")}</label>
-            <input
-              className="input"
-              type="text"
-              placeholder={t("rules.patternPlaceholder")}
-              value={form.pattern}
-              onChange={(e) => setForm({ ...form, pattern: e.target.value })}
-              autoComplete="off"
-            />
-            <TestPreview matchType={form.match_type} pattern={form.pattern} t={t} />
-          </div>
-
-          {/* Category */}
-          <div>
-            <label className="label">{t("rules.assignCategory")}</label>
-            <select
-              className="input"
-              value={form.category_id}
-              onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-            >
-              <option value="">{t("transactions.selectACategory")}</option>
-              {expenseCategories.length > 0 && (
-                <optgroup label={t("common.expense")}>
-                  {expenseCategories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </optgroup>
-              )}
-              {incomeCategories.length > 0 && (
-                <optgroup label={t("common.income")}>
-                  {incomeCategories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
-          </div>
-
-          {/* Active toggle */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <input
-              type="checkbox"
-              id="rule-active"
-              checked={form.is_active}
-              onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
-              style={{ width: 16, height: 16, cursor: "pointer" }}
-            />
-            <label htmlFor="rule-active" style={{ fontSize: 13, color: "var(--text-primary)", cursor: "pointer" }}>
-              {t("rules.active")}
-            </label>
-          </div>
-
-          {error && (
-            <div style={{ fontSize: 13, color: "var(--expense, #ef4444)" }}>{error}</div>
-          )}
-
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 4 }}>
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
-              {t("common.cancel")}
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={saveMutation.isPending}>
-              {saveMutation.isPending
-                ? t("rules.saving")
-                : isEdit
+        <div className="flex gap-2.5 justify-end mt-1">
+          <Button onClick={onClose}>{t("common.cancel")}</Button>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={saveMutation.isPending}
+          >
+            {saveMutation.isPending
+              ? t("rules.saving")
+              : isEdit
                 ? t("rules.saveChanges")
                 : t("rules.createRule")}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -267,72 +250,41 @@ function RuleCard({ rule, index, total, onMoveUp, onMoveDown, onEdit, onDelete, 
   };
 
   return (
-    <div
-      className="card"
-      style={{
-        padding: "14px 16px",
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        opacity: rule.is_active ? 1 : 0.5,
-      }}
+    <Card
+      padding="none"
+      className={cx(
+        "flex items-center gap-3 px-4 py-3.5",
+        !rule.is_active && "opacity-50",
+      )}
     >
       {/* Priority badge */}
-      <div
-        style={{
-          minWidth: 28,
-          height: 28,
-          borderRadius: 6,
-          background: "var(--bg-secondary)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 12,
-          fontWeight: 600,
-          color: "var(--text-muted)",
-          flexShrink: 0,
-        }}
-      >
+      <div className="flex items-center justify-center min-w-[28px] h-7 rounded-md bg-canvas text-xs font-semibold text-muted shrink-0">
         {index + 1}
       </div>
 
       {/* Rule info */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-semibold text-ink">
           {rule.name}
           {!rule.is_active && (
-            <span style={{ fontSize: 10, color: "var(--text-muted)", marginLeft: 6, fontWeight: 400 }}>
+            <span className="text-[10px] text-muted ml-1.5 font-normal">
               inactive
             </span>
           )}
         </div>
-        <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          <span
-            style={{
-              background: "var(--bg-secondary)",
-              borderRadius: 4,
-              padding: "1px 6px",
-              fontFamily: "monospace",
-            }}
-          >
+        <div className="flex items-center gap-1.5 flex-wrap text-xs text-muted mt-0.5">
+          <span className="bg-canvas rounded px-1.5 py-px font-mono">
             {matchTypeLabelMap[rule.match_type]}
           </span>
-          <span style={{ fontFamily: "monospace", color: "var(--text-primary)" }}>
-            "{rule.pattern}"
-          </span>
+          <span className="font-mono text-ink">"{rule.pattern}"</span>
           <span>→</span>
-          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span className="flex items-center gap-1">
             <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: rule.category_color || "#888",
-                display: "inline-block",
-              }}
+              className="inline-block w-2 h-2 rounded-full"
+              style={{ background: rule.category_color || "#888" }}
             />
             {resolveCatName(rule.category_name_key, rule.category_name, t)}
-            <span style={{ color: "var(--text-muted)", fontSize: 11 }}>
+            <span className="text-muted text-[11px]">
               ({rule.category_type})
             </span>
           </span>
@@ -340,41 +292,25 @@ function RuleCard({ rule, index, total, onMoveUp, onMoveDown, onEdit, onDelete, 
       </div>
 
       {/* Actions */}
-      <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
-        <button
-          className="btn btn-secondary btn-sm"
+      <div className="flex gap-1 items-center shrink-0">
+        <Button
+          size="sm"
+          icon="ti-chevron-up"
           onClick={onMoveUp}
           disabled={index === 0}
           title={t("rules.moveUp")}
-          style={{ padding: "4px 8px" }}
-        >
-          <i className="ti ti-chevron-up" style={{ fontSize: 14 }} />
-        </button>
-        <button
-          className="btn btn-secondary btn-sm"
+        />
+        <Button
+          size="sm"
+          icon="ti-chevron-down"
           onClick={onMoveDown}
           disabled={index === total - 1}
           title={t("rules.moveDown")}
-          style={{ padding: "4px 8px" }}
-        >
-          <i className="ti ti-chevron-down" style={{ fontSize: 14 }} />
-        </button>
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={onEdit}
-          style={{ padding: "4px 8px" }}
-        >
-          <i className="ti ti-pencil" style={{ fontSize: 14 }} />
-        </button>
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={onDelete}
-          style={{ padding: "4px 8px", color: "var(--expense, #ef4444)" }}
-        >
-          <i className="ti ti-trash" style={{ fontSize: 14 }} />
-        </button>
+        />
+        <Button size="sm" icon="ti-pencil" onClick={onEdit} />
+        <Button size="sm" variant="danger" icon="ti-trash" onClick={onDelete} />
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -410,7 +346,10 @@ export default function Rules() {
   function move(index, direction) {
     const newRules = [...rules];
     const swapIndex = index + direction;
-    [newRules[index], newRules[swapIndex]] = [newRules[swapIndex], newRules[index]];
+    [newRules[index], newRules[swapIndex]] = [
+      newRules[swapIndex],
+      newRules[index],
+    ];
     reorderMutation.mutate(newRules.map((r) => r.id));
   }
 
@@ -431,55 +370,43 @@ export default function Rules() {
   }
 
   return (
-    <div style={{ maxWidth: 760, margin: "0 auto" }}>
-      {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          marginBottom: 20,
-          gap: 12,
-          flexWrap: "wrap",
-        }}
-      >
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
-            {t("rules.title")}
-          </h1>
-          <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "4px 0 0" }}>
-            {t("rules.subtitle")}
-          </p>
-        </div>
-        <button
-          className="btn btn-primary"
-          onClick={() => { setEditRule(null); setShowModal(true); }}
-          style={{ display: "flex", alignItems: "center", gap: 6 }}
-        >
-          <i className="ti ti-plus" style={{ fontSize: 15 }} />
-          {t("rules.addRule")}
-        </button>
-      </div>
+    <div className="max-w-[760px] mx-auto">
+      <PageHeader
+        title={t("rules.title")}
+        subtitle={t("rules.subtitle")}
+        actions={
+          <Button
+            variant="primary"
+            icon="ti-plus"
+            onClick={() => {
+              setEditRule(null);
+              setShowModal(true);
+            }}
+          >
+            {t("rules.addRule")}
+          </Button>
+        }
+      />
 
       {/* Rule list */}
       {isLoading && (
-        <div style={{ color: "var(--text-muted)", fontSize: 14, padding: "40px 0", textAlign: "center" }}>
+        <div className="text-muted text-sm py-10 text-center">
           {t("common.loading")}
         </div>
       )}
 
       {!isLoading && rules.length === 0 && (
-        <div className="card" style={{ padding: 48, textAlign: "center" }}>
-          <i className="ti ti-filter-cog" style={{ fontSize: 40, color: "var(--text-muted)", display: "block", marginBottom: 12 }} />
-          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)", marginBottom: 6 }}>
-            {t("rules.noRules")}
-          </div>
-          <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{t("rules.noRulesHint")}</div>
-        </div>
+        <Card>
+          <EmptyState
+            icon="ti-filter-cog"
+            title={t("rules.noRules")}
+            message={t("rules.noRulesHint")}
+          />
+        </Card>
       )}
 
       {!isLoading && rules.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="flex flex-col gap-2">
           {rules.map((rule, index) => (
             <RuleCard
               key={rule.id}

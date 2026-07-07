@@ -5,6 +5,19 @@ import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import dayjs from "dayjs";
 import Papa from "papaparse";
+import cx from "../lib/cx";
+import {
+  Button,
+  Card,
+  Badge,
+  EmptyState,
+  Field,
+  Input,
+  Modal,
+  PageHeader,
+  Select,
+  Toggle,
+} from "../components/ui";
 
 const makeFmt =
   (lang) =>
@@ -66,6 +79,28 @@ const makeEmptyForm = (baseCurrency) => ({
   projectId: "",
 });
 
+// Small chip used for split/auto-categorized/recurring/vendor markers.
+function Chip({ tone = "neutral", icon, children, className }) {
+  const tones = {
+    neutral: "bg-canvas text-secondary",
+    brand: "bg-brand-light text-brand",
+    income: "bg-income-bg text-income",
+    payroll: "bg-payroll-bg text-payroll",
+  };
+  return (
+    <span
+      className={cx(
+        "inline-flex items-center text-[10px] px-1.5 py-px rounded-sm",
+        tones[tone],
+        className,
+      )}
+    >
+      {icon && <i className={cx("ti", icon, "text-[9px] mr-0.5")} aria-hidden="true" />}
+      {children}
+    </span>
+  );
+}
+
 function SplitEditor({ splits, setSplits, totalAmount, categories, fmt, t }) {
   const remaining =
     parseFloat(totalAmount || 0) -
@@ -82,20 +117,13 @@ function SplitEditor({ splits, setSplits, totalAmount, categories, fmt, t }) {
   const removeSplit = (i) => setSplits(splits.filter((_, idx) => idx !== i));
 
   return (
-    <div style={{ marginTop: 8 }}>
+    <div className="mt-2">
       {splits.map((split, i) => (
         <div
           key={i}
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 110px auto",
-            gap: 8,
-            marginBottom: 8,
-            alignItems: "center",
-          }}
+          className="grid grid-cols-[1fr_110px_auto] gap-2 mb-2 items-center"
         >
-          <select
-            className="input"
+          <Select
             value={split.categoryId}
             onChange={(e) => updateSplit(i, "categoryId", e.target.value)}
           >
@@ -105,9 +133,8 @@ function SplitEditor({ splits, setSplits, totalAmount, categories, fmt, t }) {
                 {c.name}
               </option>
             ))}
-          </select>
-          <input
-            className="input"
+          </Select>
+          <Input
             type="number"
             placeholder="0.00"
             value={split.amount}
@@ -118,47 +145,21 @@ function SplitEditor({ splits, setSplits, totalAmount, categories, fmt, t }) {
           <button
             type="button"
             onClick={() => removeSplit(i)}
-            style={{
-              background: "var(--danger-bg)",
-              color: "var(--danger)",
-              border: "none",
-              borderRadius: 6,
-              width: 30,
-              height: 30,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
+            className="flex items-center justify-center w-[30px] h-[30px] rounded-md bg-danger-bg text-danger cursor-pointer"
           >
             <i className="ti ti-x" aria-hidden="true" />
           </button>
         </div>
       ))}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginTop: 8,
-        }}
-      >
-        <button
-          type="button"
-          onClick={addSplit}
-          className="btn btn-secondary"
-          style={{ fontSize: 12, padding: "5px 10px" }}
-        >
-          <i className="ti ti-plus" aria-hidden="true" />{" "}
+      <div className="flex items-center justify-between mt-2">
+        <Button size="sm" icon="ti-plus" onClick={addSplit}>
           {t("transactions.addSplitLine")}
-        </button>
+        </Button>
         <div
-          style={{
-            fontSize: 12,
-            color:
-              Math.abs(remaining) < 0.01 ? "var(--income)" : "var(--expense)",
-            fontWeight: 500,
-          }}
+          className={cx(
+            "text-xs font-medium",
+            Math.abs(remaining) < 0.01 ? "text-income" : "text-expense",
+          )}
         >
           {Math.abs(remaining) < 0.01
             ? t("transactions.splitsBalanced")
@@ -320,654 +321,405 @@ function TransactionModal({
   };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.4)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-        padding: 16,
-      }}
+    <Modal
+      open
+      onClose={onClose}
+      title={editTx ? t("transactions.editTitle") : t("transactions.newTitle")}
     >
-      <div
-        className="card fade-in"
-        style={{
-          width: "100%",
-          maxWidth: 520,
-          maxHeight: "90vh",
-          overflow: "auto",
-          padding: 24,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 20,
-          }}
-        >
-          <h2
-            style={{
-              fontSize: 16,
-              fontWeight: 600,
-              color: "var(--text-primary)",
-            }}
-          >
-            {editTx ? t("transactions.editTitle") : t("transactions.newTitle")}
-          </h2>
-          <button
-            onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--text-muted)",
-              fontSize: 20,
-            }}
-          >
-            <i className="ti ti-x" aria-hidden="true" />
-          </button>
+      {error && (
+        <div className="bg-danger-bg text-danger border border-danger rounded-lg px-3.5 py-2.5 text-md mb-4">
+          <i className="ti ti-alert-circle mr-1.5" aria-hidden="true" />
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit}>
+        <div className="flex gap-2 mb-4">
+          {["expense", "income"].map((txType) => (
+            <button
+              key={txType}
+              type="button"
+              onClick={() => setForm({ ...form, type: txType })}
+              className={cx(
+                "flex-1 py-2 rounded-lg border text-md font-medium cursor-pointer transition-colors",
+                form.type === txType
+                  ? txType === "income"
+                    ? "border-income bg-income-bg text-income"
+                    : "border-expense bg-expense-bg text-expense"
+                  : "border-line bg-transparent text-muted",
+              )}
+            >
+              <i
+                className={`ti ${txType === "income" ? "ti-arrow-down-left" : "ti-arrow-up-right"} mr-1.5`}
+                aria-hidden="true"
+              />
+              {t(`common.${txType}`)}
+            </button>
+          ))}
         </div>
 
-        {error && (
-          <div
-            style={{
-              background: "var(--danger-bg)",
-              color: "var(--danger)",
-              border: "0.5px solid var(--danger)",
-              borderRadius: 8,
-              padding: "10px 14px",
-              fontSize: 13,
-              marginBottom: 16,
-            }}
+        {/* Currency + Amount + Date */}
+        <div
+          className={cx(
+            "grid grid-cols-[120px_1fr_1fr] gap-3",
+            isFx ? "mb-2" : "mb-3.5",
+          )}
+        >
+          <Field label={t("fx.currency")} htmlFor="currency" className="mb-0">
+            <Select
+              id="currency"
+              value={form.currency}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  currency: e.target.value,
+                  originalAmount: "",
+                })
+              }
+              disabled={useSplit}
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field
+            label={
+              isFx
+                ? t("fx.originalAmount", { currency: form.currency })
+                : t("common.amount")
+            }
+            htmlFor="totalAmount"
+            className="mb-0"
           >
-            <i
-              className="ti ti-alert-circle"
-              style={{ marginRight: 6 }}
-              aria-hidden="true"
+            <Input
+              id="totalAmount"
+              type="number"
+              placeholder="0.00"
+              step="0.01"
+              min="0"
+              value={isFx ? form.originalAmount : form.totalAmount}
+              onChange={(e) =>
+                isFx
+                  ? setForm({ ...form, originalAmount: e.target.value })
+                  : setForm({ ...form, totalAmount: e.target.value })
+              }
+              required
             />
-            {error}
+          </Field>
+          <Field label={t("common.date")} htmlFor="date" className="mb-0">
+            <Input
+              id="date"
+              type="date"
+              value={form.date}
+              onChange={(e) => setForm({ ...form, date: e.target.value })}
+              required
+            />
+          </Field>
+        </div>
+
+        {/* Exchange rate row — only shown for foreign currencies */}
+        {isFx && (
+          <div className="grid grid-cols-2 gap-3 mb-3.5 px-3 py-2.5 bg-canvas rounded-lg">
+            <div>
+              <label
+                className="block text-xs font-medium text-secondary mb-1"
+                htmlFor="exchangeRate"
+              >
+                {t("fx.rateLabel", {
+                  from: form.currency,
+                  to: baseCurrency,
+                })}
+                {rateStatus === "loading" && (
+                  <span className="ml-1.5 text-[10px] text-muted">
+                    {t("fx.autoFetching")}
+                  </span>
+                )}
+              </label>
+              <Input
+                id="exchangeRate"
+                type="number"
+                placeholder="1.000000"
+                step="0.000001"
+                min="0.000001"
+                value={form.exchangeRate}
+                onChange={(e) =>
+                  setForm({ ...form, exchangeRate: e.target.value })
+                }
+              />
+              {rateStatus === "error" && (
+                <div className="text-[11px] text-muted mt-1">
+                  {t("fx.fetchError")}
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col justify-end">
+              <div className="text-xs text-muted mb-1">
+                {t("fx.convertedTotal", { base: baseCurrency })}
+              </div>
+              <div className="text-[15px] font-semibold text-ink">
+                {fmt(
+                  parseFloat(form.originalAmount || 0) *
+                    parseFloat(form.exchangeRate || 1),
+                  baseCurrency,
+                )}
+              </div>
+            </div>
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-            {["expense", "income"].map((txType) => (
-              <button
-                key={txType}
-                type="button"
-                onClick={() => setForm({ ...form, type: txType })}
-                style={{
-                  flex: 1,
-                  padding: "8px",
-                  borderRadius: 8,
-                  border: "0.5px solid",
-                  borderColor:
-                    form.type === txType
-                      ? txType === "income"
-                        ? "var(--income)"
-                        : "var(--expense)"
-                      : "var(--border-color)",
-                  background:
-                    form.type === txType
-                      ? txType === "income"
-                        ? "var(--income-bg)"
-                        : "var(--expense-bg)"
-                      : "transparent",
-                  color:
-                    form.type === txType
-                      ? txType === "income"
-                        ? "var(--income)"
-                        : "var(--expense)"
-                      : "var(--text-muted)",
-                  cursor: "pointer",
-                  fontSize: 13,
-                  fontWeight: 500,
-                }}
-              >
-                <i
-                  className={`ti ${txType === "income" ? "ti-arrow-down-left" : "ti-arrow-up-right"}`}
-                  style={{ marginRight: 6 }}
-                  aria-hidden="true"
-                />
-                {t(`common.${txType}`)}
-              </button>
-            ))}
-          </div>
-
-          {/* Currency + Amount + Date */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "120px 1fr 1fr",
-              gap: 12,
-              marginBottom: isFx ? 8 : 14,
+        <Field
+          label={t("transactions.vendor")}
+          htmlFor="vendorId"
+          className="mb-3.5"
+        >
+          <Select
+            id="vendorId"
+            value={form.vendorId}
+            onChange={(e) => {
+              const vid = e.target.value;
+              const vendor = vendors?.find((v) => v.id === vid);
+              setForm({
+                ...form,
+                vendorId: vid,
+                merchant:
+                  vendor && !form.merchant ? vendor.name : form.merchant,
+              });
             }}
           >
-            <div>
-              <label className="label" htmlFor="currency">
-                {t("fx.currency")}
-              </label>
-              <select
-                id="currency"
-                className="input"
-                value={form.currency}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    currency: e.target.value,
-                    originalAmount: "",
-                  })
-                }
-                disabled={useSplit}
-              >
-                {CURRENCIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="label" htmlFor="totalAmount">
-                {isFx
-                  ? t("fx.originalAmount", { currency: form.currency })
-                  : t("common.amount")}
-              </label>
-              <input
-                id="totalAmount"
-                className="input"
-                type="number"
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-                value={isFx ? form.originalAmount : form.totalAmount}
-                onChange={(e) =>
-                  isFx
-                    ? setForm({ ...form, originalAmount: e.target.value })
-                    : setForm({ ...form, totalAmount: e.target.value })
-                }
-                required
-              />
-            </div>
-            <div>
-              <label className="label" htmlFor="date">
-                {t("common.date")}
-              </label>
-              <input
-                id="date"
-                className="input"
-                type="date"
-                value={form.date}
-                onChange={(e) => setForm({ ...form, date: e.target.value })}
-                required
-              />
-            </div>
-          </div>
+            <option value="">{t("transactions.selectVendor")}</option>
+            {vendors?.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.name}
+                {v.is_1099_eligible ? " · 1099" : ""}
+              </option>
+            ))}
+          </Select>
+        </Field>
 
-          {/* Exchange rate row — only shown for foreign currencies */}
-          {isFx && (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 12,
-                marginBottom: 14,
-                padding: "10px 12px",
-                background: "var(--bg-secondary)",
-                borderRadius: 8,
-              }}
+        {projects?.length > 0 && (
+          <Field
+            label={t("transactions.project")}
+            htmlFor="projectId"
+            className="mb-3.5"
+          >
+            <Select
+              id="projectId"
+              value={form.projectId}
+              onChange={(e) => setForm({ ...form, projectId: e.target.value })}
             >
-              <div>
-                <label className="label" htmlFor="exchangeRate">
-                  {t("fx.rateLabel", {
-                    from: form.currency,
-                    to: baseCurrency,
-                  })}
-                  {rateStatus === "loading" && (
-                    <span
-                      style={{
-                        marginLeft: 6,
-                        fontSize: 10,
-                        color: "var(--text-muted)",
-                      }}
-                    >
-                      {t("fx.autoFetching")}
-                    </span>
-                  )}
-                </label>
-                <input
-                  id="exchangeRate"
-                  className="input"
-                  type="number"
-                  placeholder="1.000000"
-                  step="0.000001"
-                  min="0.000001"
-                  value={form.exchangeRate}
-                  onChange={(e) =>
-                    setForm({ ...form, exchangeRate: e.target.value })
-                  }
-                />
-                {rateStatus === "error" && (
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: "var(--text-muted)",
-                      marginTop: 3,
-                    }}
-                  >
-                    {t("fx.fetchError")}
-                  </div>
-                )}
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "flex-end",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: "var(--text-muted)",
-                    marginBottom: 4,
-                  }}
-                >
-                  {t("fx.convertedTotal", { base: baseCurrency })}
-                </div>
-                <div
-                  style={{
-                    fontSize: 15,
-                    fontWeight: 600,
-                    color: "var(--text-primary)",
-                  }}
-                >
-                  {fmt(
-                    parseFloat(form.originalAmount || 0) *
-                      parseFloat(form.exchangeRate || 1),
-                    baseCurrency,
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div style={{ marginBottom: 14 }}>
-            <label className="label" htmlFor="vendorId">
-              {t("transactions.vendor")}
-            </label>
-            <select
-              id="vendorId"
-              className="input"
-              value={form.vendorId}
-              onChange={(e) => {
-                const vid = e.target.value;
-                const vendor = vendors?.find((v) => v.id === vid);
-                setForm({
-                  ...form,
-                  vendorId: vid,
-                  merchant:
-                    vendor && !form.merchant ? vendor.name : form.merchant,
-                });
-              }}
-            >
-              <option value="">{t("transactions.selectVendor")}</option>
-              {vendors?.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.name}
-                  {v.is_1099_eligible ? " · 1099" : ""}
+              <option value="">{t("transactions.selectProject")}</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
                 </option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </Field>
+        )}
 
-          {projects?.length > 0 && (
-            <div style={{ marginBottom: 14 }}>
-              <label className="label" htmlFor="projectId">
-                {t("transactions.project")}
-              </label>
-              <select
-                id="projectId"
-                className="input"
-                value={form.projectId}
-                onChange={(e) => setForm({ ...form, projectId: e.target.value })}
-              >
-                <option value="">{t("transactions.selectProject")}</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
+        <Field
+          label={t("transactions.merchantDescription")}
+          htmlFor="merchant"
+          className="mb-3.5"
+        >
+          <Input
+            id="merchant"
+            type="text"
+            placeholder={t("transactions.merchantPlaceholder")}
+            value={form.merchant}
+            onChange={(e) => setForm({ ...form, merchant: e.target.value })}
+          />
+        </Field>
+
+        <Field
+          label={t("common.account")}
+          htmlFor="accountId"
+          className="mb-3.5"
+        >
+          <Select
+            id="accountId"
+            value={form.accountId}
+            onChange={(e) => setForm({ ...form, accountId: e.target.value })}
+            required
+          >
+            <option value="">{t("transactions.selectAccount")}</option>
+            {accounts?.length > 0 && (
+              <optgroup label={t("transactions.bankAccounts")}>
+                {accounts.map((a) => (
+                  <option key={a.id} value={`acct:${a.id}`}>
+                    {a.name}
                   </option>
                 ))}
-              </select>
-            </div>
-          )}
+              </optgroup>
+            )}
+            {ledgerAccounts?.length > 0 && (
+              <optgroup label={t("transactions.ledgerAccounts")}>
+                {ledgerAccounts.map((a) => (
+                  <option key={a.id} value={`coa:${a.id}`}>
+                    {a.code ? `${a.code} · ${a.name}` : a.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </Select>
+        </Field>
 
-          <div style={{ marginBottom: 14 }}>
-            <label className="label" htmlFor="merchant">
-              {t("transactions.merchantDescription")}
-            </label>
-            <input
-              id="merchant"
-              className="input"
-              type="text"
-              placeholder={t("transactions.merchantPlaceholder")}
-              value={form.merchant}
-              onChange={(e) => setForm({ ...form, merchant: e.target.value })}
-            />
-          </div>
-
-          <div style={{ marginBottom: 14 }}>
-            <label className="label" htmlFor="accountId">
-              {t("common.account")}
-            </label>
-            <select
-              id="accountId"
-              className="input"
-              value={form.accountId}
-              onChange={(e) => setForm({ ...form, accountId: e.target.value })}
-              required
-            >
-              <option value="">{t("transactions.selectAccount")}</option>
-              {accounts?.length > 0 && (
-                <optgroup label={t("transactions.bankAccounts")}>
-                  {accounts.map((a) => (
-                    <option key={a.id} value={`acct:${a.id}`}>
-                      {a.name}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              {ledgerAccounts?.length > 0 && (
-                <optgroup label={t("transactions.ledgerAccounts")}>
-                  {ledgerAccounts.map((a) => (
-                    <option key={a.id} value={`coa:${a.id}`}>
-                      {a.code ? `${a.code} · ${a.name}` : a.name}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
-          </div>
-
-          {/* Category — only show when not splitting */}
-          {!useSplit && (
-            <div style={{ marginBottom: 14 }}>
-              <label className="label" htmlFor="categoryId">
-                {t("common.category")}
-              </label>
-              <select
-                id="categoryId"
-                className="input"
-                value={form.categoryId}
-                onChange={(e) =>
-                  setForm({ ...form, categoryId: e.target.value })
-                }
-              >
-                <option value="">{t("transactions.selectACategory")}</option>
-                {categories
-                  ?.filter((c) => c.type === form.type)
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          )}
-
-          {/* §1062.03 service withholding — expense payments to a vendor */}
-          {showWithholding && (
-            <div
-              style={{
-                marginBottom: 14,
-                padding: "10px 14px",
-                background: "var(--bg-secondary)",
-                borderRadius: 8,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = !useWithholding;
-                    setUseWithholding(next);
-                    if (next && !form.withholdingAmount) {
-                      setForm((f) => ({
-                        ...f,
-                        withholdingAmount: (
-                          parseFloat(f.totalAmount || 0) * 0.1
-                        ).toFixed(2),
-                      }));
-                    }
-                  }}
-                  aria-label={t("transactions.withholdingToggle")}
-                  style={{
-                    width: 36,
-                    height: 20,
-                    borderRadius: 10,
-                    background: useWithholding
-                      ? "var(--brand)"
-                      : "var(--border-color)",
-                    border: "none",
-                    cursor: "pointer",
-                    position: "relative",
-                    flexShrink: 0,
-                    transition: "background 0.2s",
-                  }}
-                >
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: 3,
-                      left: useWithholding ? 18 : 3,
-                      width: 14,
-                      height: 14,
-                      background: "#fff",
-                      borderRadius: "50%",
-                      transition: "left 0.2s",
-                    }}
-                  />
-                </button>
-                <div>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 500,
-                      color: "var(--text-primary)",
-                    }}
-                  >
-                    {t("transactions.withholdingToggle")}
-                  </div>
-                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                    {selectedVendor?.withholding_exempt
-                      ? t("transactions.withholdingWaiverOnFile")
-                      : t("transactions.withholdingHint")}
-                  </div>
-                </div>
-              </div>
-
-              {useWithholding && (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 12,
-                    marginTop: 10,
-                    alignItems: "end",
-                  }}
-                >
-                  <div>
-                    <label className="label" htmlFor="withholdingAmount">
-                      {t("transactions.withholdingAmount")}
-                    </label>
-                    <input
-                      id="withholdingAmount"
-                      className="input"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={form.withholdingAmount}
-                      onChange={(e) =>
-                        setForm({ ...form, withholdingAmount: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                    {t("transactions.netToVendor")}
-                    <div
-                      style={{
-                        fontSize: 15,
-                        fontWeight: 600,
-                        color: "var(--text-primary)",
-                      }}
-                    >
-                      {fmt(netToVendor > 0 ? netToVendor : 0, baseCurrency)}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div style={{ marginBottom: 14 }}>
-            <label className="label" htmlFor="notes">
-              {t("common.notes")}
-            </label>
-            <input
-              id="notes"
-              className="input"
-              type="text"
-              placeholder={t("transactions.notesPlaceholder")}
-              value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            />
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              marginBottom: useSplit ? 12 : 20,
-              padding: "10px 14px",
-              background: "var(--bg-secondary)",
-              borderRadius: 8,
-            }}
+        {/* Category — only show when not splitting */}
+        {!useSplit && (
+          <Field
+            label={t("common.category")}
+            htmlFor="categoryId"
+            className="mb-3.5"
           >
-            <button
-              type="button"
-              onClick={() => setUseSplit(!useSplit)}
-              aria-label={t("transactions.toggleSplit")}
-              style={{
-                width: 36,
-                height: 20,
-                borderRadius: 10,
-                background: useSplit ? "var(--brand)" : "var(--border-color)",
-                border: "none",
-                cursor: "pointer",
-                position: "relative",
-                flexShrink: 0,
-                transition: "background 0.2s",
-              }}
+            <Select
+              id="categoryId"
+              value={form.categoryId}
+              onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
             >
-              <div
-                style={{
-                  position: "absolute",
-                  top: 3,
-                  left: useSplit ? 18 : 3,
-                  width: 14,
-                  height: 14,
-                  background: "#fff",
-                  borderRadius: "50%",
-                  transition: "left 0.2s",
-                }}
-              />
-            </button>
-            <div>
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: "var(--text-primary)",
-                }}
-              >
-                {t("transactions.splitTransaction")}
-              </div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                {t("transactions.splitDescription")}
-              </div>
-            </div>
-          </div>
+              <option value="">{t("transactions.selectACategory")}</option>
+              {categories
+                ?.filter((c) => c.type === form.type)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+            </Select>
+          </Field>
+        )}
 
-          {useSplit && (
-            <div
-              style={{
-                marginBottom: 16,
-                padding: "12px 14px",
-                background: "var(--bg-secondary)",
-                borderRadius: 8,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: "var(--text-secondary)",
-                  marginBottom: 8,
+        {/* §1062.03 service withholding — expense payments to a vendor */}
+        {showWithholding && (
+          <div className="mb-3.5 px-3.5 py-2.5 bg-canvas rounded-lg">
+            <div className="flex items-center gap-2.5">
+              <Toggle
+                checked={useWithholding}
+                onChange={() => {
+                  const next = !useWithholding;
+                  setUseWithholding(next);
+                  if (next && !form.withholdingAmount) {
+                    setForm((f) => ({
+                      ...f,
+                      withholdingAmount: (
+                        parseFloat(f.totalAmount || 0) * 0.1
+                      ).toFixed(2),
+                    }));
+                  }
                 }}
-              >
-                {t("transactions.splitBreakdown")}
-              </div>
-              <SplitEditor
-                splits={form.splits}
-                setSplits={(splits) => setForm({ ...form, splits })}
-                totalAmount={form.totalAmount}
-                categories={categories}
-                fmt={fmt}
-                t={t}
+                aria-label={t("transactions.withholdingToggle")}
               />
-              {useSplit && isFx && (
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: "var(--text-muted)",
-                    marginTop: 4,
-                  }}
-                >
-                  {t("fx.splitFxWarning")}
+              <div>
+                <div className="text-md font-medium text-ink">
+                  {t("transactions.withholdingToggle")}
                 </div>
-              )}
+                <div className="text-[11px] text-muted">
+                  {selectedVendor?.withholding_exempt
+                    ? t("transactions.withholdingWaiverOnFile")
+                    : t("transactions.withholdingHint")}
+                </div>
+              </div>
             </div>
-          )}
 
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn btn-secondary"
-            >
-              {t("common.cancel")}
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={mutation.isPending}
-            >
-              {mutation.isPending
-                ? t("transactions.saving")
-                : editTx
-                  ? t("transactions.saveChanges")
-                  : t("transactions.addTransaction")}
-            </button>
+            {useWithholding && (
+              <div className="grid grid-cols-2 gap-3 mt-2.5 items-end">
+                <Field
+                  label={t("transactions.withholdingAmount")}
+                  htmlFor="withholdingAmount"
+                  className="mb-0"
+                >
+                  <Input
+                    id="withholdingAmount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={form.withholdingAmount}
+                    onChange={(e) =>
+                      setForm({ ...form, withholdingAmount: e.target.value })
+                    }
+                  />
+                </Field>
+                <div className="text-xs text-muted">
+                  {t("transactions.netToVendor")}
+                  <div className="text-[15px] font-semibold text-ink">
+                    {fmt(netToVendor > 0 ? netToVendor : 0, baseCurrency)}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        </form>
-      </div>
-    </div>
+        )}
+
+        <Field label={t("common.notes")} htmlFor="notes" className="mb-3.5">
+          <Input
+            id="notes"
+            type="text"
+            placeholder={t("transactions.notesPlaceholder")}
+            value={form.notes}
+            onChange={(e) => setForm({ ...form, notes: e.target.value })}
+          />
+        </Field>
+
+        <div
+          className={cx(
+            "flex items-center gap-2.5 px-3.5 py-2.5 bg-canvas rounded-lg",
+            useSplit ? "mb-3" : "mb-5",
+          )}
+        >
+          <Toggle
+            checked={useSplit}
+            onChange={() => setUseSplit(!useSplit)}
+            aria-label={t("transactions.toggleSplit")}
+          />
+          <div>
+            <div className="text-md font-medium text-ink">
+              {t("transactions.splitTransaction")}
+            </div>
+            <div className="text-[11px] text-muted">
+              {t("transactions.splitDescription")}
+            </div>
+          </div>
+        </div>
+
+        {useSplit && (
+          <div className="mb-4 px-3.5 py-3 bg-canvas rounded-lg">
+            <div className="text-xs font-medium text-secondary mb-2">
+              {t("transactions.splitBreakdown")}
+            </div>
+            <SplitEditor
+              splits={form.splits}
+              setSplits={(splits) => setForm({ ...form, splits })}
+              totalAmount={form.totalAmount}
+              categories={categories}
+              fmt={fmt}
+              t={t}
+            />
+            {useSplit && isFx && (
+              <div className="text-[11px] text-muted mt-1">
+                {t("fx.splitFxWarning")}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex gap-2 justify-end">
+          <Button onClick={onClose}>{t("common.cancel")}</Button>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={mutation.isPending}
+          >
+            {mutation.isPending
+              ? t("transactions.saving")
+              : editTx
+                ? t("transactions.saveChanges")
+                : t("transactions.addTransaction")}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -1005,19 +757,19 @@ function guessColumn(fields, re) {
 // One column-mapping dropdown (module-scope so it isn't recreated per render).
 function MappingCol({ k, label, fields, mapping, setMapping, t }) {
   return (
-    <div>
-      <label className="label">{label}</label>
-      <select
-        className="input"
+    <Field label={label} className="mb-0">
+      <Select
         value={mapping[k]}
         onChange={(e) => setMapping({ ...mapping, [k]: e.target.value })}
       >
         <option value="">{t("transactions.importUnmapped")}</option>
         {fields.map((f) => (
-          <option key={f} value={f}>{f}</option>
+          <option key={f} value={f}>
+            {f}
+          </option>
         ))}
-      </select>
-    </div>
+      </Select>
+    </Field>
   );
 }
 
@@ -1027,7 +779,11 @@ function ImportModal({ onClose, accounts, ledgerAccounts, fmt, t }) {
   const [fileName, setFileName] = useState("");
   const [fields, setFields] = useState([]);
   const [data, setData] = useState([]);
-  const [mapping, setMapping] = useState({ date: "", description: "", amount: "" });
+  const [mapping, setMapping] = useState({
+    date: "",
+    description: "",
+    amount: "",
+  });
   const [negate, setNegate] = useState(false);
   const [skipDuplicates, setSkipDuplicates] = useState(true);
   const [error, setError] = useState("");
@@ -1048,7 +804,10 @@ function ImportModal({ onClose, accounts, ledgerAccounts, fmt, t }) {
         setData(res.data || []);
         setMapping({
           date: guessColumn(f, /date|fecha/i),
-          description: guessColumn(f, /desc|memo|narration|payee|concept|merchant|name/i),
+          description: guessColumn(
+            f,
+            /desc|memo|narration|payee|concept|merchant|name/i,
+          ),
           amount: guessColumn(f, /amount|amt|debit|monto|importe|value/i),
         });
       },
@@ -1075,7 +834,9 @@ function ImportModal({ onClose, accounts, ledgerAccounts, fmt, t }) {
       const fundingId = accountId.replace(/^(coa|acct):/, "");
       return api
         .post("/transactions/import", {
-          ...(isLedger ? { fundingCoaId: fundingId } : { accountId: fundingId }),
+          ...(isLedger
+            ? { fundingCoaId: fundingId }
+            : { accountId: fundingId }),
           rows: buildRows(),
           skipDuplicates,
         })
@@ -1095,137 +856,180 @@ function ImportModal({ onClose, accounts, ledgerAccounts, fmt, t }) {
     accountId && mapped && rows.length > 0 && !importMutation.isPending;
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.4)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-        padding: 16,
-      }}
-    >
-      <div
-        className="card fade-in"
-        style={{ width: "100%", maxWidth: 600, maxHeight: "90vh", overflow: "auto", padding: 24 }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)" }}>
-            {t("transactions.importTitle")}
-          </h2>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 20 }}>
-            <i className="ti ti-x" aria-hidden="true" />
-          </button>
-        </div>
-
-        {result ? (
-          <div style={{ textAlign: "center", padding: "20px 0" }}>
-            <i className="ti ti-circle-check" style={{ fontSize: 40, color: "var(--income)" }} aria-hidden="true" />
-            <div style={{ fontSize: 15, fontWeight: 600, margin: "12px 0 6px" }}>
-              {t("transactions.importResult", { imported: result.imported, skipped: result.skipped })}
-            </div>
-            <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={onClose}>
-              {t("common.close")}
-            </button>
+    <Modal open onClose={onClose} title={t("transactions.importTitle")} size="lg">
+      {result ? (
+        <div className="text-center py-5">
+          <i
+            className="ti ti-circle-check text-[40px] text-income"
+            aria-hidden="true"
+          />
+          <div className="text-[15px] font-semibold mt-3 mb-1.5 text-ink">
+            {t("transactions.importResult", {
+              imported: result.imported,
+              skipped: result.skipped,
+            })}
           </div>
-        ) : (
-          <>
-            {error && (
-              <div style={{ background: "var(--danger-bg)", color: "var(--danger)", border: "0.5px solid var(--danger)", borderRadius: 8, padding: "10px 14px", fontSize: 13, marginBottom: 14 }}>
-                <i className="ti ti-alert-circle" style={{ marginRight: 6 }} aria-hidden="true" />
-                {error}
-              </div>
-            )}
-
-            {/* Account */}
-            <div style={{ marginBottom: 14 }}>
-              <label className="label">{t("transactions.importAccount")}</label>
-              <select className="input" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-                <option value="">{t("transactions.selectAccount")}</option>
-                {accounts?.length > 0 && (
-                  <optgroup label={t("transactions.bankAccounts")}>
-                    {accounts.map((a) => <option key={a.id} value={`acct:${a.id}`}>{a.name}</option>)}
-                  </optgroup>
-                )}
-                {ledgerAccounts?.length > 0 && (
-                  <optgroup label={t("transactions.ledgerAccounts")}>
-                    {ledgerAccounts.map((a) => (
-                      <option key={a.id} value={`coa:${a.id}`}>{a.code ? `${a.code} · ${a.name}` : a.name}</option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
+          <Button variant="primary" className="mt-3" onClick={onClose}>
+            {t("common.close")}
+          </Button>
+        </div>
+      ) : (
+        <>
+          {error && (
+            <div className="bg-danger-bg text-danger border border-danger rounded-lg px-3.5 py-2.5 text-md mb-3.5">
+              <i className="ti ti-alert-circle mr-1.5" aria-hidden="true" />
+              {error}
             </div>
+          )}
 
-            {/* File */}
-            <div style={{ marginBottom: 14 }}>
-              <label className="label">{t("transactions.importFile")}</label>
-              <input type="file" accept=".csv,text/csv" onChange={handleFile} className="input" style={{ padding: 6 }} />
-              {fileName && (
-                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
-                  {fileName} · {t("transactions.importParsedRows", { count: data.length })}
-                </div>
+          {/* Account */}
+          <Field label={t("transactions.importAccount")} className="mb-3.5">
+            <Select
+              value={accountId}
+              onChange={(e) => setAccountId(e.target.value)}
+            >
+              <option value="">{t("transactions.selectAccount")}</option>
+              {accounts?.length > 0 && (
+                <optgroup label={t("transactions.bankAccounts")}>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={`acct:${a.id}`}>
+                      {a.name}
+                    </option>
+                  ))}
+                </optgroup>
               )}
-            </div>
+              {ledgerAccounts?.length > 0 && (
+                <optgroup label={t("transactions.ledgerAccounts")}>
+                  {ledgerAccounts.map((a) => (
+                    <option key={a.id} value={`coa:${a.id}`}>
+                      {a.code ? `${a.code} · ${a.name}` : a.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </Select>
+          </Field>
 
-            {fields.length > 0 && (
-              <>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
-                  {t("transactions.mapColumns")}
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
-                  <MappingCol k="date" label={t("transactions.colDate")} fields={fields} mapping={mapping} setMapping={setMapping} t={t} />
-                  <MappingCol k="description" label={t("transactions.colDescription")} fields={fields} mapping={mapping} setMapping={setMapping} t={t} />
-                  <MappingCol k="amount" label={t("transactions.colAmount")} fields={fields} mapping={mapping} setMapping={setMapping} t={t} />
-                </div>
+          {/* File */}
+          <Field
+            label={t("transactions.importFile")}
+            hint={
+              fileName
+                ? `${fileName} · ${t("transactions.importParsedRows", { count: data.length })}`
+                : undefined
+            }
+            className="mb-3.5"
+          >
+            <Input
+              type="file"
+              accept=".csv,text/csv"
+              onChange={handleFile}
+              className="p-1.5"
+            />
+          </Field>
 
-                <div style={{ display: "flex", gap: 16, marginBottom: 14, flexWrap: "wrap" }}>
-                  <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
-                    <input type="checkbox" checked={negate} onChange={(e) => setNegate(e.target.checked)} />
-                    {t("transactions.negateAmounts")}
-                  </label>
-                  <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
-                    <input type="checkbox" checked={skipDuplicates} onChange={(e) => setSkipDuplicates(e.target.checked)} />
-                    {t("transactions.skipDuplicates")}
-                  </label>
-                </div>
+          {fields.length > 0 && (
+            <>
+              <div className="text-xs font-semibold text-muted uppercase tracking-[0.5px] mb-2">
+                {t("transactions.mapColumns")}
+              </div>
+              <div className="grid grid-cols-3 gap-3 mb-3">
+                <MappingCol
+                  k="date"
+                  label={t("transactions.colDate")}
+                  fields={fields}
+                  mapping={mapping}
+                  setMapping={setMapping}
+                  t={t}
+                />
+                <MappingCol
+                  k="description"
+                  label={t("transactions.colDescription")}
+                  fields={fields}
+                  mapping={mapping}
+                  setMapping={setMapping}
+                  t={t}
+                />
+                <MappingCol
+                  k="amount"
+                  label={t("transactions.colAmount")}
+                  fields={fields}
+                  mapping={mapping}
+                  setMapping={setMapping}
+                  t={t}
+                />
+              </div>
 
-                {mapped && (
-                  <div className="card" style={{ padding: 0, overflow: "hidden", marginBottom: 14 }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "90px 1fr 90px 70px", padding: "8px 12px", background: "var(--bg-secondary)", fontSize: 10, color: "var(--text-muted)", fontWeight: 600, letterSpacing: 0.5 }}>
-                      <div>{t("common.date")}</div>
-                      <div>{t("common.merchant")}</div>
-                      <div style={{ textAlign: "right" }}>{t("common.amount")}</div>
-                      <div style={{ textAlign: "right" }}>{t("common.type")}</div>
-                    </div>
-                    {preview.map((r, i) => (
-                      <div key={i} style={{ display: "grid", gridTemplateColumns: "90px 1fr 90px 70px", padding: "7px 12px", borderTop: "0.5px solid var(--border-color)", fontSize: 12, alignItems: "center" }}>
-                        <div style={{ color: "var(--text-muted)" }}>{r.date}</div>
-                        <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.merchant || "—"}</div>
-                        <div style={{ textAlign: "right", color: r.amount < 0 ? "var(--expense)" : "var(--income)" }}>{fmt(r.amount)}</div>
-                        <div style={{ textAlign: "right", fontSize: 10, color: "var(--text-muted)" }}>{r.amount < 0 ? t("common.expense") : t("common.income")}</div>
-                      </div>
-                    ))}
-                    <div style={{ padding: "7px 12px", borderTop: "0.5px solid var(--border-color)", fontSize: 11, color: "var(--text-muted)" }}>
-                      {t("transactions.importWillImport", { count: rows.length })}
-                    </div>
+              <div className="flex gap-4 mb-3.5 flex-wrap">
+                <label className="flex items-center gap-1.5 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={negate}
+                    onChange={(e) => setNegate(e.target.checked)}
+                  />
+                  {t("transactions.negateAmounts")}
+                </label>
+                <label className="flex items-center gap-1.5 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={skipDuplicates}
+                    onChange={(e) => setSkipDuplicates(e.target.checked)}
+                  />
+                  {t("transactions.skipDuplicates")}
+                </label>
+              </div>
+
+              {mapped && (
+                <Card padding="none" className="overflow-hidden mb-3.5">
+                  <div className="grid grid-cols-[90px_1fr_90px_70px] px-3 py-2 bg-canvas text-[10px] text-muted font-semibold tracking-[0.5px]">
+                    <div>{t("common.date")}</div>
+                    <div>{t("common.merchant")}</div>
+                    <div className="text-right">{t("common.amount")}</div>
+                    <div className="text-right">{t("common.type")}</div>
                   </div>
-                )}
-              </>
-            )}
+                  {preview.map((r, i) => (
+                    <div
+                      key={i}
+                      className="grid grid-cols-[90px_1fr_90px_70px] px-3 py-[7px] border-t border-line text-xs items-center"
+                    >
+                      <div className="text-muted">{r.date}</div>
+                      <div className="truncate">{r.merchant || "—"}</div>
+                      <div
+                        className={cx(
+                          "text-right",
+                          r.amount < 0 ? "text-expense" : "text-income",
+                        )}
+                      >
+                        {fmt(r.amount)}
+                      </div>
+                      <div className="text-right text-[10px] text-muted">
+                        {r.amount < 0 ? t("common.expense") : t("common.income")}
+                      </div>
+                    </div>
+                  ))}
+                  <div className="px-3 py-[7px] border-t border-line text-[11px] text-muted">
+                    {t("transactions.importWillImport", { count: rows.length })}
+                  </div>
+                </Card>
+              )}
+            </>
+          )}
 
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button type="button" onClick={onClose} className="btn btn-secondary">{t("common.cancel")}</button>
-              <button type="button" className="btn btn-primary" disabled={!canImport} onClick={() => importMutation.mutate()}>
-                {importMutation.isPending ? t("transactions.importing") : t("transactions.runImport")}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
+          <div className="flex gap-2 justify-end">
+            <Button onClick={onClose}>{t("common.cancel")}</Button>
+            <Button
+              variant="primary"
+              disabled={!canImport}
+              onClick={() => importMutation.mutate()}
+            >
+              {importMutation.isPending
+                ? t("transactions.importing")
+                : t("transactions.runImport")}
+            </Button>
+          </div>
+        </>
+      )}
+    </Modal>
   );
 }
 
@@ -1244,13 +1048,6 @@ export default function Transactions() {
     endDate: "",
     categoryId: "",
   });
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
 
   const { data, isLoading } = useQuery({
     queryKey: ["transactions", filters],
@@ -1338,7 +1135,6 @@ export default function Transactions() {
   // operational accounts carry a plain name.
   const acctName = (tx) =>
     tx.account_name_key ? t(tx.account_name_key) : tx.account_name;
-  //const catColor = (tx) => tx.splits?.[0]?.color || null;
 
   const deleteMutation = useMutation({
     mutationFn: (id) => api.delete(`/transactions/${id}`),
@@ -1376,71 +1172,86 @@ export default function Transactions() {
 
   const transactions = data?.transactions || [];
 
+  // Chips shown after the merchant name on both layouts.
+  const txChips = (tx) => (
+    <>
+      {tx.is_split && (
+        <Chip tone="payroll" className="ml-1.5">
+          {t("transactions.split")}
+        </Chip>
+      )}
+      {!tx.is_split && tx.applied_rule_id && (
+        <Chip tone="income" className="ml-1.5">
+          {t("transactions.autoCategorized")}
+        </Chip>
+      )}
+      {tx.recurring_id && (
+        <Chip tone="neutral" icon="ti-repeat" className="ml-1.5">
+          {t("transactions.recurring")}
+        </Chip>
+      )}
+    </>
+  );
+
+  const emptyState = (
+    <EmptyState
+      icon="ti-receipt-off"
+      message={t("transactions.noneFound")}
+      action={
+        <Button variant="primary" onClick={() => setShowModal(true)}>
+          {t("transactions.addFirst")}
+        </Button>
+      }
+    />
+  );
+
+  const loadingState = (
+    <div className="p-8 text-center text-muted">{t("common.loading")}</div>
+  );
+
   return (
     <div className="fade-in">
-      {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 20,
-        }}
-      >
-        <div>
-          <h1
-            style={{
-              fontSize: 20,
-              fontWeight: 600,
-              color: "var(--text-primary)",
-              marginBottom: 4,
-            }}
-          >
-            {t("transactions.title")}
-          </h1>
-          <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-            {t("transactions.totalCount", { count: data?.total || 0 })}
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button
-            className="btn btn-secondary"
-            onClick={handleExport}
-            title={t("transactions.export")}
-          >
-            <i className="ti ti-download" aria-hidden="true" />{" "}
-            {isMobile ? "" : t("transactions.export")}
-          </button>
-          <button
-            className="btn btn-secondary"
-            onClick={() => setShowImport(true)}
-            title={t("transactions.import")}
-          >
-            <i className="ti ti-upload" aria-hidden="true" />{" "}
-            {isMobile ? "" : t("transactions.import")}
-          </button>
-          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-            <i className="ti ti-plus" aria-hidden="true" />{" "}
-            {isMobile ? "" : t("transactions.addTransaction")}
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title={t("transactions.title")}
+        subtitle={t("transactions.totalCount", { count: data?.total || 0 })}
+        actions={
+          <>
+            <Button
+              icon="ti-download"
+              onClick={handleExport}
+              title={t("transactions.export")}
+            >
+              <span className="hidden sm:inline">
+                {t("transactions.export")}
+              </span>
+            </Button>
+            <Button
+              icon="ti-upload"
+              onClick={() => setShowImport(true)}
+              title={t("transactions.import")}
+            >
+              <span className="hidden sm:inline">
+                {t("transactions.import")}
+              </span>
+            </Button>
+            <Button
+              variant="primary"
+              icon="ti-plus"
+              onClick={() => setShowModal(true)}
+              title={t("transactions.addTransaction")}
+            >
+              <span className="hidden sm:inline">
+                {t("transactions.addTransaction")}
+              </span>
+            </Button>
+          </>
+        }
+      />
 
       {/* Filters */}
-      <div
-        className="card"
-        style={{
-          padding: "12px 16px",
-          marginBottom: 16,
-          display: "flex",
-          gap: 8,
-          flexWrap: "wrap",
-          alignItems: "center",
-        }}
-      >
-        <select
-          className="input"
-          style={{ width: isMobile ? "100%" : 140 }}
+      <Card padding="none" className="px-4 py-3 mb-4 flex gap-2 flex-wrap items-center">
+        <Select
+          className="w-full md:w-[140px]"
           value={filters.type}
           onChange={(e) =>
             setFilters({ ...filters, type: e.target.value, categoryId: "" })
@@ -1449,56 +1260,43 @@ export default function Transactions() {
           <option value="">{t("transactions.allTypes")}</option>
           <option value="income">{t("common.income")}</option>
           <option value="expense">{t("common.expense")}</option>
-        </select>
+        </Select>
 
-        {!isMobile && (
-          <select
-            className="input"
-            style={{ width: 160 }}
-            value={filters.categoryId || ""}
-            onChange={(e) =>
-              setFilters({ ...filters, categoryId: e.target.value })
-            }
-          >
-            <option value="">{t("transactions.allCategories")}</option>
-            {categories
-              ?.filter((c) => !filters.type || c.type === filters.type)
-              .map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-          </select>
-        )}
-        {!isMobile && (
-          <>
-            <input
-              className="input"
-              type="date"
-              style={{ width: 160 }}
-              value={filters.startDate}
-              onChange={(e) =>
-                setFilters({ ...filters, startDate: e.target.value })
-              }
-            />
-            <input
-              className="input"
-              type="date"
-              style={{ width: 160 }}
-              value={filters.endDate}
-              onChange={(e) =>
-                setFilters({ ...filters, endDate: e.target.value })
-              }
-            />
-          </>
-        )}
+        <Select
+          className="hidden md:block w-[160px]"
+          value={filters.categoryId || ""}
+          onChange={(e) =>
+            setFilters({ ...filters, categoryId: e.target.value })
+          }
+        >
+          <option value="">{t("transactions.allCategories")}</option>
+          {categories
+            ?.filter((c) => !filters.type || c.type === filters.type)
+            .map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+        </Select>
+        <Input
+          className="hidden md:block w-[160px]"
+          type="date"
+          value={filters.startDate}
+          onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+        />
+        <Input
+          className="hidden md:block w-[160px]"
+          type="date"
+          value={filters.endDate}
+          onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+        />
         {(filters.type ||
           filters.startDate ||
           filters.endDate ||
           filters.categoryId) && (
-          <button
-            className="btn btn-secondary"
-            style={{ fontSize: 12 }}
+          <Button
+            size="sm"
+            icon="ti-x"
             onClick={() =>
               setFilters({
                 type: "",
@@ -1508,556 +1306,199 @@ export default function Transactions() {
               })
             }
           >
-            <i className="ti ti-x" aria-hidden="true" />{" "}
             {t("transactions.clear")}
-          </button>
+          </Button>
         )}
-      </div>
+      </Card>
 
       {/* ── DESKTOP: Table layout ── */}
-      {!isMobile && (
-        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "100px 1fr 120px 110px 90px 70px",
-              padding: "10px 18px",
-              borderBottom: "0.5px solid var(--border-color)",
-              background: "var(--bg-secondary)",
-            }}
-          >
-            {[
-              t("common.date"),
-              t("common.merchant"),
-              t("common.account"),
-              t("common.amount"),
-              t("common.type"),
-              "",
-            ].map((h, idx) => (
-              <div
-                key={idx}
-                style={{
-                  fontSize: 11,
-                  color: "var(--text-muted)",
-                  fontWeight: 500,
-                  letterSpacing: 0.5,
-                }}
-              >
-                {h}
-              </div>
-            ))}
-          </div>
-          {isLoading ? (
+      <Card padding="none" className="hidden md:block overflow-hidden">
+        <div className="grid grid-cols-[100px_1fr_120px_110px_90px_70px] px-[18px] py-2.5 border-b border-line bg-canvas">
+          {[
+            t("common.date"),
+            t("common.merchant"),
+            t("common.account"),
+            t("common.amount"),
+            t("common.type"),
+            "",
+          ].map((h, idx) => (
             <div
-              style={{
-                padding: 32,
-                textAlign: "center",
-                color: "var(--text-muted)",
-              }}
+              key={idx}
+              className="text-[11px] text-muted font-medium tracking-[0.5px]"
             >
-              {t("common.loading")}
+              {h}
             </div>
-          ) : transactions.length === 0 ? (
-            <div style={{ padding: 40, textAlign: "center" }}>
-              <i
-                className="ti ti-receipt-off"
-                style={{ fontSize: 36, color: "var(--text-muted)" }}
-                aria-hidden="true"
-              />
-              <div
-                style={{
-                  color: "var(--text-muted)",
-                  fontSize: 13,
-                  marginTop: 10,
-                }}
-              >
-                {t("transactions.noneFound")}
+          ))}
+        </div>
+        {isLoading ? (
+          loadingState
+        ) : transactions.length === 0 ? (
+          emptyState
+        ) : (
+          transactions.map((tx) => (
+            <div
+              key={tx.id}
+              className="grid grid-cols-[100px_1fr_120px_110px_90px_70px] px-[18px] py-3 border-b border-line items-center transition-colors hover:bg-canvas"
+            >
+              <div className="text-xs text-muted">
+                {dayjs(tx.date).format("MMM D, YYYY")}
               </div>
-              <button
-                className="btn btn-primary"
-                style={{ marginTop: 12 }}
-                onClick={() => setShowModal(true)}
-              >
-                {t("transactions.addFirst")}
-              </button>
-            </div>
-          ) : (
-            transactions.map((tx) => (
-              <div
-                key={tx.id}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "100px 1fr 120px 110px 90px 70px",
-                  padding: "12px 18px",
-                  borderBottom: "0.5px solid var(--border-color)",
-                  alignItems: "center",
-                  transition: "background 0.15s",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "var(--bg-secondary)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "transparent")
-                }
-              >
-                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  {dayjs(tx.date).format("MMM D, YYYY")}
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 500,
-                      color: "var(--text-primary)",
-                    }}
-                  >
-                    {tx.merchant || "—"}
-                    {catName(tx) && (
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: "var(--text-muted)",
-                          marginTop: 1,
-                        }}
-                      >
-                        {catName(tx)}
-                      </div>
-                    )}
-                    {tx.vendor_name && (
-                      <div style={{ marginTop: 2 }}>
-                        <span
-                          style={{
-                            fontSize: 10,
-                            background: "var(--brand-light)",
-                            color: "var(--brand)",
-                            padding: "1px 6px",
-                            borderRadius: 3,
-                          }}
-                        >
-                          {tx.vendor_name}
-                        </span>
-                      </div>
-                    )}
-                    {tx.is_split && (
-                      <span
-                        style={{
-                          fontSize: 10,
-                          background: "var(--payroll-bg)",
-                          color: "var(--payroll)",
-                          padding: "1px 6px",
-                          borderRadius: 3,
-                          marginLeft: 6,
-                        }}
-                      >
-                        {t("transactions.split")}
-                      </span>
-                    )}
-                    {!tx.is_split && tx.applied_rule_id && (
-                      <span
-                        style={{
-                          fontSize: 10,
-                          background: "var(--income-bg)",
-                          color: "var(--income)",
-                          padding: "1px 6px",
-                          borderRadius: 3,
-                          marginLeft: 6,
-                        }}
-                      >
-                        {t("transactions.autoCategorized")}
-                      </span>
-                    )}
-                    {tx.recurring_id && (
-                      <span
-                        style={{
-                          fontSize: 10,
-                          background: "var(--bg-secondary)",
-                          color: "var(--text-secondary)",
-                          padding: "1px 6px",
-                          borderRadius: 3,
-                          marginLeft: 6,
-                        }}
-                      >
-                        <i
-                          className="ti ti-repeat"
-                          style={{ fontSize: 9, marginRight: 3 }}
-                          aria-hidden="true"
-                        />
-                        {t("transactions.recurring")}
-                      </span>
-                    )}
-                  </div>
-                  {tx.notes && (
-                    <div
-                      style={{
-                        fontSize: 11,
-                        color: "var(--text-muted)",
-                        marginTop: 1,
-                      }}
-                    >
-                      {tx.notes}
+              <div>
+                <div className="text-md font-medium text-ink">
+                  {tx.merchant || "—"}
+                  {catName(tx) && (
+                    <div className="text-[11px] text-muted mt-px">
+                      {catName(tx)}
                     </div>
                   )}
+                  {tx.vendor_name && (
+                    <div className="mt-0.5">
+                      <Chip tone="brand">{tx.vendor_name}</Chip>
+                    </div>
+                  )}
+                  {txChips(tx)}
                 </div>
-                <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                  {acctName(tx)}
-                </div>
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color:
-                      tx.type === "income" ? "var(--income)" : "var(--expense)",
-                  }}
-                >
-                  {tx.type === "income" ? "+" : "-"}
-                  {fmt(tx.total_amount, currency)}
-                  {tx.original_currency &&
-                    tx.original_currency !== currency && (
-                      <div
-                        style={{
-                          fontSize: 10,
-                          color: "var(--text-muted)",
-                          fontWeight: 400,
-                          marginTop: 2,
-                        }}
-                      >
-                        {fmt(tx.original_amount, tx.original_currency)}
-                      </div>
-                    )}
-                </div>
-                <div>
-                  <span
-                    className={`badge badge-${tx.type}`}
-                    style={{ fontSize: 10 }}
-                  >
-                    {t(`common.${tx.type}`)}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 6,
-                    justifyContent: "flex-end",
-                  }}
-                >
-                  <button
-                    onClick={() => {
-                      setEditTx(tx);
-                      setShowModal(true);
-                    }}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      color: "var(--text-muted)",
-                      padding: 4,
-                    }}
-                    title={t("common.edit")}
-                  >
-                    <i
-                      className="ti ti-pencil"
-                      style={{ fontSize: 15 }}
-                      aria-hidden="true"
-                    />
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (window.confirm(t("transactions.confirmDelete")))
-                        deleteMutation.mutate(tx.id);
-                    }}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      color: "var(--danger)",
-                      padding: 4,
-                    }}
-                    title={t("common.delete")}
-                  >
-                    <i
-                      className="ti ti-trash"
-                      style={{ fontSize: 15 }}
-                      aria-hidden="true"
-                    />
-                  </button>
-                </div>
+                {tx.notes && (
+                  <div className="text-[11px] text-muted mt-px">{tx.notes}</div>
+                )}
               </div>
-            ))
-          )}
-        </div>
-      )}
+              <div className="text-xs text-secondary">{acctName(tx)}</div>
+              <div
+                className={cx(
+                  "text-md font-semibold",
+                  tx.type === "income" ? "text-income" : "text-expense",
+                )}
+              >
+                {tx.type === "income" ? "+" : "-"}
+                {fmt(tx.total_amount, currency)}
+                {tx.original_currency && tx.original_currency !== currency && (
+                  <div className="text-[10px] text-muted font-normal mt-0.5">
+                    {fmt(tx.original_amount, tx.original_currency)}
+                  </div>
+                )}
+              </div>
+              <div>
+                <Badge tone={tx.type}>{t(`common.${tx.type}`)}</Badge>
+              </div>
+              <div className="flex gap-1.5 justify-end">
+                <button
+                  onClick={() => {
+                    setEditTx(tx);
+                    setShowModal(true);
+                  }}
+                  className="p-1 text-muted hover:text-ink cursor-pointer"
+                  title={t("common.edit")}
+                >
+                  <i className="ti ti-pencil text-[15px]" aria-hidden="true" />
+                </button>
+                <button
+                  onClick={() => {
+                    if (window.confirm(t("transactions.confirmDelete")))
+                      deleteMutation.mutate(tx.id);
+                  }}
+                  className="p-1 text-danger cursor-pointer"
+                  title={t("common.delete")}
+                >
+                  <i className="ti ti-trash text-[15px]" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </Card>
 
       {/* ── MOBILE: Card layout ── */}
-      {isMobile && (
-        <div>
-          {isLoading ? (
-            <div
-              style={{
-                padding: 32,
-                textAlign: "center",
-                color: "var(--text-muted)",
-              }}
-            >
-              {t("common.loading")}
-            </div>
-          ) : transactions.length === 0 ? (
-            <div className="card" style={{ padding: 40, textAlign: "center" }}>
-              <i
-                className="ti ti-receipt-off"
-                style={{ fontSize: 36, color: "var(--text-muted)" }}
-                aria-hidden="true"
-              />
-              <div
-                style={{
-                  color: "var(--text-muted)",
-                  fontSize: 13,
-                  marginTop: 10,
-                }}
-              >
-                {t("transactions.noneFound")}
-              </div>
-              <button
-                className="btn btn-primary"
-                style={{ marginTop: 12 }}
-                onClick={() => setShowModal(true)}
-              >
-                {t("transactions.addFirst")}
-              </button>
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {transactions.map((tx) => (
-                <div
-                  key={tx.id}
-                  className="card"
-                  style={{ padding: "14px 16px" }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                      marginBottom: 8,
-                    }}
-                  >
+      <div className="md:hidden">
+        {isLoading ? (
+          loadingState
+        ) : transactions.length === 0 ? (
+          <Card>{emptyState}</Card>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {transactions.map((tx) => (
+              <Card key={tx.id} padding="none" className="px-4 py-3.5">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex items-center gap-2.5 flex-1 min-w-0">
                     <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        flex: 1,
-                        minWidth: 0,
-                      }}
+                      className={cx(
+                        "flex items-center justify-center w-9 h-9 rounded-lg shrink-0",
+                        tx.type === "income" ? "bg-income-bg" : "bg-expense-bg",
+                      )}
                     >
-                      <div
-                        style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: 8,
-                          background:
-                            tx.type === "income"
-                              ? "var(--income-bg)"
-                              : "var(--expense-bg)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <i
-                          className={`ti ${tx.type === "income" ? "ti-arrow-down-left" : "ti-arrow-up-right"}`}
-                          style={{
-                            fontSize: 16,
-                            color:
-                              tx.type === "income"
-                                ? "var(--income)"
-                                : "var(--expense)",
-                          }}
-                          aria-hidden="true"
-                        />
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <div
-                          style={{
-                            fontSize: 14,
-                            fontWeight: 500,
-                            color: "var(--text-primary)",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {tx.merchant || t("dashboard.noMerchant")}
-                          {tx.is_split && (
-                            <span
-                              style={{
-                                fontSize: 10,
-                                background: "var(--payroll-bg)",
-                                color: "var(--payroll)",
-                                padding: "1px 6px",
-                                borderRadius: 3,
-                                marginLeft: 6,
-                              }}
-                            >
-                              {t("transactions.split")}
-                            </span>
-                          )}
-                          {!tx.is_split && tx.applied_rule_id && (
-                            <span
-                              style={{
-                                fontSize: 10,
-                                background: "var(--income-bg)",
-                                color: "var(--income)",
-                                padding: "1px 6px",
-                                borderRadius: 3,
-                                marginLeft: 6,
-                              }}
-                            >
-                              {t("transactions.autoCategorized")}
-                            </span>
-                          )}
-                          {tx.recurring_id && (
-                            <span
-                              style={{
-                                fontSize: 10,
-                                background: "var(--bg-secondary)",
-                                color: "var(--text-secondary)",
-                                padding: "1px 6px",
-                                borderRadius: 3,
-                                marginLeft: 6,
-                              }}
-                            >
-                              <i
-                                className="ti ti-repeat"
-                                style={{ fontSize: 9, marginRight: 3 }}
-                                aria-hidden="true"
-                              />
-                              {t("transactions.recurring")}
-                            </span>
-                          )}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 11,
-                            color: "var(--text-muted)",
-                            marginTop: 2,
-                          }}
-                        >
-                          {dayjs(tx.date).format("MMM D, YYYY")} ·{" "}
-                          {acctName(tx)}
-                          {catName(tx) && ` · ${catName(tx)}`}
-                        </div>
-                      </div>
-                    </div>
-                    <div
-                      style={{
-                        flexShrink: 0,
-                        marginLeft: 8,
-                        textAlign: "right",
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontSize: 15,
-                          fontWeight: 600,
-                          color:
-                            tx.type === "income"
-                              ? "var(--income)"
-                              : "var(--expense)",
-                        }}
-                      >
-                        {tx.type === "income" ? "+" : "-"}
-                        {fmt(tx.total_amount, currency)}
-                      </div>
-                      {tx.original_currency &&
-                        tx.original_currency !== currency && (
-                          <div
-                            style={{
-                              fontSize: 10,
-                              color: "var(--text-muted)",
-                              marginTop: 1,
-                            }}
-                          >
-                            {fmt(tx.original_amount, tx.original_currency)}
-                          </div>
+                      <i
+                        className={cx(
+                          "ti text-base",
+                          tx.type === "income"
+                            ? "ti-arrow-down-left text-income"
+                            : "ti-arrow-up-right text-expense",
                         )}
+                        aria-hidden="true"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-ink truncate">
+                        {tx.merchant || t("dashboard.noMerchant")}
+                        {txChips(tx)}
+                      </div>
+                      <div className="text-[11px] text-muted mt-0.5">
+                        {dayjs(tx.date).format("MMM D, YYYY")} · {acctName(tx)}
+                        {catName(tx) && ` · ${catName(tx)}`}
+                      </div>
                     </div>
                   </div>
-                  {tx.notes && (
+                  <div className="shrink-0 ml-2 text-right">
                     <div
-                      style={{
-                        fontSize: 12,
-                        color: "var(--text-muted)",
-                        marginBottom: 8,
-                        paddingLeft: 46,
-                      }}
+                      className={cx(
+                        "text-[15px] font-semibold",
+                        tx.type === "income" ? "text-income" : "text-expense",
+                      )}
                     >
-                      {tx.notes}
+                      {tx.type === "income" ? "+" : "-"}
+                      {fmt(tx.total_amount, currency)}
                     </div>
-                  )}
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      paddingLeft: 46,
-                    }}
-                  >
-                    <span
-                      className={`badge badge-${tx.type}`}
-                      style={{ fontSize: 10 }}
-                    >
-                      {t(`common.${tx.type}`)}
-                    </span>
-                    <div style={{ display: "flex", gap: 12 }}>
-                      <button
-                        onClick={() => {
-                          setEditTx(tx);
-                          setShowModal(true);
-                        }}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          cursor: "pointer",
-                          color: "var(--text-muted)",
-                          padding: "4px 8px",
-                          fontSize: 13,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 4,
-                        }}
-                      >
-                        <i className="ti ti-pencil" aria-hidden="true" />{" "}
-                        {t("common.edit")}
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (window.confirm(t("transactions.confirmDelete")))
-                            deleteMutation.mutate(tx.id);
-                        }}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          cursor: "pointer",
-                          color: "var(--danger)",
-                          padding: "4px 8px",
-                          fontSize: 13,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 4,
-                        }}
-                      >
-                        <i className="ti ti-trash" aria-hidden="true" />{" "}
-                        {t("common.delete")}
-                      </button>
-                    </div>
+                    {tx.original_currency &&
+                      tx.original_currency !== currency && (
+                        <div className="text-[10px] text-muted mt-px">
+                          {fmt(tx.original_amount, tx.original_currency)}
+                        </div>
+                      )}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+                {tx.notes && (
+                  <div className="text-xs text-muted mb-2 pl-[46px]">
+                    {tx.notes}
+                  </div>
+                )}
+                <div className="flex justify-between items-center pl-[46px]">
+                  <Badge tone={tx.type}>{t(`common.${tx.type}`)}</Badge>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setEditTx(tx);
+                        setShowModal(true);
+                      }}
+                      className="flex items-center gap-1 px-2 py-1 text-md text-muted cursor-pointer"
+                    >
+                      <i className="ti ti-pencil" aria-hidden="true" />{" "}
+                      {t("common.edit")}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(t("transactions.confirmDelete")))
+                          deleteMutation.mutate(tx.id);
+                      }}
+                      className="flex items-center gap-1 px-2 py-1 text-md text-danger cursor-pointer"
+                    >
+                      <i className="ti ti-trash" aria-hidden="true" />{" "}
+                      {t("common.delete")}
+                    </button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
 
       {showModal && (
         <TransactionModal

@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
+import cx from "../lib/cx";
+import { Card, EmptyState, PageHeader } from "../components/ui";
 
 const makeFmt =
   (lang) =>
@@ -16,139 +18,88 @@ const makeFmt =
 // Aging buckets in display order. `color` drives the accent on each bucket card;
 // severity increases from current → 90+.
 const BUCKETS = [
-  { key: "current", labelKey: "ar.bucketCurrent", color: "var(--income, #22c55e)" },
+  { key: "current", labelKey: "ar.bucketCurrent", color: "var(--income)" },
   { key: "d1_30", labelKey: "ar.bucket1_30", color: "#eab308" },
   { key: "d31_60", labelKey: "ar.bucket31_60", color: "#f97316" },
   { key: "d61_90", labelKey: "ar.bucket61_90", color: "#ef4444" },
-  { key: "d90_plus", labelKey: "ar.bucket90_plus", color: "var(--expense, #dc2626)" },
+  { key: "d90_plus", labelKey: "ar.bucket90_plus", color: "var(--expense)" },
 ];
 
 // ── Summary stat card ─────────────────────────────────────────
-function StatCard({ label, value, valueColor }) {
+function StatCard({ label, value, valueClass }) {
   return (
-    <div className="card" style={{ padding: "14px 16px" }}>
-      <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>
-        {label}
-      </div>
-      <div
-        style={{
-          fontSize: 20,
-          fontWeight: 700,
-          color: valueColor || "var(--text-primary)",
-        }}
-      >
+    <Card padding="none" className="px-4 py-3.5">
+      <div className="text-[11px] text-muted mb-1">{label}</div>
+      <div className={cx("text-xl font-bold", valueClass || "text-ink")}>
         {value}
       </div>
-    </div>
+    </Card>
   );
 }
 
 // ── Aging bucket card ─────────────────────────────────────────
 function BucketCard({ label, bucket, fmt, currency }) {
   return (
-    <div className="card" style={{ padding: "14px 16px" }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          marginBottom: 6,
-        }}
-      >
+    <Card padding="none" className="px-4 py-3.5">
+      <div className="flex items-center gap-1.5 mb-1.5">
         <span
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: "50%",
-            background: bucket.color,
-            flexShrink: 0,
-          }}
+          className="w-2 h-2 rounded-full shrink-0"
+          style={{ background: bucket.color }}
         />
-        <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{label}</span>
+        <span className="text-[11px] text-muted">{label}</span>
       </div>
-      <div style={{ fontSize: 17, fontWeight: 700, color: "var(--text-primary)" }}>
+      <div className="text-[17px] font-bold text-ink">
         {fmt(bucket.total, currency)}
       </div>
-      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
-        {bucket.count}
-      </div>
-    </div>
+      <div className="text-[11px] text-muted mt-0.5">{bucket.count}</div>
+    </Card>
   );
 }
 
 // ── By-client breakdown table ─────────────────────────────────
 function ClientTable({ clients, fmt, currency, t, onSelectClient }) {
-  const cols = "1fr 100px 100px 100px 100px 100px 110px";
+  const cols = "grid-cols-[1fr_100px_100px_100px_100px_100px_110px]";
   return (
-    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: cols,
-          padding: "10px 16px",
-          borderBottom: "0.5px solid var(--border-color)",
-          background: "var(--bg-secondary)",
-          fontSize: 11,
-          color: "var(--text-muted)",
-          fontWeight: 500,
-          letterSpacing: 0.5,
-        }}
-      >
-        <div>{t("ar.colClient")}</div>
-        <div style={{ textAlign: "right" }}>{t("ar.bucketCurrent")}</div>
-        <div style={{ textAlign: "right" }}>{t("ar.bucket1_30")}</div>
-        <div style={{ textAlign: "right" }}>{t("ar.bucket31_60")}</div>
-        <div style={{ textAlign: "right" }}>{t("ar.bucket61_90")}</div>
-        <div style={{ textAlign: "right" }}>{t("ar.bucket90_plus")}</div>
-        <div style={{ textAlign: "right" }}>{t("common.total")}</div>
-      </div>
-      {clients.map((c) => (
+    <Card padding="none" className="overflow-x-auto">
+      <div className="min-w-[720px]">
         <div
-          key={c.client_id}
-          onClick={() => onSelectClient(c.client_id)}
-          style={{
-            display: "grid",
-            gridTemplateColumns: cols,
-            padding: "12px 16px",
-            borderBottom: "0.5px solid var(--border-color)",
-            alignItems: "center",
-            cursor: "pointer",
-            transition: "background 0.15s",
-            fontSize: 13,
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.background = "var(--bg-secondary)")
-          }
-          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          className={cx(
+            "grid px-4 py-2.5 border-b border-line bg-canvas text-[11px] text-muted font-medium tracking-[0.5px]",
+            cols,
+          )}
         >
-          <div
-            style={{
-              fontWeight: 600,
-              color: "var(--text-primary)",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {c.client_name}
-          </div>
-          <Cell value={c.current} fmt={fmt} currency={currency} />
-          <Cell value={c.d1_30} fmt={fmt} currency={currency} />
-          <Cell value={c.d31_60} fmt={fmt} currency={currency} />
-          <Cell value={c.d61_90} fmt={fmt} currency={currency} />
-          <Cell value={c.d90_plus} fmt={fmt} currency={currency} danger />
-          <div
-            style={{
-              textAlign: "right",
-              fontWeight: 700,
-              color: "var(--text-primary)",
-            }}
-          >
-            {fmt(c.total, currency)}
-          </div>
+          <div>{t("ar.colClient")}</div>
+          <div className="text-right">{t("ar.bucketCurrent")}</div>
+          <div className="text-right">{t("ar.bucket1_30")}</div>
+          <div className="text-right">{t("ar.bucket31_60")}</div>
+          <div className="text-right">{t("ar.bucket61_90")}</div>
+          <div className="text-right">{t("ar.bucket90_plus")}</div>
+          <div className="text-right">{t("common.total")}</div>
         </div>
-      ))}
-    </div>
+        {clients.map((c) => (
+          <div
+            key={c.client_id}
+            onClick={() => onSelectClient(c.client_id)}
+            className={cx(
+              "grid px-4 py-3 border-b border-line items-center cursor-pointer transition-colors hover:bg-canvas text-md",
+              cols,
+            )}
+          >
+            <div className="font-semibold text-ink truncate">
+              {c.client_name}
+            </div>
+            <Cell value={c.current} fmt={fmt} currency={currency} />
+            <Cell value={c.d1_30} fmt={fmt} currency={currency} />
+            <Cell value={c.d31_60} fmt={fmt} currency={currency} />
+            <Cell value={c.d61_90} fmt={fmt} currency={currency} />
+            <Cell value={c.d90_plus} fmt={fmt} currency={currency} danger />
+            <div className="text-right font-bold text-ink">
+              {fmt(c.total, currency)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 
@@ -156,14 +107,10 @@ function Cell({ value, fmt, currency, danger }) {
   const nonZero = value > 0;
   return (
     <div
-      style={{
-        textAlign: "right",
-        color: nonZero
-          ? danger
-            ? "var(--expense, #dc2626)"
-            : "var(--text-secondary)"
-          : "var(--text-muted)",
-      }}
+      className={cx(
+        "text-right",
+        nonZero ? (danger ? "text-expense" : "text-secondary") : "text-muted",
+      )}
     >
       {nonZero ? fmt(value, currency) : "—"}
     </div>
@@ -172,104 +119,57 @@ function Cell({ value, fmt, currency, danger }) {
 
 // ── Overdue invoice list ──────────────────────────────────────
 function OverdueList({ invoices, fmt, currency, t, onSelectInvoice }) {
-  const cols = "120px 1fr 120px 90px 110px";
+  const cols = "grid-cols-[120px_1fr_120px_90px_110px]";
   return (
-    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: cols,
-          padding: "10px 16px",
-          borderBottom: "0.5px solid var(--border-color)",
-          background: "var(--bg-secondary)",
-          fontSize: 11,
-          color: "var(--text-muted)",
-          fontWeight: 500,
-          letterSpacing: 0.5,
-        }}
-      >
-        <div>{t("ar.colNumber")}</div>
-        <div>{t("ar.colClient")}</div>
-        <div>{t("ar.colDue")}</div>
-        <div style={{ textAlign: "right" }}>{t("ar.colDaysLate")}</div>
-        <div style={{ textAlign: "right" }}>{t("common.amount")}</div>
-      </div>
-      {invoices.map((inv) => (
+    <Card padding="none" className="overflow-x-auto">
+      <div className="min-w-[560px]">
         <div
-          key={inv.id}
-          onClick={() => onSelectInvoice(inv.id)}
-          style={{
-            display: "grid",
-            gridTemplateColumns: cols,
-            padding: "12px 16px",
-            borderBottom: "0.5px solid var(--border-color)",
-            alignItems: "center",
-            cursor: "pointer",
-            transition: "background 0.15s",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.background = "var(--bg-secondary)")
-          }
-          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          className={cx(
+            "grid px-4 py-2.5 border-b border-line bg-canvas text-[11px] text-muted font-medium tracking-[0.5px]",
+            cols,
+          )}
         >
-          <div
-            style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}
-          >
-            {inv.invoice_number}
-          </div>
-          <div
-            style={{
-              fontSize: 13,
-              color: "var(--text-secondary)",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {inv.client_name}
-          </div>
-          <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-            {dayjs(inv.due_date).format("MMM D, YYYY")}
-          </div>
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              textAlign: "right",
-              color: "var(--expense, #dc2626)",
-            }}
-          >
-            {t("ar.daysLate", { days: inv.days_overdue })}
-          </div>
-          <div
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              textAlign: "right",
-              color: "var(--text-primary)",
-            }}
-          >
-            {fmt(inv.total, currency)}
-          </div>
+          <div>{t("ar.colNumber")}</div>
+          <div>{t("ar.colClient")}</div>
+          <div>{t("ar.colDue")}</div>
+          <div className="text-right">{t("ar.colDaysLate")}</div>
+          <div className="text-right">{t("common.amount")}</div>
         </div>
-      ))}
-    </div>
+        {invoices.map((inv) => (
+          <div
+            key={inv.id}
+            onClick={() => onSelectInvoice(inv.id)}
+            className={cx(
+              "grid px-4 py-3 border-b border-line items-center cursor-pointer transition-colors hover:bg-canvas",
+              cols,
+            )}
+          >
+            <div className="text-md font-semibold text-ink">
+              {inv.invoice_number}
+            </div>
+            <div className="text-md text-secondary truncate">
+              {inv.client_name}
+            </div>
+            <div className="text-xs text-muted">
+              {dayjs(inv.due_date).format("MMM D, YYYY")}
+            </div>
+            <div className="text-xs font-semibold text-right text-expense">
+              {t("ar.daysLate", { days: inv.days_overdue })}
+            </div>
+            <div className="text-md font-semibold text-right text-ink">
+              {fmt(inv.total, currency)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 
 // ── Section heading ───────────────────────────────────────────
 function SectionTitle({ children }) {
   return (
-    <div
-      style={{
-        fontSize: 13,
-        fontWeight: 600,
-        color: "var(--text-primary)",
-        margin: "24px 0 12px",
-      }}
-    >
-      {children}
-    </div>
+    <div className="text-md font-semibold text-ink mt-6 mb-3">{children}</div>
   );
 }
 
@@ -299,52 +199,22 @@ export default function AccountsReceivable() {
 
   // Deep-link into the invoices page: a client row filters to that client, an
   // overdue row opens that invoice's drawer.
-  const goToClient = (clientId) =>
-    navigate(`/sales/invoices?client=${clientId}`);
+  const goToClient = (clientId) => navigate(`/sales/invoices?client=${clientId}`);
   const goToInvoice = (invoiceId) =>
     navigate(`/sales/invoices?invoice=${invoiceId}`);
 
   return (
-    <div style={{ maxWidth: 960, margin: "0 auto" }}>
-      {/* Header */}
-      <div style={{ marginBottom: 20 }}>
-        <h1
-          style={{
-            fontSize: 20,
-            fontWeight: 700,
-            color: "var(--text-primary)",
-            margin: 0,
-          }}
-        >
-          {t("ar.title")}
-        </h1>
-        <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "4px 0 0" }}>
-          {t("ar.subtitle")}
-        </p>
-      </div>
+    <div className="max-w-[960px] mx-auto">
+      <PageHeader title={t("ar.title")} subtitle={t("ar.subtitle")} />
 
       {isLoading && (
-        <div
-          style={{
-            fontSize: 14,
-            color: "var(--text-muted)",
-            padding: "40px 0",
-            textAlign: "center",
-          }}
-        >
+        <div className="text-sm text-muted py-10 text-center">
           {t("common.loading")}
         </div>
       )}
 
       {isError && (
-        <div
-          style={{
-            fontSize: 14,
-            color: "var(--expense, #dc2626)",
-            padding: "40px 0",
-            textAlign: "center",
-          }}
-        >
+        <div className="text-sm text-expense py-10 text-center">
           {t("ar.error")}
         </div>
       )}
@@ -352,26 +222,17 @@ export default function AccountsReceivable() {
       {!isLoading && !isError && aging.data && summary.data && (
         <>
           {/* Summary stats */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-              gap: 12,
-              marginBottom: 8,
-            }}
-          >
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3 mb-2">
             <StatCard
               label={t("ar.totalOutstanding")}
               value={fmt(aging.data.total_outstanding, currency)}
-              valueColor="var(--brand)"
+              valueClass="text-brand"
             />
             <StatCard
               label={t("ar.totalOverdue")}
               value={fmt(aging.data.total_overdue, currency)}
-              valueColor={
-                aging.data.total_overdue > 0
-                  ? "var(--expense, #dc2626)"
-                  : "var(--text-primary)"
+              valueClass={
+                aging.data.total_overdue > 0 ? "text-expense" : "text-ink"
               }
             />
             <StatCard
@@ -381,38 +242,17 @@ export default function AccountsReceivable() {
           </div>
 
           {aging.data.invoice_count === 0 ? (
-            <div
-              className="card"
-              style={{
-                padding: 48,
-                textAlign: "center",
-                color: "var(--text-muted)",
-                fontSize: 14,
-                marginTop: 12,
-              }}
-            >
-              <i
-                className="ti ti-cash-banknote"
-                style={{
-                  fontSize: 40,
-                  display: "block",
-                  marginBottom: 12,
-                  color: "var(--text-muted)",
-                }}
+            <Card className="mt-3">
+              <EmptyState
+                icon="ti-cash-banknote"
+                message={t("ar.noneOutstanding")}
               />
-              {t("ar.noneOutstanding")}
-            </div>
+            </Card>
           ) : (
             <>
               {/* Aging buckets */}
               <SectionTitle>{t("ar.agingTitle")}</SectionTitle>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-                  gap: 12,
-                }}
-              >
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3">
                 {BUCKETS.map((b) => (
                   <BucketCard
                     key={b.key}

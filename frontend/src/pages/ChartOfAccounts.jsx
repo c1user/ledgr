@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
+import cx from "../lib/cx";
+import { Button } from "../components/ui";
 
 // Locale-aware currency formatter (matches the rest of the app).
 const makeFmt =
@@ -28,57 +30,25 @@ function AccountRow({ node, depth, fmt, currency, resolveName }) {
   return (
     <>
       <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          padding: "8px 12px",
-          paddingLeft: 12 + depth * 22,
-          borderBottom: "1px solid var(--border)",
-        }}
+        className="flex items-center gap-2.5 py-2 px-3 border-b border-line"
+        style={{ paddingLeft: 12 + depth * 22 }}
       >
         {node.code && (
-          <span
-            style={{
-              fontFamily: "var(--font-mono, monospace)",
-              fontSize: 12,
-              color: "var(--text-secondary)",
-              minWidth: 42,
-            }}
-          >
+          <span className="font-mono text-xs text-secondary min-w-[42px]">
             {node.code}
           </span>
         )}
         <span
-          style={{
-            width: 9,
-            height: 9,
-            borderRadius: "50%",
-            background: node.color || "var(--text-secondary)",
-            flexShrink: 0,
-          }}
+          className="w-[9px] h-[9px] rounded-full shrink-0"
+          style={{ background: node.color || "var(--text-secondary)" }}
         />
-        <span style={{ fontSize: 14, color: "var(--text-primary)", flex: 1 }}>
+        <span className="text-sm text-ink flex-1">
           {resolveName(node)}
           {!node.is_active && (
-            <span
-              style={{
-                marginLeft: 8,
-                fontSize: 12,
-                color: "var(--text-secondary)",
-              }}
-            >
-              (inactive)
-            </span>
+            <span className="ml-2 text-xs text-secondary">(inactive)</span>
           )}
         </span>
-        <span
-          style={{
-            fontSize: 14,
-            fontVariantNumeric: "tabular-nums",
-            color: "var(--text-primary)",
-          }}
-        >
+        <span className="text-sm text-ink tabular-nums">
           {fmt(node.balance, currency)}
         </span>
       </div>
@@ -127,58 +97,32 @@ export default function ChartOfAccounts() {
     .filter((g) => filter === "all" || g.account_type === filter);
 
   return (
-    <div style={{ maxWidth: 880, margin: "0 auto" }}>
+    <div className="max-w-[880px] mx-auto">
       {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 8,
-          gap: 12,
-          flexWrap: "wrap",
-        }}
-      >
+      <div className="flex items-center justify-between mb-2 gap-3 flex-wrap">
         <div>
-          <h1
-            style={{
-              fontSize: 22,
-              fontWeight: 700,
-              color: "var(--text-primary)",
-            }}
-          >
-            {t("coa.title")}
-          </h1>
-          <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-            {t("coa.subtitle")}
-          </div>
+          <h1 className="text-[22px] font-bold text-ink">{t("coa.title")}</h1>
+          <div className="text-sm text-secondary">{t("coa.subtitle")}</div>
         </div>
-        <button className="btn-secondary" onClick={() => window.print()}>
-          <span className="ti ti-printer" style={{ marginRight: 6 }} />
+        <Button icon="ti-printer" onClick={() => window.print()}>
           {t("coa.print")}
-        </button>
+        </Button>
       </div>
 
       {/* Type filter */}
-      <div
-        style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "16px 0" }}
-      >
+      <div className="flex gap-2 flex-wrap my-4">
         {["all", ...TYPE_ORDER].map((type) => {
           const active = filter === type;
           return (
             <button
               key={type}
               onClick={() => setFilter(type)}
-              style={{
-                fontSize: 13,
-                padding: "5px 12px",
-                borderRadius: 20,
-                border: "1px solid var(--border)",
-                cursor: "pointer",
-                background: active ? "var(--brand)" : "transparent",
-                color: active ? "#fff" : "var(--text-secondary)",
-                fontWeight: active ? 600 : 400,
-              }}
+              className={cx(
+                "text-md px-3 py-1 rounded-full border border-line cursor-pointer transition-colors",
+                active
+                  ? "bg-brand text-white font-semibold"
+                  : "bg-transparent text-secondary",
+              )}
             >
               {type === "all" ? t("coa.allTypes") : t(TYPE_LABEL[type])}
             </button>
@@ -187,36 +131,14 @@ export default function ChartOfAccounts() {
       </div>
 
       {isLoading && (
-        <div
-          style={{
-            padding: 32,
-            textAlign: "center",
-            color: "var(--text-secondary)",
-          }}
-        >
-          {t("coa.loading")}
-        </div>
+        <div className="p-8 text-center text-secondary">{t("coa.loading")}</div>
       )}
       {isError && (
-        <div
-          style={{
-            padding: 32,
-            textAlign: "center",
-            color: "var(--danger, #d33)",
-          }}
-        >
-          {t("coa.error")}
-        </div>
+        <div className="p-8 text-center text-danger">{t("coa.error")}</div>
       )}
 
       {!isLoading && !isError && visibleGroups.length === 0 && (
-        <div
-          style={{
-            padding: 32,
-            textAlign: "center",
-            color: "var(--text-secondary)",
-          }}
-        >
+        <div className="p-8 text-center text-secondary">
           {t("coa.noAccounts")}
         </div>
       )}
@@ -227,52 +149,23 @@ export default function ChartOfAccounts() {
         return (
           <div
             key={group.account_type}
-            style={{
-              border: "1px solid var(--border)",
-              borderRadius: 10,
-              overflow: "hidden",
-              marginBottom: 14,
-              background: "var(--surface)",
-            }}
+            className="border border-line rounded-card overflow-hidden mb-3.5 bg-surface"
           >
             <button
               onClick={() => toggle(group.account_type)}
-              style={{
-                width: "100%",
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "12px 14px",
-                background: "var(--surface-elevated, var(--surface))",
-                border: "none",
-                borderBottom: isCollapsed ? "none" : "1px solid var(--border)",
-                cursor: "pointer",
-              }}
+              className={cx(
+                "w-full flex items-center gap-2.5 px-3.5 py-3 bg-canvas cursor-pointer",
+                !isCollapsed && "border-b border-line",
+              )}
             >
               <span
-                className={`ti ti-chevron-${isCollapsed ? "right" : "down"}`}
-                style={{ color: "var(--text-secondary)" }}
+                className={`ti ti-chevron-${isCollapsed ? "right" : "down"} text-secondary`}
+                aria-hidden="true"
               />
-              <span
-                style={{
-                  fontSize: 13,
-                  fontWeight: 700,
-                  letterSpacing: 0.5,
-                  color: "var(--text-secondary)",
-                  flex: 1,
-                  textAlign: "left",
-                }}
-              >
+              <span className="text-md font-bold tracking-[0.5px] text-secondary flex-1 text-left">
                 {t(TYPE_LABEL[group.account_type])}
               </span>
-              <span
-                style={{
-                  fontSize: 14,
-                  fontWeight: 700,
-                  fontVariantNumeric: "tabular-nums",
-                  color: "var(--text-primary)",
-                }}
-              >
+              <span className="text-sm font-bold tabular-nums text-ink">
                 {fmt(group.total, currency)}
               </span>
             </button>

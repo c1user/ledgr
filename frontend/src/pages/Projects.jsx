@@ -4,6 +4,18 @@ import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import { resolveCatName } from "../lib/coaCategories";
+import cx from "../lib/cx";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  Modal,
+  PageHeader,
+  Select,
+} from "../components/ui";
 
 const STATUSES = ["active", "completed", "archived"];
 
@@ -15,19 +27,17 @@ const makeFmt =
       currency,
     }).format(val || 0);
 
-const statusStyle = (status) => {
-  if (status === "active")
-    return { bg: "var(--income-bg)", color: "var(--income)" };
-  if (status === "completed")
-    return { bg: "var(--brand-light)", color: "var(--brand)" };
-  return { bg: "var(--bg-secondary)", color: "var(--text-muted)" };
+const STATUS_TONES = {
+  active: "income",
+  completed: "brand",
+  archived: "neutral",
 };
 
-function Stat({ label, value, color }) {
+function Stat({ label, value, cls }) {
   return (
     <div>
-      <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{label}</div>
-      <div style={{ fontSize: 16, fontWeight: 700, color: color || "var(--text-primary)" }}>{value}</div>
+      <div className="text-[11px] text-muted">{label}</div>
+      <div className={cx("text-base font-bold", cls || "text-ink")}>{value}</div>
     </div>
   );
 }
@@ -92,102 +102,119 @@ function ProjectModal({ onClose, clients, editItem, t }) {
   };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.4)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-        padding: 16,
-      }}
+    <Modal
+      open
+      onClose={onClose}
+      title={editItem ? t("projects.editTitle") : t("projects.newTitle")}
     >
-      <div
-        className="card fade-in"
-        style={{ width: "100%", maxWidth: 520, maxHeight: "90vh", overflow: "auto", padding: 24 }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)" }}>
-            {editItem ? t("projects.editTitle") : t("projects.newTitle")}
-          </h2>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 20 }}>
-            <i className="ti ti-x" aria-hidden="true" />
-          </button>
+      {error && (
+        <div className="bg-danger-bg text-danger border border-danger rounded-lg px-3.5 py-2.5 text-md mb-4">
+          <i className="ti ti-alert-circle mr-1.5" aria-hidden="true" />
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit}>
+        <Field label={t("projects.name")} htmlFor="name" className="mb-3.5">
+          <Input
+            id="name"
+            type="text"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder={t("projects.namePlaceholder")}
+            required
+          />
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3 mb-3.5">
+          <Field label={t("projects.client")} htmlFor="client_id" className="mb-0">
+            <Select
+              id="client_id"
+              value={form.client_id}
+              onChange={(e) => setForm({ ...form, client_id: e.target.value })}
+            >
+              <option value="">{t("projects.noClient")}</option>
+              {clients?.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label={t("projects.status")} htmlFor="status" className="mb-0">
+            <Select
+              id="status"
+              value={form.status}
+              onChange={(e) => setForm({ ...form, status: e.target.value })}
+            >
+              {STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {t(`projects.status_${s}`)}
+                </option>
+              ))}
+            </Select>
+          </Field>
         </div>
 
-        {error && (
-          <div style={{ background: "var(--danger-bg)", color: "var(--danger)", border: "0.5px solid var(--danger)", borderRadius: 8, padding: "10px 14px", fontSize: 13, marginBottom: 16 }}>
-            <i className="ti ti-alert-circle" style={{ marginRight: 6 }} aria-hidden="true" />
-            {error}
-          </div>
-        )}
+        <div className="grid grid-cols-3 gap-3 mb-3.5">
+          <Field label={t("projects.budget")} htmlFor="budget" className="mb-0">
+            <Input
+              id="budget"
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.budget}
+              placeholder="0.00"
+              onChange={(e) => setForm({ ...form, budget: e.target.value })}
+            />
+          </Field>
+          <Field
+            label={t("projects.startDate")}
+            htmlFor="start_date"
+            className="mb-0"
+          >
+            <Input
+              id="start_date"
+              type="date"
+              value={form.start_date}
+              onChange={(e) => setForm({ ...form, start_date: e.target.value })}
+            />
+          </Field>
+          <Field label={t("projects.endDate")} htmlFor="end_date" className="mb-0">
+            <Input
+              id="end_date"
+              type="date"
+              value={form.end_date}
+              onChange={(e) => setForm({ ...form, end_date: e.target.value })}
+            />
+          </Field>
+        </div>
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: 14 }}>
-            <label className="label" htmlFor="name">{t("projects.name")}</label>
-            <input id="name" className="input" type="text" value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder={t("projects.namePlaceholder")} required />
-          </div>
+        <Field
+          label={t("projects.description")}
+          htmlFor="description"
+          className="mb-5"
+        >
+          <Input
+            id="description"
+            type="text"
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+          />
+        </Field>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
-            <div>
-              <label className="label" htmlFor="client_id">{t("projects.client")}</label>
-              <select id="client_id" className="input" value={form.client_id}
-                onChange={(e) => setForm({ ...form, client_id: e.target.value })}>
-                <option value="">{t("projects.noClient")}</option>
-                {clients?.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="label" htmlFor="status">{t("projects.status")}</label>
-              <select id="status" className="input" value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                {STATUSES.map((s) => (
-                  <option key={s} value={s}>{t(`projects.status_${s}`)}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
-            <div>
-              <label className="label" htmlFor="budget">{t("projects.budget")}</label>
-              <input id="budget" className="input" type="number" step="0.01" min="0"
-                value={form.budget} placeholder="0.00"
-                onChange={(e) => setForm({ ...form, budget: e.target.value })} />
-            </div>
-            <div>
-              <label className="label" htmlFor="start_date">{t("projects.startDate")}</label>
-              <input id="start_date" className="input" type="date" value={form.start_date}
-                onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
-            </div>
-            <div>
-              <label className="label" htmlFor="end_date">{t("projects.endDate")}</label>
-              <input id="end_date" className="input" type="date" value={form.end_date}
-                onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
-            </div>
-          </div>
-
-          <div style={{ marginBottom: 20 }}>
-            <label className="label" htmlFor="description">{t("projects.description")}</label>
-            <input id="description" className="input" type="text" value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          </div>
-
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <button type="button" onClick={onClose} className="btn btn-secondary">{t("common.cancel")}</button>
-            <button type="submit" className="btn btn-primary" disabled={mutation.isPending}>
-              {mutation.isPending ? t("projects.saving") : editItem ? t("common.save") : t("projects.create")}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="flex gap-2 justify-end">
+          <Button onClick={onClose}>{t("common.cancel")}</Button>
+          <Button type="submit" variant="primary" disabled={mutation.isPending}>
+            {mutation.isPending
+              ? t("projects.saving")
+              : editItem
+                ? t("common.save")
+                : t("projects.create")}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -199,7 +226,7 @@ function ProjectSummary({ projectId, fmt, currency, t }) {
   });
 
   if (isLoading)
-    return <div style={{ padding: 12, fontSize: 12, color: "var(--text-muted)" }}>{t("common.loading")}</div>;
+    return <div className="p-3 text-xs text-muted">{t("common.loading")}</div>;
   if (!data) return null;
 
   const budget = data.project.budget;
@@ -207,42 +234,72 @@ function ProjectSummary({ projectId, fmt, currency, t }) {
   const over = budget != null && data.actual_cost > budget;
 
   return (
-    <div style={{ marginTop: 10, paddingTop: 12, borderTop: "0.5px solid var(--border-color)" }}>
+    <div className="mt-2.5 pt-3 border-t border-line">
       {/* P&L */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 14 }}>
-        <Stat label={t("projects.income")} value={fmt(data.income_total, currency)} color="var(--income)" />
-        <Stat label={t("projects.expenses")} value={fmt(data.expense_total, currency)} color="var(--expense)" />
-        <Stat label={t("projects.net")} value={fmt(data.net, currency)} color={data.net >= 0 ? "var(--income)" : "var(--expense)"} />
+      <div className="grid grid-cols-3 gap-3 mb-3.5">
+        <Stat
+          label={t("projects.income")}
+          value={fmt(data.income_total, currency)}
+          cls="text-income"
+        />
+        <Stat
+          label={t("projects.expenses")}
+          value={fmt(data.expense_total, currency)}
+          cls="text-expense"
+        />
+        <Stat
+          label={t("projects.net")}
+          value={fmt(data.net, currency)}
+          cls={data.net >= 0 ? "text-income" : "text-expense"}
+        />
       </div>
 
       {/* Budget vs actual */}
       {budget != null && (
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>
-            <span>{t("projects.spentOfBudget", { spent: fmt(data.actual_cost, currency), budget: fmt(budget, currency) })}</span>
-            <span style={{ color: over ? "var(--expense)" : "var(--text-muted)" }}>
+        <div className="mb-3.5">
+          <div className="flex justify-between text-xs text-muted mb-1">
+            <span>
+              {t("projects.spentOfBudget", {
+                spent: fmt(data.actual_cost, currency),
+                budget: fmt(budget, currency),
+              })}
+            </span>
+            <span className={over ? "text-expense" : "text-muted"}>
               {t("projects.remaining")}: {fmt(data.budget_remaining, currency)}
             </span>
           </div>
-          <div style={{ height: 6, background: "var(--border-color)", borderRadius: 3, overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${pct}%`, background: over ? "var(--expense)" : "var(--brand)", borderRadius: 3 }} />
+          <div className="h-1.5 bg-line rounded-sm overflow-hidden">
+            <div
+              className={cx(
+                "h-full rounded-sm",
+                over ? "bg-expense" : "bg-brand",
+              )}
+              style={{ width: `${pct}%` }}
+            />
           </div>
         </div>
       )}
 
       {/* Category breakdown */}
       {data.categories.length > 0 && (
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+        <div className="mb-3">
+          <div className="text-[11px] font-semibold text-muted uppercase tracking-[0.5px] mb-1.5">
             {t("projects.breakdown")}
           </div>
           {data.categories.map((c) => (
-            <div key={c.id} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 12 }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: c.color || "var(--brand)" }} />
+            <div key={c.id} className="flex justify-between py-1 text-xs">
+              <span className="flex items-center gap-1.5">
+                <span
+                  className="w-2 h-2 rounded-full"
+                  style={{ background: c.color || "var(--brand)" }}
+                />
                 {resolveCatName(c.name_key, c.name, t)}
               </span>
-              <span style={{ color: c.account_type === "revenue" ? "var(--income)" : "var(--expense)" }}>
+              <span
+                className={
+                  c.account_type === "revenue" ? "text-income" : "text-expense"
+                }
+              >
                 {fmt(c.total, currency)}
               </span>
             </div>
@@ -251,13 +308,15 @@ function ProjectSummary({ projectId, fmt, currency, t }) {
       )}
 
       {/* Hours (informational, separate from P&L) */}
-      <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+      <div className="text-xs text-muted">
         {t("projects.hoursLogged", {
           total: Number(data.hours.total_hours),
           billable: Number(data.hours.billable_hours),
         })}
         {" · "}
-        {t("projects.billableValue", { value: fmt(data.hours.billable_amount, currency) })}
+        {t("projects.billableValue", {
+          value: fmt(data.hours.billable_amount, currency),
+        })}
       </div>
     </div>
   );
@@ -267,7 +326,6 @@ function ProjectSummary({ projectId, fmt, currency, t }) {
 function ProjectCard({ p, fmt, currency, onEdit, t }) {
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
-  const ss = statusStyle(p.status);
   const income = Number(p.income_total);
   const expense = Number(p.expense_total);
   const net = income - expense;
@@ -278,47 +336,83 @@ function ProjectCard({ p, fmt, currency, onEdit, t }) {
   });
 
   return (
-    <div className="card" style={{ padding: "14px 16px" }}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-        <div style={{ width: 12, height: 12, borderRadius: "50%", background: p.color, flexShrink: 0, marginTop: 4 }} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)" }}>{p.name}</span>
-            <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: ss.bg, color: ss.color, fontWeight: 500 }}>
+    <Card padding="none" className="px-4 py-3.5">
+      <div className="flex items-start gap-3">
+        <div
+          className="w-3 h-3 rounded-full shrink-0 mt-1"
+          style={{ background: p.color }}
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium text-ink">{p.name}</span>
+            <Badge tone={STATUS_TONES[p.status] || "neutral"}>
               {t(`projects.status_${p.status}`)}
-            </span>
+            </Badge>
             {p.client_name && (
-              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>· {p.client_name}</span>
+              <span className="text-[11px] text-muted">· {p.client_name}</span>
             )}
           </div>
-          <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 3, display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <span>{t("projects.income")}: <b style={{ color: "var(--income)" }}>{fmt(income, currency)}</b></span>
-            <span>{t("projects.expenses")}: <b style={{ color: "var(--expense)" }}>{fmt(expense, currency)}</b></span>
-            <span>{t("projects.net")}: <b style={{ color: net >= 0 ? "var(--income)" : "var(--expense)" }}>{fmt(net, currency)}</b></span>
-            {p.budget != null && <span>{t("projects.budget")}: {fmt(p.budget, currency)}</span>}
+          <div className="flex gap-3 flex-wrap text-xs text-muted mt-1">
+            <span>
+              {t("projects.income")}:{" "}
+              <b className="text-income">{fmt(income, currency)}</b>
+            </span>
+            <span>
+              {t("projects.expenses")}:{" "}
+              <b className="text-expense">{fmt(expense, currency)}</b>
+            </span>
+            <span>
+              {t("projects.net")}:{" "}
+              <b className={net >= 0 ? "text-income" : "text-expense"}>
+                {fmt(net, currency)}
+              </b>
+            </span>
+            {p.budget != null && (
+              <span>
+                {t("projects.budget")}: {fmt(p.budget, currency)}
+              </span>
+            )}
             <span>{Number(p.total_hours)}h</span>
           </div>
           <button
             onClick={() => setExpanded(!expanded)}
-            style={{ marginTop: 6, background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--brand)", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}
+            className="flex items-center gap-1 mt-1.5 p-0 text-xs text-brand cursor-pointer"
           >
-            <i className={`ti ${expanded ? "ti-chevron-up" : "ti-chevron-down"}`} aria-hidden="true" />
+            <i
+              className={`ti ${expanded ? "ti-chevron-up" : "ti-chevron-down"}`}
+              aria-hidden="true"
+            />
             {expanded ? t("projects.hideDetail") : t("projects.viewDetail")}
           </button>
-          {expanded && <ProjectSummary projectId={p.id} fmt={fmt} currency={currency} t={t} />}
+          {expanded && (
+            <ProjectSummary
+              projectId={p.id}
+              fmt={fmt}
+              currency={currency}
+              t={t}
+            />
+          )}
         </div>
-        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-          <button onClick={() => onEdit(p)} title={t("common.edit")}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4 }}>
-            <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true" />
+        <div className="flex gap-1.5 shrink-0">
+          <button
+            onClick={() => onEdit(p)}
+            title={t("common.edit")}
+            className="p-1 text-muted hover:text-ink cursor-pointer"
+          >
+            <i className="ti ti-pencil text-[15px]" aria-hidden="true" />
           </button>
-          <button onClick={() => { if (window.confirm(t("projects.confirmDelete"))) del.mutate(); }} title={t("common.delete")}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", padding: 4 }}>
-            <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true" />
+          <button
+            onClick={() => {
+              if (window.confirm(t("projects.confirmDelete"))) del.mutate();
+            }}
+            title={t("common.delete")}
+            className="p-1 text-danger cursor-pointer"
+          >
+            <i className="ti ti-trash text-[15px]" aria-hidden="true" />
           </button>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -335,52 +429,101 @@ export default function Projects() {
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ["projects", statusFilter],
     queryFn: () =>
-      api.get(`/projects${statusFilter ? `?status=${statusFilter}` : ""}`).then((r) => r.data),
+      api
+        .get(`/projects${statusFilter ? `?status=${statusFilter}` : ""}`)
+        .then((r) => r.data),
   });
   const { data: clients = [] } = useQuery({
     queryKey: ["clients"],
     queryFn: () => api.get("/clients").then((r) => r.data),
   });
 
-  const close = () => { setShowModal(false); setEditItem(null); };
-  const openEdit = (p) => { setEditItem(p); setShowModal(true); };
+  const close = () => {
+    setShowModal(false);
+    setEditItem(null);
+  };
+  const openEdit = (p) => {
+    setEditItem(p);
+    setShowModal(true);
+  };
 
   return (
-    <div className="fade-in" style={{ maxWidth: 820, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 12, flexWrap: "wrap" }}>
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>{t("projects.title")}</h1>
-          <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{t("projects.subtitle")}</div>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <select className="input" style={{ width: 140 }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="">{t("projects.allStatuses")}</option>
-            {STATUSES.map((s) => <option key={s} value={s}>{t(`projects.status_${s}`)}</option>)}
-          </select>
-          <button className="btn btn-primary" onClick={() => { setEditItem(null); setShowModal(true); }}>
-            <i className="ti ti-plus" aria-hidden="true" /> {t("projects.new")}
-          </button>
-        </div>
-      </div>
+    <div className="fade-in max-w-[820px] mx-auto">
+      <PageHeader
+        title={t("projects.title")}
+        subtitle={t("projects.subtitle")}
+        actions={
+          <>
+            <Select
+              className="w-[140px]"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="">{t("projects.allStatuses")}</option>
+              {STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {t(`projects.status_${s}`)}
+                </option>
+              ))}
+            </Select>
+            <Button
+              variant="primary"
+              icon="ti-plus"
+              onClick={() => {
+                setEditItem(null);
+                setShowModal(true);
+              }}
+            >
+              {t("projects.new")}
+            </Button>
+          </>
+        }
+      />
 
       {isLoading ? (
-        <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>{t("common.loading")}</div>
+        <div className="p-10 text-center text-muted">{t("common.loading")}</div>
       ) : projects.length === 0 ? (
-        <div className="card" style={{ padding: 60, textAlign: "center" }}>
-          <i className="ti ti-briefcase" style={{ fontSize: 36, color: "var(--text-muted)" }} aria-hidden="true" />
-          <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text-primary)", margin: "12px 0 6px" }}>{t("projects.noneTitle")}</div>
-          <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>{t("projects.noneHint")}</div>
-          <button className="btn btn-primary" onClick={() => { setEditItem(null); setShowModal(true); }}>{t("projects.addFirst")}</button>
-        </div>
+        <Card>
+          <EmptyState
+            icon="ti-briefcase"
+            title={t("projects.noneTitle")}
+            message={t("projects.noneHint")}
+            action={
+              <Button
+                variant="primary"
+                onClick={() => {
+                  setEditItem(null);
+                  setShowModal(true);
+                }}
+              >
+                {t("projects.addFirst")}
+              </Button>
+            }
+          />
+        </Card>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="flex flex-col gap-2">
           {projects.map((p) => (
-            <ProjectCard key={p.id} p={p} fmt={fmt} currency={currency} onEdit={openEdit} t={t} />
+            <ProjectCard
+              key={p.id}
+              p={p}
+              fmt={fmt}
+              currency={currency}
+              onEdit={openEdit}
+              t={t}
+            />
           ))}
         </div>
       )}
 
-      {showModal && <ProjectModal onClose={close} clients={clients} editItem={editItem} t={t} />}
+      {showModal && (
+        <ProjectModal
+          onClose={close}
+          clients={clients}
+          editItem={editItem}
+          t={t}
+        />
+      )}
     </div>
   );
 }

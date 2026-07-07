@@ -14,6 +14,8 @@ import {
 } from "recharts";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
+import cx from "../lib/cx";
+import { Button, Card } from "../components/ui";
 
 const makeFmt =
   (lang) =>
@@ -26,31 +28,22 @@ const makeFmt =
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2, CURRENT_YEAR - 3];
 
+// Uppercase section heading used across the tax cards.
+const SECTION_HEADING =
+  "text-[11px] font-bold tracking-[1.5px] text-muted uppercase";
+
 // ── Category row ──────────────────────────────────────────────
 function CategoryRow({ color, name, total, fmt, currency }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "7px 0",
-        borderBottom: "0.5px solid var(--border-color)",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <div className="flex items-center justify-between py-[7px] border-b border-line">
+      <div className="flex items-center gap-2">
         <div
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: "50%",
-            background: color || "#888888",
-            flexShrink: 0,
-          }}
+          className="w-2.5 h-2.5 rounded-full shrink-0"
+          style={{ background: color || "#888888" }}
         />
-        <span style={{ fontSize: 14, color: "var(--text-primary)" }}>{name}</span>
+        <span className="text-sm text-ink">{name}</span>
       </div>
-      <span style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)" }}>
+      <span className="text-sm font-medium text-ink">
         {fmt(total, currency)}
       </span>
     </div>
@@ -60,23 +53,12 @@ function CategoryRow({ color, name, total, fmt, currency }) {
 // ── Category section ──────────────────────────────────────────
 function CategorySection({ title, categories, total, totalLabel, fmt, currency, t }) {
   return (
-    <div style={{ marginBottom: 16 }}>
-      <div
-        style={{
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: 1.5,
-          color: "var(--text-muted)",
-          textTransform: "uppercase",
-          paddingBottom: 8,
-          borderBottom: "1.5px solid var(--border-color)",
-          marginBottom: 4,
-        }}
-      >
+    <div className="mb-4">
+      <div className={cx(SECTION_HEADING, "pb-2 border-b-[1.5px] border-line mb-1")}>
         {title}
       </div>
       {categories.length === 0 ? (
-        <div style={{ fontSize: 13, color: "var(--text-muted)", padding: "10px 0" }}>—</div>
+        <div className="text-md text-muted py-2.5">—</div>
       ) : (
         categories.map((cat) => (
           <CategoryRow
@@ -89,16 +71,7 @@ function CategorySection({ title, categories, total, totalLabel, fmt, currency, 
           />
         ))
       )}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          padding: "10px 0 4px",
-          fontWeight: 700,
-          fontSize: 14,
-          color: "var(--text-primary)",
-        }}
-      >
+      <div className="flex justify-between pt-2.5 pb-1 font-bold text-sm text-ink">
         <span>{totalLabel}</span>
         <span>{fmt(total, currency)}</span>
       </div>
@@ -109,19 +82,11 @@ function CategorySection({ title, categories, total, totalLabel, fmt, currency, 
 // ── Payroll tax row ───────────────────────────────────────────
 function TaxRow({ label, value, fmt, currency, muted }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "7px 0",
-        borderBottom: "0.5px solid var(--border-color)",
-      }}
-    >
-      <span style={{ fontSize: 14, color: muted ? "var(--text-muted)" : "var(--text-primary)" }}>
+    <div className="flex justify-between items-center py-[7px] border-b border-line">
+      <span className={cx("text-sm", muted ? "text-muted" : "text-ink")}>
         {label}
       </span>
-      <span style={{ fontSize: 14, fontWeight: muted ? 400 : 500, color: "var(--text-primary)" }}>
+      <span className={cx("text-sm text-ink", muted ? "font-normal" : "font-medium")}>
         {fmt(value, currency)}
       </span>
     </div>
@@ -132,51 +97,24 @@ function TaxRow({ label, value, fmt, currency, muted }) {
 function QuarterTooltip({ active, payload, label, fmt, currency, t }) {
   if (!active || !payload?.length) return null;
   return (
-    <div
-      style={{
-        background: "var(--bg-primary)",
-        border: "0.5px solid var(--border-color)",
-        borderRadius: 8,
-        padding: "10px 14px",
-        boxShadow: "var(--card-shadow)",
-        minWidth: 140,
-      }}
-    >
-      <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 6, fontWeight: 600 }}>
-        {label}
-      </div>
+    <div className="bg-surface border border-line rounded-lg px-3.5 py-2.5 shadow-card min-w-[140px]">
+      <div className="text-xs text-muted mb-1.5 font-semibold">{label}</div>
       {payload.map((p) => (
-        <div
-          key={p.dataKey}
-          style={{ display: "flex", justifyContent: "space-between", gap: 16, fontSize: 13 }}
-        >
+        <div key={p.dataKey} className="flex justify-between gap-4 text-md">
           <span style={{ color: p.color }}>{p.name}</span>
-          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
-            {fmt(p.value, currency)}
-          </span>
+          <span className="font-semibold text-ink">{fmt(p.value, currency)}</span>
         </div>
       ))}
       {payload.length === 2 && (
-        <div
-          style={{
-            marginTop: 6,
-            paddingTop: 6,
-            borderTop: "0.5px solid var(--border-color)",
-            display: "flex",
-            justifyContent: "space-between",
-            fontSize: 12,
-            color: "var(--text-muted)",
-          }}
-        >
+        <div className="mt-1.5 pt-1.5 border-t border-line flex justify-between text-xs text-muted">
           <span>{t("tax.net")}</span>
           <span
-            style={{
-              fontWeight: 600,
-              color:
-                payload[0].value - payload[1].value >= 0
-                  ? "var(--income, #22c55e)"
-                  : "var(--expense, #ef4444)",
-            }}
+            className={cx(
+              "font-semibold",
+              payload[0].value - payload[1].value >= 0
+                ? "text-income"
+                : "text-expense",
+            )}
           >
             {fmt(payload[0].value - payload[1].value, currency)}
           </span>
@@ -198,13 +136,17 @@ function QuarterlyChart({ data, fmt, currency, t }) {
   }));
 
   return (
-    <div className="card" style={{ padding: "20px" }}>
-      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 16 }}>
+    <Card padding="none" className="p-5">
+      <div className="text-md font-semibold text-ink mb-4">
         {t("tax.quarterlyBreakdown")}
       </div>
       <ResponsiveContainer width="100%" height={200}>
         <BarChart data={chartData} barGap={4} barCategoryGap="35%">
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke="var(--border-color)"
+            vertical={false}
+          />
           <XAxis
             dataKey="quarter"
             tick={{ fontSize: 12, fill: "var(--text-muted)" }}
@@ -222,12 +164,20 @@ function QuarterlyChart({ data, fmt, currency, t }) {
             content={<QuarterTooltip fmt={fmt} currency={currency} t={t} />}
             cursor={{ fill: "var(--bg-secondary)", opacity: 0.5 }}
           />
-          <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-          <Bar dataKey={incomeKey} fill="var(--income, #22c55e)" radius={[3, 3, 0, 0]} />
-          <Bar dataKey={expensesKey} fill="var(--expense, #ef4444)" radius={[3, 3, 0, 0]} />
+          <Legend
+            iconType="circle"
+            iconSize={8}
+            wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
+          />
+          <Bar dataKey={incomeKey} fill="var(--income)" radius={[3, 3, 0, 0]} />
+          <Bar
+            dataKey={expensesKey}
+            fill="var(--expense)"
+            radius={[3, 3, 0, 0]}
+          />
         </BarChart>
       </ResponsiveContainer>
-    </div>
+    </Card>
   );
 }
 
@@ -256,75 +206,54 @@ export default function TaxSummary() {
     : 0;
 
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+    <div className="max-w-[1100px] mx-auto">
       {/* Header */}
-      <div
-        className="print-hide"
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 20,
-          flexWrap: "wrap",
-          gap: 12,
-        }}
-      >
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
-          {t("tax.title")}
-        </h1>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <div className="print-hide flex justify-between items-center mb-5 flex-wrap gap-3">
+        <h1 className="text-xl font-bold text-ink">{t("tax.title")}</h1>
+        <div className="flex gap-2 items-center">
           {/* Year selector */}
-          <div style={{ display: "flex", gap: 6 }}>
+          <div className="flex gap-1.5">
             {YEARS.map((y) => (
-              <button
+              <Button
                 key={y}
-                className={`btn btn-sm ${year === y ? "btn-primary" : "btn-secondary"}`}
+                size="sm"
+                variant={year === y ? "primary" : "secondary"}
                 onClick={() => setYear(y)}
               >
                 {y}
-              </button>
+              </Button>
             ))}
           </div>
-          <button
-            className="btn btn-secondary btn-sm print-hide"
+          <Button
+            size="sm"
+            icon="ti-printer"
+            className="print-hide"
             onClick={() => window.print()}
-            style={{ display: "flex", alignItems: "center", gap: 6 }}
           >
-            <i className="ti ti-printer" style={{ fontSize: 15 }} />
             {t("tax.print")}
-          </button>
+          </Button>
         </div>
       </div>
 
       {isLoading && (
-        <div style={{ color: "var(--text-muted)", fontSize: 14, padding: "40px 0", textAlign: "center" }}>
+        <div className="text-muted text-sm py-10 text-center">
           {t("tax.loading")}
         </div>
       )}
 
       {isError && (
-        <div style={{ color: "var(--expense, #ef4444)", fontSize: 14, padding: "40px 0", textAlign: "center" }}>
+        <div className="text-expense text-sm py-10 text-center">
           {t("tax.error")}
         </div>
       )}
 
       {data && !isLoading && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className="flex flex-col gap-4">
           {/* Top row: income + expenses */}
-          <div
-            className="tax-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 16,
-              alignItems: "start",
-            }}
-          >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
             {/* Income summary */}
-            <div className="card" style={{ padding: "20px 24px" }}>
-              <div
-                style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4 }}
-              >
+            <Card padding="none" className="px-6 py-5">
+              <div className={cx(SECTION_HEADING, "mb-1")}>
                 {t("tax.fiscalYear", { year })}
               </div>
               <CategorySection
@@ -346,90 +275,106 @@ export default function TaxSummary() {
                 t={t}
               />
               {/* Net income line */}
-              <div
-                style={{
-                  borderTop: "2px solid var(--border-color)",
-                  paddingTop: 12,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>
+              <div className="border-t-2 border-line pt-3 flex justify-between items-center">
+                <span className="text-sm font-bold text-ink">
                   {isProfit ? t("tax.netIncome") : t("tax.netLoss")}
                 </span>
                 <span
-                  style={{
-                    fontSize: 18,
-                    fontWeight: 700,
-                    color: isProfit ? "var(--income, #22c55e)" : "var(--expense, #ef4444)",
-                  }}
+                  className={cx(
+                    "text-lg font-bold",
+                    isProfit ? "text-income" : "text-expense",
+                  )}
                 >
                   {fmt(Math.abs(data.net_income), currency)}
                 </span>
               </div>
-            </div>
+            </Card>
 
             {/* Payroll taxes */}
-            <div className="card" style={{ padding: "20px 24px" }}>
+            <Card padding="none" className="px-6 py-5">
               <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: 1.5,
-                  color: "var(--text-muted)",
-                  textTransform: "uppercase",
-                  paddingBottom: 8,
-                  borderBottom: "1.5px solid var(--border-color)",
-                  marginBottom: 4,
-                }}
+                className={cx(
+                  SECTION_HEADING,
+                  "pb-2 border-b-[1.5px] border-line mb-1",
+                )}
               >
                 {t("tax.payrollTaxes")}
               </div>
 
               {!payroll || parseFloat(payroll.run_count) === 0 ? (
-                <div style={{ fontSize: 13, color: "var(--text-muted)", padding: "20px 0" }}>
+                <div className="text-md text-muted py-5">
                   {t("tax.noPayroll")}
                 </div>
               ) : (
                 <>
-                  <TaxRow label={t("tax.grossPayroll")} value={parseFloat(payroll.total_gross)} fmt={fmt} currency={currency} />
-                  <TaxRow label={t("tax.federalIncomeTax")} value={parseFloat(payroll.total_federal_tax)} fmt={fmt} currency={currency} muted />
-                  <TaxRow label={t("tax.socialSecurity")} value={parseFloat(payroll.total_social_security)} fmt={fmt} currency={currency} muted />
-                  <TaxRow label={t("tax.medicare")} value={parseFloat(payroll.total_medicare)} fmt={fmt} currency={currency} muted />
-                  <TaxRow label={t("tax.prStateTax")} value={parseFloat(payroll.total_pr_state_tax)} fmt={fmt} currency={currency} muted />
+                  <TaxRow
+                    label={t("tax.grossPayroll")}
+                    value={parseFloat(payroll.total_gross)}
+                    fmt={fmt}
+                    currency={currency}
+                  />
+                  <TaxRow
+                    label={t("tax.federalIncomeTax")}
+                    value={parseFloat(payroll.total_federal_tax)}
+                    fmt={fmt}
+                    currency={currency}
+                    muted
+                  />
+                  <TaxRow
+                    label={t("tax.socialSecurity")}
+                    value={parseFloat(payroll.total_social_security)}
+                    fmt={fmt}
+                    currency={currency}
+                    muted
+                  />
+                  <TaxRow
+                    label={t("tax.medicare")}
+                    value={parseFloat(payroll.total_medicare)}
+                    fmt={fmt}
+                    currency={currency}
+                    muted
+                  />
+                  <TaxRow
+                    label={t("tax.prStateTax")}
+                    value={parseFloat(payroll.total_pr_state_tax)}
+                    fmt={fmt}
+                    currency={currency}
+                    muted
+                  />
                   {parseFloat(payroll.total_other_deductions) > 0 && (
-                    <TaxRow label={t("tax.otherDeductions")} value={parseFloat(payroll.total_other_deductions)} fmt={fmt} currency={currency} muted />
+                    <TaxRow
+                      label={t("tax.otherDeductions")}
+                      value={parseFloat(payroll.total_other_deductions)}
+                      fmt={fmt}
+                      currency={currency}
+                      muted
+                    />
                   )}
-                  <div
-                    style={{
-                      borderTop: "2px solid var(--border-color)",
-                      paddingTop: 12,
-                      marginTop: 4,
-                      display: "flex",
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>
+                  <div className="border-t-2 border-line pt-3 mt-1 flex justify-between">
+                    <span className="text-sm font-bold text-ink">
                       {t("tax.totalTaxesWithheld")}
                     </span>
-                    <span style={{ fontSize: 16, fontWeight: 700, color: "var(--expense, #ef4444)" }}>
+                    <span className="text-base font-bold text-expense">
                       {fmt(totalPayrollTaxes, currency)}
                     </span>
                   </div>
-                  <div style={{ marginTop: 16, padding: "12px", background: "var(--bg-secondary)", borderRadius: 8 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>
+                  <div className="mt-4 p-3 bg-canvas rounded-lg">
+                    <div className="flex justify-between text-xs text-muted mb-1">
                       <span>{t("tax.payrollRuns")}</span>
-                      <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{payroll.run_count}</span>
+                      <span className="font-semibold text-ink">
+                        {payroll.run_count}
+                      </span>
                     </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-muted)" }}>
+                    <div className="flex justify-between text-xs text-muted">
                       <span>{t("tax.employeesPaid")}</span>
-                      <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{payroll.employee_count}</span>
+                      <span className="font-semibold text-ink">
+                        {payroll.employee_count}
+                      </span>
                     </div>
                   </div>
                 </>
               )}
-            </div>
+            </Card>
           </div>
 
           {/* Quarterly chart */}
@@ -438,19 +383,10 @@ export default function TaxSummary() {
       )}
 
       <style>{`
-        @media (max-width: 768px) {
-          .tax-grid {
-            grid-template-columns: 1fr !important;
-          }
-        }
         @media print {
           .print-hide { display: none !important; }
           .sidebar, header, nav { display: none !important; }
           body { background: white !important; }
-          .card {
-            box-shadow: none !important;
-            border: 1px solid #ddd !important;
-          }
         }
       `}</style>
     </div>

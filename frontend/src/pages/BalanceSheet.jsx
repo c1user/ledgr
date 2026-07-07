@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
+import cx from "../lib/cx";
+import { Button, Card, Input } from "../components/ui";
 
 const makeFmt =
   (lang) =>
@@ -17,38 +19,23 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
 function Line({ label, value, fmt, currency, bold, muted, indent }) {
   return (
     <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        padding: "7px 0",
-        paddingLeft: indent ? 16 : 0,
-        fontSize: 14,
-        fontWeight: bold ? 700 : 400,
-        color: muted ? "var(--text-secondary)" : "var(--text-primary)",
-        borderTop: bold ? "1px solid var(--border)" : "none",
-      }}
+      className={cx(
+        "flex justify-between py-[7px] text-sm",
+        bold ? "font-bold border-t border-line" : "font-normal",
+        muted ? "text-secondary" : "text-ink",
+        indent && "pl-4",
+      )}
     >
       <span>{label}</span>
-      <span style={{ fontVariantNumeric: "tabular-nums" }}>
-        {fmt(value, currency)}
-      </span>
+      <span className="tabular-nums">{fmt(value, currency)}</span>
     </div>
   );
 }
 
 function Section({ title, children }) {
   return (
-    <div style={{ marginBottom: 22 }}>
-      <div
-        style={{
-          fontSize: 13,
-          fontWeight: 700,
-          letterSpacing: 0.5,
-          color: "var(--text-secondary)",
-          textTransform: "uppercase",
-          marginBottom: 4,
-        }}
-      >
+    <div className="mb-[22px]">
+      <div className="text-md font-bold tracking-[0.5px] text-secondary uppercase mb-1">
         {title}
       </div>
       {children}
@@ -73,82 +60,46 @@ export default function BalanceSheet() {
   const resolveName = (a) => (a.name_key ? t(a.name_key) : a.name);
 
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto" }}>
+    <div className="max-w-[720px] mx-auto">
       {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-          flexWrap: "wrap",
-          marginBottom: 16,
-        }}
-      >
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
         <div>
-          <h1
-            style={{
-              fontSize: 22,
-              fontWeight: 700,
-              color: "var(--text-primary)",
-            }}
-          >
+          <h1 className="text-[22px] font-bold text-ink">
             {t("balanceSheet.title")}
           </h1>
-          <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
+          <div className="text-sm text-secondary">
             {t("balanceSheet.asOf")}{" "}
             {new Date(asOf).toLocaleDateString(
               i18n.language === "es" ? "es-PR" : "en-US",
             )}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input
+        <div className="flex gap-2 items-center">
+          <Input
             type="date"
-            className="input"
             value={asOf}
             onChange={(e) => setAsOf(e.target.value)}
-            style={{ width: "auto" }}
+            className="w-auto"
           />
-          <button className="btn-secondary" onClick={() => window.print()}>
-            <span className="ti ti-printer" style={{ marginRight: 6 }} />
+          <Button icon="ti-printer" onClick={() => window.print()}>
             {t("balanceSheet.print")}
-          </button>
+          </Button>
         </div>
       </div>
 
       {isLoading && (
-        <div
-          style={{
-            padding: 32,
-            textAlign: "center",
-            color: "var(--text-secondary)",
-          }}
-        >
+        <div className="p-8 text-center text-secondary">
           {t("balanceSheet.loading")}
         </div>
       )}
       {isError && (
-        <div
-          style={{
-            padding: 32,
-            textAlign: "center",
-            color: "var(--danger, #d33)",
-          }}
-        >
+        <div className="p-8 text-center text-danger">
           {t("balanceSheet.error")}
         </div>
       )}
 
       {data && (
-        <div
-          style={{
-            border: "1px solid var(--border)",
-            borderRadius: 12,
-            padding: 24,
-            background: "var(--surface)",
-          }}
-        >
+        <Card padding="none" className="p-6">
           {/* Assets */}
           <Section title={t("coa.assets")}>
             {data.assets.accounts.map((a) => (
@@ -231,26 +182,18 @@ export default function BalanceSheet() {
 
           {/* The proof */}
           <div
-            style={{
-              marginTop: 20,
-              padding: "12px 14px",
-              borderRadius: 8,
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              background: data.balances
-                ? "var(--success-bg, #E1F5EE)"
-                : "var(--danger-bg, #FCEBEB)",
-              color: data.balances
-                ? "var(--success-text, #0F6E56)"
-                : "var(--danger-text, #A32D2D)",
-            }}
+            className={cx(
+              "flex items-center gap-2.5 mt-5 px-3.5 py-3 rounded-lg",
+              data.balances
+                ? "bg-income-bg text-income"
+                : "bg-danger-bg text-danger",
+            )}
           >
             <span
-              className={`ti ti-${data.balances ? "circle-check" : "alert-triangle"}`}
-              style={{ fontSize: 18 }}
+              className={`ti ti-${data.balances ? "circle-check" : "alert-triangle"} text-lg`}
+              aria-hidden="true"
             />
-            <span style={{ fontSize: 14, fontWeight: 600 }}>
+            <span className="text-sm font-semibold">
               {data.balances
                 ? t("balanceSheet.balanced")
                 : t("balanceSheet.notBalanced", {
@@ -258,7 +201,7 @@ export default function BalanceSheet() {
                   })}
             </span>
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );

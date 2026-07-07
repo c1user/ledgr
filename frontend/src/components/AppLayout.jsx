@@ -7,6 +7,8 @@ import useInventoryStore from "../store/inventoryStore";
 import LanguageToggle from "../components/LanguageToggle";
 import { setAppLanguage } from "../i18n";
 import BRAND from "../config/brand";
+import cx from "../lib/cx";
+import { Toggle } from "./ui";
 
 // Sidebar nav, organized into labelled sections. Groups without a `label`
 // (dashboard at the top, AI/settings at the bottom) render as ungrouped rows.
@@ -68,7 +70,7 @@ const MOBILE_BREAKPOINT = 768;
 export default function AppLayout() {
   const { t, i18n } = useTranslation();
   const { user, business, logout } = useAuthStore();
-  const { theme } = useThemeStore();
+  const { theme, toggleTheme } = useThemeStore();
   const reorderCount = useInventoryStore((s) => s.reorderCount);
   const navigate = useNavigate();
   const location = useLocation();
@@ -119,79 +121,44 @@ export default function AppLayout() {
     .slice(0, 2)
     .toUpperCase();
 
-  const sidebarWidth = sidebarOpen ? 220 : 56;
-
   return (
-    <div className="app-layout" style={{ position: "relative" }}>
+    <div className="relative flex h-screen overflow-hidden">
       {/* ── Mobile overlay backdrop ── */}
       {mobile && sidebarOpen && (
         <div
           onClick={() => setSidebarOpen(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.4)",
-            zIndex: 99,
-          }}
+          className="fixed inset-0 bg-black/40 z-[99]"
         />
       )}
 
       {/* ── Sidebar ── */}
       <aside
-        style={{
-          width: mobile ? 220 : sidebarWidth,
-          background: "var(--bg-sidebar)",
-          borderRight: "0.5px solid var(--border-color)",
-          display: "flex",
-          flexDirection: "column",
-          flexShrink: 0,
-          transition: "width 0.2s ease, transform 0.2s ease",
-          overflow: "hidden",
-          // On mobile: slide in/out from left as overlay
-          ...(mobile
-            ? {
-                position: "fixed",
-                top: 0,
-                left: 0,
-                height: "100vh",
-                zIndex: 100,
-                transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
-                width: 220,
-              }
-            : {}),
-        }}
+        className={cx(
+          "flex flex-col shrink-0 overflow-hidden bg-sidebar border-r border-line",
+          "transition-[width,transform] duration-200 ease-in-out",
+          mobile
+            ? cx(
+                "fixed top-0 left-0 h-screen z-[100] w-[220px]",
+                sidebarOpen ? "translate-x-0" : "-translate-x-full",
+              )
+            : sidebarOpen
+              ? "w-[220px]"
+              : "w-14",
+        )}
       >
         {/* Logo + toggle */}
         <div
-          style={{
-            padding: sidebarOpen ? "16px 20px" : "16px 0",
-            borderBottom: "0.5px solid var(--border-color)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: sidebarOpen ? "space-between" : "center",
-            minHeight: 60,
-          }}
+          className={cx(
+            "flex items-center border-b border-line min-h-[60px] py-4",
+            sidebarOpen ? "justify-between px-5" : "justify-center px-0",
+          )}
         >
           {sidebarOpen && (
             <div>
-              <div
-                style={{
-                  color: "var(--brand)",
-                  fontSize: 15,
-                  fontWeight: 700,
-                  letterSpacing: 3,
-                  textTransform: "uppercase",
-                }}
-              >
+              <div className="text-brand text-[15px] font-bold tracking-[3px] uppercase">
                 {BRAND.name}
               </div>
-              <div
-                style={{
-                  color: "var(--text-muted)",
-                  fontSize: 11,
-                  marginTop: 1,
-                }}
-              >
+              <div className="text-muted text-[11px] mt-px">
                 {business?.name || t("nav.myBusiness")}
               </div>
             </div>
@@ -201,19 +168,7 @@ export default function AppLayout() {
             aria-label={
               sidebarOpen ? t("nav.collapseSidebar") : t("nav.expandSidebar")
             }
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--text-muted)",
-              padding: 4,
-              borderRadius: 6,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 18,
-              flexShrink: 0,
-            }}
+            className="flex items-center justify-center p-1 rounded-md text-lg text-muted cursor-pointer shrink-0"
           >
             <i
               className={`ti ${sidebarOpen ? "ti-layout-sidebar-left-collapse" : "ti-layout-sidebar-left-expand"}`}
@@ -223,39 +178,17 @@ export default function AppLayout() {
         </div>
 
         {/* Nav links */}
-        <nav
-          style={{
-            flex: 1,
-            padding: "10px 0",
-            overflowY: "auto",
-            overflowX: "hidden",
-          }}
-        >
+        <nav className="flex-1 py-2.5 overflow-y-auto overflow-x-hidden">
           {navGroups.map((group, groupIndex) => (
             <div key={group.label || `group-${groupIndex}`}>
               {/* Section header (expanded) or a divider (collapsed) */}
               {group.label &&
                 (sidebarOpen ? (
-                  <div
-                    style={{
-                      padding: "14px 20px 4px",
-                      fontSize: 10,
-                      fontWeight: 600,
-                      letterSpacing: 0.8,
-                      textTransform: "uppercase",
-                      color: "var(--text-muted)",
-                    }}
-                  >
+                  <div className="px-5 pt-3.5 pb-1 text-[10px] font-semibold tracking-[0.8px] uppercase text-muted">
                     {t(group.label)}
                   </div>
                 ) : (
-                  <div
-                    style={{
-                      height: 1,
-                      background: "var(--border-color)",
-                      margin: "8px 12px",
-                    }}
-                  />
+                  <div className="h-px bg-line mx-3 my-2" />
                 ))}
 
               {group.items.map((item) => (
@@ -263,46 +196,28 @@ export default function AppLayout() {
                   key={item.to}
                   to={item.to}
                   title={!sidebarOpen ? t(item.label) : undefined}
-                  style={({ isActive }) => ({
-                    display: "flex",
-                    alignItems: "center",
-                    gap: sidebarOpen ? 10 : 0,
-                    padding: sidebarOpen ? "10px 20px" : "10px 0",
-                    justifyContent: sidebarOpen ? "flex-start" : "center",
-                    color: isActive ? "var(--brand)" : "var(--text-secondary)",
-                    background: isActive ? "var(--brand-light)" : "transparent",
-                    borderLeft: isActive
-                      ? "2px solid var(--brand)"
-                      : "2px solid transparent",
-                    textDecoration: "none",
-                    fontSize: 13,
-                    fontWeight: isActive ? 500 : 400,
-                    transition: "all 0.15s",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                  })}
+                  className={({ isActive }) =>
+                    cx(
+                      "flex items-center text-md whitespace-nowrap overflow-hidden",
+                      "border-l-2 transition-all",
+                      sidebarOpen
+                        ? "gap-2.5 px-5 py-2.5 justify-start"
+                        : "px-0 py-2.5 justify-center",
+                      isActive
+                        ? "text-brand bg-brand-light border-brand font-medium"
+                        : "text-secondary bg-transparent border-transparent",
+                    )
+                  }
                 >
                   <i
-                    className={`ti ${item.icon}`}
-                    style={{ fontSize: 18, flexShrink: 0 }}
+                    className={`ti ${item.icon} text-lg shrink-0`}
                     aria-hidden="true"
                   />
                   {sidebarOpen && <span>{t(item.label)}</span>}
                   {sidebarOpen &&
                     item.to === "/inventory" &&
                     reorderCount > 0 && (
-                      <span
-                        style={{
-                          marginLeft: "auto",
-                          background: "#e53e3e",
-                          color: "#fff",
-                          fontSize: 10,
-                          fontWeight: 700,
-                          padding: "1px 6px",
-                          borderRadius: 8,
-                          lineHeight: "16px",
-                        }}
-                      >
+                      <span className="ml-auto bg-[#e53e3e] text-white text-[10px] font-bold px-1.5 rounded-lg leading-4">
                         {reorderCount}
                       </span>
                     )}
@@ -314,103 +229,35 @@ export default function AppLayout() {
 
         {/* Bottom: theme + user + logout */}
         <div
-          style={{
-            borderTop: "0.5px solid var(--border-color)",
-            padding: sidebarOpen ? "12px 16px" : "12px 0",
-          }}
+          className={cx(
+            "border-t border-line py-3",
+            sidebarOpen ? "px-4" : "px-0",
+          )}
         >
           {/* Theme toggle */}
           {sidebarOpen ? (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 12,
-                padding: "6px 4px",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  color: "var(--text-secondary)",
-                  fontSize: 12,
-                }}
-              >
+            <div className="flex items-center justify-between mb-3 px-1 py-1.5">
+              <div className="flex items-center gap-2 text-secondary text-xs">
                 <i
-                  className={`ti ${theme === "dark" ? "ti-moon" : "ti-sun"}`}
-                  style={{ fontSize: 15 }}
+                  className={`ti ${theme === "dark" ? "ti-moon" : "ti-sun"} text-[15px]`}
                   aria-hidden="true"
                 />
                 {theme === "dark" ? t("nav.darkMode") : t("nav.lightMode")}
               </div>
-              <button
-                onClick={() => {
-                  const next = theme === "light" ? "dark" : "light";
-                  document.documentElement.setAttribute("data-theme", next);
-                  localStorage.setItem(
-                    "ledgr-theme",
-                    JSON.stringify({ state: { theme: next }, version: 0 }),
-                  );
-                  useThemeStore.setState({ theme: next });
-                }}
+              <Toggle
+                checked={theme === "dark"}
+                onChange={toggleTheme}
                 aria-label={t("nav.toggleTheme")}
-                style={{
-                  width: 36,
-                  height: 20,
-                  borderRadius: 10,
-                  background:
-                    theme === "dark" ? "var(--brand)" : "var(--border-color)",
-                  border: "none",
-                  cursor: "pointer",
-                  position: "relative",
-                  flexShrink: 0,
-                  transition: "background 0.2s",
-                }}
-              >
-                <div
-                  style={{
-                    position: "absolute",
-                    top: 3,
-                    left: theme === "dark" ? 18 : 3,
-                    width: 14,
-                    height: 14,
-                    background: "#fff",
-                    borderRadius: "50%",
-                    transition: "left 0.2s",
-                  }}
-                />
-              </button>
+              />
             </div>
           ) : (
             <button
-              onClick={() => {
-                const next = theme === "light" ? "dark" : "light";
-                document.documentElement.setAttribute("data-theme", next);
-                localStorage.setItem(
-                  "ledgr-theme",
-                  JSON.stringify({ state: { theme: next }, version: 0 }),
-                );
-                useThemeStore.setState({ theme: next });
-              }}
+              onClick={toggleTheme}
               title={t("nav.toggleTheme")}
-              style={{
-                width: "100%",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "var(--text-muted)",
-                padding: "8px 0",
-                display: "flex",
-                justifyContent: "center",
-                marginBottom: 8,
-              }}
+              className="flex justify-center w-full py-2 mb-2 text-lg text-muted cursor-pointer"
             >
               <i
                 className={`ti ${theme === "dark" ? "ti-sun" : "ti-moon"}`}
-                style={{ fontSize: 18 }}
                 aria-hidden="true"
               />
             </button>
@@ -418,53 +265,15 @@ export default function AppLayout() {
 
           {/* User info */}
           {sidebarOpen && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                marginBottom: 8,
-              }}
-            >
-              <div
-                style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: "50%",
-                  background: "var(--brand-light)",
-                  color: "var(--brand)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  flexShrink: 0,
-                }}
-              >
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center justify-center w-[30px] h-[30px] rounded-full bg-brand-light text-brand text-[11px] font-semibold shrink-0">
                 {initials || "??"}
               </div>
-              <div style={{ minWidth: 0 }}>
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 500,
-                    color: "var(--text-primary)",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
+              <div className="min-w-0">
+                <div className="text-xs font-medium text-ink truncate">
                   {user?.name || "User"}
                 </div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: "var(--text-muted)",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
+                <div className="text-[11px] text-muted truncate">
                   {user?.role}
                 </div>
               </div>
@@ -475,25 +284,15 @@ export default function AppLayout() {
           <button
             onClick={handleLogout}
             title={!sidebarOpen ? t("nav.signOut") : undefined}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: sidebarOpen ? 6 : 0,
-              justifyContent: sidebarOpen ? "flex-start" : "center",
-              width: "100%",
-              padding: sidebarOpen ? "7px 8px" : "7px 0",
-              borderRadius: 6,
-              border: sidebarOpen ? "0.5px solid var(--border-color)" : "none",
-              background: "transparent",
-              color: "var(--text-secondary)",
-              fontSize: 12,
-              cursor: "pointer",
-              transition: "all 0.15s",
-            }}
+            className={cx(
+              "flex items-center w-full rounded-md bg-transparent text-secondary text-xs cursor-pointer transition-all",
+              sidebarOpen
+                ? "gap-1.5 justify-start px-2 py-1.5 border border-line"
+                : "justify-center px-0 py-1.5",
+            )}
           >
             <i
-              className="ti ti-logout"
-              style={{ fontSize: sidebarOpen ? 14 : 18 }}
+              className={cx("ti ti-logout", sidebarOpen ? "text-sm" : "text-lg")}
               aria-hidden="true"
             />
             {sidebarOpen && t("nav.signOut")}
@@ -502,36 +301,15 @@ export default function AppLayout() {
       </aside>
 
       {/* ── Main content ── */}
-      <div className="main-content">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Top bar */}
-        <header
-          style={{
-            height: 52,
-            background: "var(--bg-primary)",
-            borderBottom: "0.5px solid var(--border-color)",
-            display: "flex",
-            alignItems: "center",
-            padding: "0 20px",
-            justifyContent: "space-between",
-            flexShrink: 0,
-            gap: 12,
-          }}
-        >
+        <header className="flex items-center justify-between gap-3 h-[52px] px-5 bg-surface border-b border-line shrink-0">
           {/* Mobile menu button */}
           {mobile && (
             <button
               onClick={() => setSidebarOpen(true)}
               aria-label={t("nav.openMenu")}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "var(--text-secondary)",
-                fontSize: 20,
-                display: "flex",
-                alignItems: "center",
-                flexShrink: 0,
-              }}
+              className="flex items-center text-xl text-secondary cursor-pointer shrink-0"
             >
               <i className="ti ti-menu-2" aria-hidden="true" />
             </button>
@@ -539,26 +317,16 @@ export default function AppLayout() {
 
           {/* Mobile logo */}
           {mobile && (
-            <div
-              style={{
-                color: "var(--brand)",
-                fontSize: 14,
-                fontWeight: 700,
-                letterSpacing: 3,
-                textTransform: "uppercase",
-              }}
-            >
+            <div className="text-brand text-sm font-bold tracking-[3px] uppercase">
               {BRAND.name}
             </div>
           )}
 
           <div
-            style={{
-              fontSize: 13,
-              color: "var(--text-muted)",
-              flex: 1,
-              textAlign: mobile ? "right" : "left",
-            }}
+            className={cx(
+              "flex-1 text-md text-muted",
+              mobile ? "text-right" : "text-left",
+            )}
           >
             {new Date().toLocaleDateString(
               i18n.language === "es" ? "es-PR" : "en-US",
@@ -571,32 +339,16 @@ export default function AppLayout() {
             )}
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              flexShrink: 0,
-            }}
-          >
+          <div className="flex items-center gap-2 shrink-0">
             <LanguageToggle />
-            <span
-              style={{
-                fontSize: 11,
-                padding: "3px 8px",
-                borderRadius: 4,
-                background: "var(--brand-light)",
-                color: "var(--brand)",
-                fontWeight: 500,
-              }}
-            >
+            <span className="text-[11px] px-2 py-[3px] rounded bg-brand-light text-brand font-medium">
               {business?.plan?.toUpperCase() || "FREE"}
             </span>
           </div>
         </header>
 
         {/* Page content */}
-        <div className="page-body">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           <Outlet />
         </div>
       </div>

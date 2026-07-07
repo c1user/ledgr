@@ -1,5 +1,6 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { TabNav } from "../components/ui";
 
 // Combined "Sales" hub. Clients, invoices and receivables are one workflow,
 // so they live behind a single nav item as tab routes. Using nested routes
@@ -16,37 +17,13 @@ export default function Sales() {
 
   return (
     <div className="fade-in">
-      <div
-        style={{
-          display: "flex",
-          gap: 4,
-          marginBottom: 20,
-          borderBottom: "0.5px solid var(--border-color)",
-        }}
-      >
-        {TABS.map(({ to, labelKey }) => (
-          <NavLink
-            key={to}
-            to={to}
-            style={({ isActive }) => ({
-              padding: "8px 20px",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              fontSize: 13,
-              textDecoration: "none",
-              color: isActive ? "var(--brand)" : "var(--text-muted)",
-              borderBottom: isActive
-                ? "2px solid var(--brand)"
-                : "2px solid transparent",
-              fontWeight: isActive ? 500 : 400,
-            })}
-          >
-            {t(labelKey)}
-          </NavLink>
-        ))}
-      </div>
-
+      <TabNav
+        tabs={TABS.map(({ to, end, labelKey }) => ({
+          to,
+          end,
+          label: t(labelKey),
+        }))}
+      />
       <Outlet />
     </div>
   );

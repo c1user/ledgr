@@ -3,6 +3,18 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import dayjs from "dayjs";
+import cx from "../lib/cx";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  Modal,
+  PageHeader,
+  Select,
+} from "../components/ui";
 
 const makeFmt =
   (lang) =>
@@ -12,10 +24,10 @@ const makeFmt =
       currency,
     }).format(val || 0);
 
-const statusColors = {
-  pending: { bg: "var(--expense-bg)", color: "var(--expense)" },
-  reviewed: { bg: "var(--payroll-bg)", color: "var(--payroll)" },
-  linked: { bg: "var(--income-bg)", color: "var(--income)" },
+const STATUS_TONES = {
+  pending: "expense",
+  reviewed: "payroll",
+  linked: "income",
 };
 
 // ── Upload Zone ───────────────────────────────────────────────
@@ -150,148 +162,84 @@ function UploadZone({ onUploaded, t }) {
   }, [stream]);
 
   return (
-    <div style={{ marginBottom: 24 }}>
+    <div className="mb-6">
       {/* Camera modal */}
       {showCamera && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.85)",
-            zIndex: 1000,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
-          }}
-        >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: 500,
-              background: "var(--bg-primary)",
-              borderRadius: 12,
-              overflow: "hidden",
-            }}
-          >
+        <div className="fixed inset-0 z-[200] bg-black/85 flex flex-col items-center justify-center p-4">
+          <div className="w-full max-w-[500px] bg-surface rounded-xl overflow-hidden">
             {/* Camera header */}
-            <div
-              style={{
-                padding: "14px 18px",
-                borderBottom: "0.5px solid var(--border-color)",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: "var(--text-primary)",
-                }}
-              >
+            <div className="flex items-center justify-between px-[18px] py-3.5 border-b border-line">
+              <div className="text-sm font-medium text-ink">
                 {capturedImage
                   ? t("receipts.reviewPhoto")
                   : t("receipts.takePhotoTitle")}
               </div>
               <button
                 onClick={stopCamera}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "var(--text-muted)",
-                  fontSize: 20,
-                }}
+                className="text-xl text-muted cursor-pointer"
               >
                 <i className="ti ti-x" aria-hidden="true" />
               </button>
             </div>
 
             {/* Video / captured image */}
-            <div
-              style={{
-                position: "relative",
-                background: "#000",
-                aspectRatio: "4/3",
-              }}
-            >
+            <div className="relative bg-black aspect-[4/3]">
               <video
                 ref={videoRef}
                 autoPlay
                 playsInline
                 muted
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  display: capturedImage ? "none" : "block",
-                }}
+                className={cx(
+                  "w-full h-full object-cover",
+                  capturedImage ? "hidden" : "block",
+                )}
               />
               {capturedImage && (
                 <img
                   src={capturedImage}
                   alt={t("receipts.capturedAlt")}
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  className="w-full h-full object-cover"
                 />
               )}
-              <canvas ref={canvasRef} style={{ display: "none" }} />
+              <canvas ref={canvasRef} className="hidden" />
             </div>
 
             {/* Camera controls */}
-            <div
-              style={{
-                padding: 16,
-                display: "flex",
-                gap: 10,
-                justifyContent: "center",
-              }}
-            >
+            <div className="flex gap-2.5 justify-center p-4">
               {!capturedImage ? (
                 <>
-                  <button
-                    onClick={stopCamera}
-                    className="btn btn-secondary"
-                    style={{ flex: 1 }}
-                  >
+                  <Button onClick={stopCamera} className="flex-1 justify-center">
                     {t("common.cancel")}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="primary"
+                    icon="ti-camera"
                     onClick={capturePhoto}
-                    className="btn btn-primary"
-                    style={{ flex: 2 }}
+                    className="flex-[2] justify-center"
                   >
-                    <i className="ti ti-camera" aria-hidden="true" />{" "}
                     {t("receipts.capture")}
-                  </button>
+                  </Button>
                 </>
               ) : (
                 <>
-                  <button
+                  <Button
+                    icon="ti-refresh"
                     onClick={retakePhoto}
-                    className="btn btn-secondary"
-                    style={{ flex: 1 }}
+                    className="flex-1 justify-center"
                   >
-                    <i className="ti ti-refresh" aria-hidden="true" />{" "}
                     {t("receipts.retake")}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="primary"
+                    icon={uploading ? undefined : "ti-sparkles"}
                     onClick={uploadCapturedPhoto}
-                    className="btn btn-primary"
-                    style={{ flex: 2 }}
                     disabled={uploading}
+                    className="flex-[2] justify-center"
                   >
-                    {uploading ? (
-                      t("receipts.processing")
-                    ) : (
-                      <>
-                        <i className="ti ti-sparkles" aria-hidden="true" />{" "}
-                        {t("receipts.useThisPhoto")}
-                      </>
-                    )}
-                  </button>
+                    {uploading
+                      ? t("receipts.processing")
+                      : t("receipts.useThisPhoto")}
+                  </Button>
                 </>
               )}
             </div>
@@ -312,134 +260,87 @@ function UploadZone({ onUploaded, t }) {
           setDragging(false);
           upload(e.dataTransfer.files[0]);
         }}
-        style={{
-          border: `2px dashed ${dragging ? "var(--brand)" : "var(--border-color)"}`,
-          borderRadius: 12,
-          padding: "28px 24px",
-          textAlign: "center",
-          cursor: uploading ? "wait" : "pointer",
-          background: dragging ? "var(--brand-light)" : "var(--bg-primary)",
-          transition: "all 0.15s",
-        }}
+        className={cx(
+          "border-2 border-dashed rounded-xl px-6 py-7 text-center transition-all",
+          uploading ? "cursor-wait" : "cursor-pointer",
+          dragging ? "border-brand bg-brand-light" : "border-line bg-surface",
+        )}
       >
         <input
           ref={inputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp,application/pdf"
-          style={{ display: "none" }}
+          className="hidden"
           onChange={(e) => upload(e.target.files[0])}
         />
 
         {uploading ? (
           <>
             <i
-              className="ti ti-loader-2"
-              style={{
-                fontSize: 36,
-                color: "var(--brand)",
-                animation: "spin 1s linear infinite",
-              }}
+              className="ti ti-loader-2 text-4xl text-brand animate-spin"
               aria-hidden="true"
             />
-            <div
-              style={{
-                color: "var(--text-secondary)",
-                fontSize: 13,
-                marginTop: 10,
-              }}
-            >
+            <div className="text-secondary text-md mt-2.5">
               {t("receipts.uploadingScanning")}
             </div>
           </>
         ) : (
           <>
             <i
-              className="ti ti-receipt"
-              style={{ fontSize: 36, color: "var(--text-muted)" }}
+              className="ti ti-receipt text-4xl text-muted"
               aria-hidden="true"
             />
-            <div
-              style={{
-                color: "var(--text-primary)",
-                fontSize: 14,
-                fontWeight: 500,
-                marginTop: 10,
-                marginBottom: 4,
-              }}
-            >
+            <div className="text-ink text-sm font-medium mt-2.5 mb-1">
               {t("receipts.addReceipt")}
             </div>
-            <div
-              style={{
-                color: "var(--text-muted)",
-                fontSize: 12,
-                marginBottom: 16,
-              }}
-            >
+            <div className="text-muted text-xs mb-4">
               {t("receipts.fileHint")}
             </div>
 
             {/* Action buttons */}
-            <div
-              style={{
-                display: "flex",
-                gap: 10,
-                justifyContent: "center",
-                flexWrap: "wrap",
-              }}
-            >
-              <button
+            <div className="flex gap-2.5 justify-center flex-wrap">
+              <Button
+                variant="primary"
+                icon="ti-camera"
                 onClick={(e) => {
                   e.stopPropagation();
                   startCamera();
                 }}
-                className="btn btn-primary"
-                style={{ fontSize: 13 }}
               >
-                <i className="ti ti-camera" aria-hidden="true" />{" "}
                 {t("receipts.takePhoto")}
-              </button>
-              <button
+              </Button>
+              <Button
+                icon="ti-upload"
                 onClick={(e) => {
                   e.stopPropagation();
                   inputRef.current?.click();
                 }}
-                className="btn btn-secondary"
-                style={{ fontSize: 13 }}
               >
-                <i className="ti ti-upload" aria-hidden="true" />{" "}
                 {t("receipts.uploadFile")}
-              </button>
+              </Button>
             </div>
           </>
         )}
       </div>
 
       {error && (
-        <div
-          style={{
-            background: "var(--danger-bg)",
-            color: "var(--danger)",
-            border: "0.5px solid var(--danger)",
-            borderRadius: 8,
-            padding: "10px 14px",
-            fontSize: 13,
-            marginTop: 10,
-          }}
-        >
-          <i
-            className="ti ti-alert-circle"
-            style={{ marginRight: 6 }}
-            aria-hidden="true"
-          />
+        <div className="bg-danger-bg text-danger border border-danger rounded-lg px-3.5 py-2.5 text-md mt-2.5">
+          <i className="ti ti-alert-circle mr-1.5" aria-hidden="true" />
           {error}
         </div>
       )}
-
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
+
+// Confidence color classes by score. Full literal class names so the
+// Tailwind content scanner picks them up (no dynamic interpolation).
+const CONFIDENCE_CLASSES = {
+  high: { text: "text-income", bar: "bg-income" },
+  medium: { text: "text-payroll", bar: "bg-payroll" },
+  low: { text: "text-expense", bar: "bg-expense" },
+};
+const confidenceLevel = (c) => (c >= 0.7 ? "high" : c >= 0.4 ? "medium" : "low");
 
 // ── Receipt Detail Modal ──────────────────────────────────────
 function ReceiptModal({ receipt, onClose, transactions, accounts, fmt, t }) {
@@ -553,698 +454,414 @@ function ReceiptModal({ receipt, onClose, transactions, accounts, fmt, t }) {
     createTxMutation.isPending ||
     reviewMutation.isPending;
 
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.4)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-        padding: 16,
-      }}
-    >
-      <div
-        className="card fade-in"
-        style={{
-          width: "100%",
-          maxWidth: 560,
-          maxHeight: "90vh",
-          overflow: "auto",
-          padding: 24,
-        }}
-      >
-        {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 16,
-          }}
-        >
-          <div>
-            <h2
-              style={{
-                fontSize: 16,
-                fontWeight: 600,
-                color: "var(--text-primary)",
-              }}
-            >
-              {step === 1
-                ? t("receipts.reviewDataTitle")
-                : t("receipts.chooseActionTitle")}
-            </h2>
-            <div
-              style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}
-            >
-              {t("receipts.stepOfTwo", { step })}
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--text-muted)",
-              fontSize: 20,
-            }}
-          >
-            <i className="ti ti-x" aria-hidden="true" />
-          </button>
-        </div>
+  const confCls = CONFIDENCE_CLASSES[confidenceLevel(confidence)];
 
-        {/* Step indicator */}
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            marginBottom: 20,
-            alignItems: "center",
-          }}
-        >
-          {[1, 2].map((s) => (
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={
+        step === 1
+          ? t("receipts.reviewDataTitle")
+          : t("receipts.chooseActionTitle")
+      }
+    >
+      <div className="text-xs text-muted -mt-1 mb-3">
+        {t("receipts.stepOfTwo", { step })}
+      </div>
+
+      {/* Step indicator */}
+      <div className="flex items-center gap-2 mb-5">
+        {[1, 2].map((s) => (
+          <div key={s} className="flex items-center gap-2">
             <div
-              key={s}
-              style={{ display: "flex", alignItems: "center", gap: 8 }}
+              className={cx(
+                "flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold",
+                step >= s ? "bg-brand text-white" : "bg-line text-muted",
+              )}
             >
-              <div
-                style={{
-                  width: 24,
-                  height: 24,
-                  borderRadius: "50%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  background:
-                    step >= s ? "var(--brand)" : "var(--border-color)",
-                  color: step >= s ? "#fff" : "var(--text-muted)",
-                }}
-              >
-                {step > s ? (
-                  <i
-                    className="ti ti-check"
-                    style={{ fontSize: 12 }}
-                    aria-hidden="true"
-                  />
-                ) : (
-                  s
-                )}
-              </div>
-              <span
-                style={{
-                  fontSize: 12,
-                  color:
-                    step >= s ? "var(--text-primary)" : "var(--text-muted)",
-                  fontWeight: step === s ? 500 : 400,
-                }}
-              >
-                {s === 1
-                  ? t("receipts.stepReviewData")
-                  : t("receipts.stepLinkOrCreate")}
-              </span>
-              {s < 2 && (
-                <div
-                  style={{
-                    width: 24,
-                    height: 1,
-                    background: "var(--border-color)",
-                  }}
-                />
+              {step > s ? (
+                <i className="ti ti-check text-xs" aria-hidden="true" />
+              ) : (
+                s
               )}
             </div>
-          ))}
-        </div>
-
-        {/* Error */}
-        {error && (
-          <div
-            style={{
-              background: "var(--danger-bg)",
-              color: "var(--danger)",
-              border: "0.5px solid var(--danger)",
-              borderRadius: 8,
-              padding: "10px 14px",
-              fontSize: 13,
-              marginBottom: 16,
-            }}
-          >
-            <i
-              className="ti ti-alert-circle"
-              style={{ marginRight: 6 }}
-              aria-hidden="true"
-            />
-            {error}
+            <span
+              className={cx(
+                "text-xs",
+                step >= s ? "text-ink" : "text-muted",
+                step === s && "font-medium",
+              )}
+            >
+              {s === 1
+                ? t("receipts.stepReviewData")
+                : t("receipts.stepLinkOrCreate")}
+            </span>
+            {s < 2 && <div className="w-6 h-px bg-line" />}
           </div>
-        )}
+        ))}
+      </div>
 
-        {/* ── STEP 1: Edit extracted data ── */}
-        {step === 1 && (
-          <div>
-            {/* Confidence bar */}
-            <div
-              style={{
-                marginBottom: 16,
-                padding: "10px 14px",
-                background: "var(--bg-secondary)",
-                borderRadius: 8,
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  marginBottom: 6,
-                }}
-              >
-                <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                  {t("receipts.aiConfidence")}
-                </span>
-                <span
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 500,
-                    color:
-                      confidence >= 0.7
-                        ? "var(--income)"
-                        : confidence >= 0.4
-                          ? "var(--payroll)"
-                          : "var(--expense)",
-                  }}
-                >
-                  {Math.round(confidence * 100)}%
-                </span>
-              </div>
-              <div
-                style={{
-                  height: 4,
-                  background: "var(--border-color)",
-                  borderRadius: 2,
-                }}
-              >
-                <div
-                  style={{
-                    height: "100%",
-                    width: `${confidence * 100}%`,
-                    background:
-                      confidence >= 0.7
-                        ? "var(--income)"
-                        : confidence >= 0.4
-                          ? "var(--payroll)"
-                          : "var(--expense)",
-                    borderRadius: 2,
-                    transition: "width 0.3s",
-                  }}
-                />
-              </div>
+      {/* Error */}
+      {error && (
+        <div className="bg-danger-bg text-danger border border-danger rounded-lg px-3.5 py-2.5 text-md mb-4">
+          <i className="ti ti-alert-circle mr-1.5" aria-hidden="true" />
+          {error}
+        </div>
+      )}
+
+      {/* ── STEP 1: Edit extracted data ── */}
+      {step === 1 && (
+        <div>
+          {/* Confidence bar */}
+          <div className="mb-4 px-3.5 py-2.5 bg-canvas rounded-lg">
+            <div className="flex justify-between mb-1.5">
+              <span className="text-xs text-secondary">
+                {t("receipts.aiConfidence")}
+              </span>
+              <span className={cx("text-xs font-medium", confCls.text)}>
+                {Math.round(confidence * 100)}%
+              </span>
             </div>
-
-            <div
-              style={{
-                fontSize: 12,
-                color: "var(--text-muted)",
-                marginBottom: 12,
-              }}
-            >
-              {t("receipts.reviewHint")}
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <label className="label" htmlFor="r-merchant">
-                {t("common.merchant")}
-              </label>
-              <input
-                id="r-merchant"
-                className="input"
-                value={form.merchant}
-                onChange={(e) => setForm({ ...form, merchant: e.target.value })}
-                placeholder={t("receipts.merchantPlaceholder")}
-                autoFocus
+            <div className="h-1 bg-line rounded-sm">
+              <div
+                className={cx(
+                  "h-full rounded-sm transition-all duration-300",
+                  confCls.bar,
+                )}
+                style={{ width: `${confidence * 100}%` }}
               />
             </div>
+          </div>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 12,
-                marginBottom: 12,
-              }}
+          <div className="text-xs text-muted mb-3">
+            {t("receipts.reviewHint")}
+          </div>
+
+          <Field label={t("common.merchant")} htmlFor="r-merchant" className="mb-3">
+            <Input
+              id="r-merchant"
+              value={form.merchant}
+              onChange={(e) => setForm({ ...form, merchant: e.target.value })}
+              placeholder={t("receipts.merchantPlaceholder")}
+              autoFocus
+            />
+          </Field>
+
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <Field label={t("common.date")} htmlFor="r-date" className="mb-0">
+              <Input
+                id="r-date"
+                type="date"
+                value={form.date}
+                onChange={(e) => setForm({ ...form, date: e.target.value })}
+              />
+            </Field>
+            <Field
+              label={t("receipts.totalAmount")}
+              htmlFor="r-total"
+              className="mb-0"
             >
-              <div>
-                <label className="label" htmlFor="r-date">
-                  {t("common.date")}
-                </label>
-                <input
-                  id="r-date"
-                  className="input"
-                  type="date"
-                  value={form.date}
-                  onChange={(e) => setForm({ ...form, date: e.target.value })}
+              <Input
+                id="r-total"
+                type="number"
+                step="0.01"
+                value={form.total}
+                onChange={(e) => setForm({ ...form, total: e.target.value })}
+                placeholder="0.00"
+              />
+            </Field>
+          </div>
+
+          {/* Editable line items */}
+          <div className="mb-4">
+            <div className="text-xs font-medium text-secondary mb-2">
+              {t("receipts.lineItems")}{" "}
+              {form.lineItems.length === 0 && (
+                <span className="text-muted font-normal">
+                  {t("receipts.noneDetected")}
+                </span>
+              )}
+            </div>
+            {form.lineItems.map((item, i) => (
+              <div
+                key={i}
+                className="grid grid-cols-[1fr_90px_30px] gap-2 mb-2"
+              >
+                <Input
+                  value={item.description}
+                  onChange={(e) => {
+                    const updated = [...form.lineItems];
+                    updated[i] = {
+                      ...updated[i],
+                      description: e.target.value,
+                    };
+                    setForm({ ...form, lineItems: updated });
+                  }}
+                  placeholder={t("receipts.itemDescription")}
                 />
-              </div>
-              <div>
-                <label className="label" htmlFor="r-total">
-                  {t("receipts.totalAmount")}
-                </label>
-                <input
-                  id="r-total"
-                  className="input"
+                <Input
                   type="number"
                   step="0.01"
-                  value={form.total}
-                  onChange={(e) => setForm({ ...form, total: e.target.value })}
+                  value={item.total}
+                  onChange={(e) => {
+                    const updated = [...form.lineItems];
+                    updated[i] = {
+                      ...updated[i],
+                      total: parseFloat(e.target.value),
+                    };
+                    setForm({ ...form, lineItems: updated });
+                  }}
                   placeholder="0.00"
                 />
-              </div>
-            </div>
-
-            {/* Editable line items */}
-            <div style={{ marginBottom: 16 }}>
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: "var(--text-secondary)",
-                  marginBottom: 8,
-                }}
-              >
-                {t("receipts.lineItems")}{" "}
-                {form.lineItems.length === 0 && (
-                  <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>
-                    {t("receipts.noneDetected")}
-                  </span>
-                )}
-              </div>
-              {form.lineItems.map((item, i) => (
-                <div
-                  key={i}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 90px 30px",
-                    gap: 8,
-                    marginBottom: 8,
-                  }}
-                >
-                  <input
-                    className="input"
-                    value={item.description}
-                    onChange={(e) => {
-                      const updated = [...form.lineItems];
-                      updated[i] = {
-                        ...updated[i],
-                        description: e.target.value,
-                      };
-                      setForm({ ...form, lineItems: updated });
-                    }}
-                    placeholder={t("receipts.itemDescription")}
-                  />
-                  <input
-                    className="input"
-                    type="number"
-                    step="0.01"
-                    value={item.total}
-                    onChange={(e) => {
-                      const updated = [...form.lineItems];
-                      updated[i] = {
-                        ...updated[i],
-                        total: parseFloat(e.target.value),
-                      };
-                      setForm({ ...form, lineItems: updated });
-                    }}
-                    placeholder="0.00"
-                  />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setForm({
-                        ...form,
-                        lineItems: form.lineItems.filter((_, idx) => idx !== i),
-                      })
-                    }
-                    style={{
-                      background: "var(--danger-bg)",
-                      color: "var(--danger)",
-                      border: "none",
-                      borderRadius: 6,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <i className="ti ti-x" aria-hidden="true" />
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() =>
-                  setForm({
-                    ...form,
-                    lineItems: [
-                      ...form.lineItems,
-                      { description: "", total: 0 },
-                    ],
-                  })
-                }
-                className="btn btn-secondary"
-                style={{ fontSize: 12, padding: "5px 10px", marginTop: 4 }}
-              >
-                <i className="ti ti-plus" aria-hidden="true" />{" "}
-                {t("receipts.addLineItem")}
-              </button>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                justifyContent: "space-between",
-              }}
-            >
-              <button
-                onClick={() => {
-                  if (window.confirm(t("receipts.confirmDelete")))
-                    deleteMutation.mutate();
-                }}
-                className="btn btn-danger"
-                disabled={receipt.status === "linked"}
-              >
-                <i className="ti ti-trash" aria-hidden="true" />{" "}
-                {t("common.delete")}
-              </button>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={onClose} className="btn btn-secondary">
-                  {t("common.cancel")}
-                </button>
                 <button
-                  onClick={handleNextStep}
-                  className="btn btn-primary"
-                  disabled={reviewMutation.isPending}
+                  type="button"
+                  onClick={() =>
+                    setForm({
+                      ...form,
+                      lineItems: form.lineItems.filter((_, idx) => idx !== i),
+                    })
+                  }
+                  className="flex items-center justify-center rounded-md bg-danger-bg text-danger cursor-pointer"
                 >
-                  {reviewMutation.isPending
-                    ? t("receipts.saving")
-                    : t("receipts.next")}
+                  <i className="ti ti-x" aria-hidden="true" />
                 </button>
               </div>
+            ))}
+            <Button
+              size="sm"
+              icon="ti-plus"
+              className="mt-1"
+              onClick={() =>
+                setForm({
+                  ...form,
+                  lineItems: [...form.lineItems, { description: "", total: 0 }],
+                })
+              }
+            >
+              {t("receipts.addLineItem")}
+            </Button>
+          </div>
+
+          <div className="flex gap-2 justify-between">
+            <Button
+              variant="danger"
+              icon="ti-trash"
+              disabled={receipt.status === "linked"}
+              onClick={() => {
+                if (window.confirm(t("receipts.confirmDelete")))
+                  deleteMutation.mutate();
+              }}
+            >
+              {t("common.delete")}
+            </Button>
+            <div className="flex gap-2">
+              <Button onClick={onClose}>{t("common.cancel")}</Button>
+              <Button
+                variant="primary"
+                onClick={handleNextStep}
+                disabled={reviewMutation.isPending}
+              >
+                {reviewMutation.isPending
+                  ? t("receipts.saving")
+                  : t("receipts.next")}
+              </Button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ── STEP 2: Choose action ── */}
-        {step === 2 && (
-          <div>
+      {/* ── STEP 2: Choose action ── */}
+      {step === 2 && (
+        <div>
+          <div className="grid grid-cols-2 gap-3 mb-5">
+            {/* Link to existing */}
             <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 12,
-                marginBottom: 20,
-              }}
+              onClick={() => setAction("link")}
+              className={cx(
+                "p-4 rounded-card border-2 cursor-pointer transition-all text-center",
+                action === "link"
+                  ? "border-brand bg-brand-light"
+                  : "border-line bg-surface",
+              )}
             >
-              {/* Link to existing */}
+              <i
+                className={cx(
+                  "ti ti-link text-[28px]",
+                  action === "link" ? "text-brand" : "text-muted",
+                )}
+                aria-hidden="true"
+              />
               <div
-                onClick={() => setAction("link")}
-                style={{
-                  padding: 16,
-                  borderRadius: 10,
-                  border: `1.5px solid ${action === "link" ? "var(--brand)" : "var(--border-color)"}`,
-                  background:
-                    action === "link"
-                      ? "var(--brand-light)"
-                      : "var(--bg-primary)",
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                  textAlign: "center",
-                }}
+                className={cx(
+                  "text-md font-medium mt-2",
+                  action === "link" ? "text-brand" : "text-ink",
+                )}
               >
-                <i
-                  className="ti ti-link"
-                  style={{
-                    fontSize: 28,
-                    color:
-                      action === "link" ? "var(--brand)" : "var(--text-muted)",
-                  }}
-                  aria-hidden="true"
-                />
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 500,
-                    color:
-                      action === "link"
-                        ? "var(--brand)"
-                        : "var(--text-primary)",
-                    marginTop: 8,
-                  }}
-                >
-                  {t("receipts.linkToExisting")}
-                </div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: "var(--text-muted)",
-                    marginTop: 4,
-                  }}
-                >
-                  {t("receipts.linkToExistingHint")}
-                </div>
+                {t("receipts.linkToExisting")}
               </div>
-
-              {/* Create new */}
-              <div
-                onClick={() => setAction("create")}
-                style={{
-                  padding: 16,
-                  borderRadius: 10,
-                  border: `1.5px solid ${action === "create" ? "var(--brand)" : "var(--border-color)"}`,
-                  background:
-                    action === "create"
-                      ? "var(--brand-light)"
-                      : "var(--bg-primary)",
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                  textAlign: "center",
-                }}
-              >
-                <i
-                  className="ti ti-plus"
-                  style={{
-                    fontSize: 28,
-                    color:
-                      action === "create"
-                        ? "var(--brand)"
-                        : "var(--text-muted)",
-                  }}
-                  aria-hidden="true"
-                />
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 500,
-                    color:
-                      action === "create"
-                        ? "var(--brand)"
-                        : "var(--text-primary)",
-                    marginTop: 8,
-                  }}
-                >
-                  {t("receipts.createNew")}
-                </div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: "var(--text-muted)",
-                    marginTop: 4,
-                  }}
-                >
-                  {t("receipts.createNewHint")}
-                </div>
+              <div className="text-[11px] text-muted mt-1">
+                {t("receipts.linkToExistingHint")}
               </div>
             </div>
 
-            {/* Receipt summary */}
+            {/* Create new */}
             <div
-              style={{
-                background: "var(--bg-secondary)",
-                borderRadius: 8,
-                padding: "12px 14px",
-                marginBottom: 16,
-              }}
+              onClick={() => setAction("create")}
+              className={cx(
+                "p-4 rounded-card border-2 cursor-pointer transition-all text-center",
+                action === "create"
+                  ? "border-brand bg-brand-light"
+                  : "border-line bg-surface",
+              )}
             >
+              <i
+                className={cx(
+                  "ti ti-plus text-[28px]",
+                  action === "create" ? "text-brand" : "text-muted",
+                )}
+                aria-hidden="true"
+              />
               <div
-                style={{
-                  fontSize: 11,
-                  color: "var(--text-muted)",
-                  marginBottom: 6,
-                }}
+                className={cx(
+                  "text-md font-medium mt-2",
+                  action === "create" ? "text-brand" : "text-ink",
+                )}
               >
-                {t("receipts.receiptSummary")}
+                {t("receipts.createNew")}
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 500,
-                      color: "var(--text-primary)",
-                    }}
-                  >
-                    {form.merchant || t("receipts.unknownMerchant")}
-                  </div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                    {form.date
-                      ? dayjs(form.date).format("MMM D, YYYY")
-                      : t("receipts.noDate")}
-                  </div>
-                </div>
-                <div
-                  style={{
-                    fontSize: 20,
-                    fontWeight: 600,
-                    color: "var(--text-primary)",
-                  }}
-                >
-                  {form.total ? fmt(form.total) : "—"}
-                </div>
+              <div className="text-[11px] text-muted mt-1">
+                {t("receipts.createNewHint")}
               </div>
             </div>
+          </div>
 
-            {/* Link form */}
-            {action === "link" && (
-              <div style={{ marginBottom: 16 }}>
-                <label className="label" htmlFor="linkTx">
-                  {t("receipts.selectTransaction")}
-                </label>
-                <select
-                  id="linkTx"
-                  className="input"
-                  value={linkTxId}
-                  onChange={(e) => setLinkTxId(e.target.value)}
-                >
-                  <option value="">{t("receipts.chooseTransaction")}</option>
-                  {transactions?.map((tx) => (
-                    <option key={tx.id} value={tx.id}>
-                      {dayjs(tx.date).format("MMM D")} —{" "}
-                      {tx.merchant || t("dashboard.noMerchant")} —{" "}
-                      {fmt(tx.total_amount)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Create form */}
-            {action === "create" && (
-              <div style={{ marginBottom: 16 }}>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 12,
-                    marginBottom: 12,
-                  }}
-                >
-                  <div>
-                    <label className="label" htmlFor="new-account">
-                      {t("common.account")}
-                    </label>
-                    <select
-                      id="new-account"
-                      className="input"
-                      value={newTx.accountId}
-                      onChange={(e) =>
-                        setNewTx({ ...newTx, accountId: e.target.value })
-                      }
-                    >
-                      <option value="">{t("receipts.selectAccount")}</option>
-                      {accounts?.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label" htmlFor="new-type">
-                      {t("common.type")}
-                    </label>
-                    <select
-                      id="new-type"
-                      className="input"
-                      value={newTx.type}
-                      onChange={(e) =>
-                        setNewTx({ ...newTx, type: e.target.value })
-                      }
-                    >
-                      <option value="expense">{t("common.expense")}</option>
-                      <option value="income">{t("common.income")}</option>
-                    </select>
-                  </div>
+          {/* Receipt summary */}
+          <div className="bg-canvas rounded-lg px-3.5 py-3 mb-4">
+            <div className="text-[11px] text-muted mb-1.5">
+              {t("receipts.receiptSummary")}
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-ink">
+                  {form.merchant || t("receipts.unknownMerchant")}
                 </div>
-                <div>
-                  <label className="label" htmlFor="new-notes">
-                    {t("receipts.notesOptional")}
-                  </label>
-                  <input
-                    id="new-notes"
-                    className="input"
-                    value={newTx.notes}
+                <div className="text-xs text-muted">
+                  {form.date
+                    ? dayjs(form.date).format("MMM D, YYYY")
+                    : t("receipts.noDate")}
+                </div>
+              </div>
+              <div className="text-xl font-semibold text-ink">
+                {form.total ? fmt(form.total) : "—"}
+              </div>
+            </div>
+          </div>
+
+          {/* Link form */}
+          {action === "link" && (
+            <Field
+              label={t("receipts.selectTransaction")}
+              htmlFor="linkTx"
+              className="mb-4"
+            >
+              <Select
+                id="linkTx"
+                value={linkTxId}
+                onChange={(e) => setLinkTxId(e.target.value)}
+              >
+                <option value="">{t("receipts.chooseTransaction")}</option>
+                {transactions?.map((tx) => (
+                  <option key={tx.id} value={tx.id}>
+                    {dayjs(tx.date).format("MMM D")} —{" "}
+                    {tx.merchant || t("dashboard.noMerchant")} —{" "}
+                    {fmt(tx.total_amount)}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+
+          {/* Create form */}
+          {action === "create" && (
+            <div className="mb-4">
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <Field
+                  label={t("common.account")}
+                  htmlFor="new-account"
+                  className="mb-0"
+                >
+                  <Select
+                    id="new-account"
+                    value={newTx.accountId}
                     onChange={(e) =>
-                      setNewTx({ ...newTx, notes: e.target.value })
+                      setNewTx({ ...newTx, accountId: e.target.value })
                     }
-                    placeholder={t("receipts.notesPlaceholder")}
-                  />
-                </div>
+                  >
+                    <option value="">{t("receipts.selectAccount")}</option>
+                    {accounts?.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field
+                  label={t("common.type")}
+                  htmlFor="new-type"
+                  className="mb-0"
+                >
+                  <Select
+                    id="new-type"
+                    value={newTx.type}
+                    onChange={(e) => setNewTx({ ...newTx, type: e.target.value })}
+                  >
+                    <option value="expense">{t("common.expense")}</option>
+                    <option value="income">{t("common.income")}</option>
+                  </Select>
+                </Field>
               </div>
-            )}
+              <Field
+                label={t("receipts.notesOptional")}
+                htmlFor="new-notes"
+                className="mb-0"
+              >
+                <Input
+                  id="new-notes"
+                  value={newTx.notes}
+                  onChange={(e) => setNewTx({ ...newTx, notes: e.target.value })}
+                  placeholder={t("receipts.notesPlaceholder")}
+                />
+              </Field>
+            </div>
+          )}
 
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                justifyContent: "space-between",
+          <div className="flex gap-2 justify-between">
+            <Button
+              onClick={() => {
+                setStep(1);
+                setError("");
               }}
             >
-              <button
-                onClick={() => {
-                  setStep(1);
-                  setError("");
-                }}
-                className="btn btn-secondary"
-              >
-                {t("receipts.back")}
-              </button>
-              <button
-                onClick={handleConfirmAction}
-                className="btn btn-primary"
-                disabled={!action || isProcessing}
-              >
-                {isProcessing
-                  ? t("receipts.processing")
-                  : action === "link"
-                    ? t("receipts.linkReceipt")
-                    : action === "create"
-                      ? t("receipts.createTransaction")
-                      : t("receipts.selectAnOption")}
-              </button>
-            </div>
+              {t("receipts.back")}
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleConfirmAction}
+              disabled={!action || isProcessing}
+            >
+              {isProcessing
+                ? t("receipts.processing")
+                : action === "link"
+                  ? t("receipts.linkReceipt")
+                  : action === "create"
+                    ? t("receipts.createTransaction")
+                    : t("receipts.selectAnOption")}
+            </Button>
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </Modal>
   );
 }
 
@@ -1284,175 +901,74 @@ export default function Receipts() {
 
   return (
     <div className="fade-in">
-      {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 20,
-        }}
-      >
-        <div>
-          <h1
-            style={{
-              fontSize: 20,
-              fontWeight: 600,
-              color: "var(--text-primary)",
-              marginBottom: 4,
-            }}
-          >
-            {t("receipts.title")}
-          </h1>
-          <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-            {t("receipts.count", { count: receipts?.length || 0 })}
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          {["", "pending", "reviewed", "linked"].map((s) => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 6,
-                border: "0.5px solid",
-                borderColor:
-                  statusFilter === s ? "var(--brand)" : "var(--border-color)",
-                background:
-                  statusFilter === s ? "var(--brand-light)" : "transparent",
-                color:
-                  statusFilter === s ? "var(--brand)" : "var(--text-muted)",
-                cursor: "pointer",
-                fontSize: 12,
-                fontWeight: statusFilter === s ? 500 : 400,
-              }}
-            >
-              {s ? statusLabel(s) : t("common.all")}
-            </button>
-          ))}
-        </div>
-      </div>
+      <PageHeader
+        title={t("receipts.title")}
+        subtitle={t("receipts.count", { count: receipts?.length || 0 })}
+        actions={
+          <>
+            {["", "pending", "reviewed", "linked"].map((s) => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={cx(
+                  "px-3 py-1.5 rounded-md border text-xs cursor-pointer transition-colors",
+                  statusFilter === s
+                    ? "border-brand bg-brand-light text-brand font-medium"
+                    : "border-line bg-transparent text-muted",
+                )}
+              >
+                {s ? statusLabel(s) : t("common.all")}
+              </button>
+            ))}
+          </>
+        }
+      />
 
       {/* Upload zone */}
       <UploadZone onUploaded={handleUploaded} t={t} />
 
       {/* Receipts grid */}
       {isLoading ? (
-        <div
-          style={{
-            padding: 32,
-            textAlign: "center",
-            color: "var(--text-muted)",
-          }}
-        >
-          {t("common.loading")}
-        </div>
+        <div className="p-8 text-center text-muted">{t("common.loading")}</div>
       ) : receipts?.length === 0 ? (
-        <div className="card" style={{ padding: 40, textAlign: "center" }}>
-          <i
-            className="ti ti-receipt-off"
-            style={{ fontSize: 36, color: "var(--text-muted)" }}
-            aria-hidden="true"
-          />
-          <div
-            style={{ color: "var(--text-muted)", fontSize: 13, marginTop: 10 }}
-          >
-            {t("receipts.noneYet")}
-          </div>
-        </div>
+        <Card>
+          <EmptyState icon="ti-receipt-off" message={t("receipts.noneYet")} />
+        </Card>
       ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-            gap: 12,
-          }}
-        >
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
           {receipts.map((r) => (
-            <div
+            <Card
               key={r.id}
-              className="card"
-              style={{
-                padding: "16px 18px",
-                cursor: "pointer",
-                transition: "all 0.15s",
-              }}
+              padding="none"
+              className="px-[18px] py-4 cursor-pointer transition-all hover:border-brand"
               onClick={() => setSelectedReceipt(r)}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.borderColor = "var(--brand)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.borderColor = "var(--border-color)")
-              }
             >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  marginBottom: 10,
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div className="flex justify-between items-start mb-2.5">
+                <div className="flex items-center gap-2">
                   <i
-                    className="ti ti-receipt"
-                    style={{ fontSize: 20, color: "var(--text-muted)" }}
+                    className="ti ti-receipt text-xl text-muted"
                     aria-hidden="true"
                   />
                   <div>
-                    <div
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 500,
-                        color: "var(--text-primary)",
-                      }}
-                    >
+                    <div className="text-md font-medium text-ink">
                       {r.ai_merchant || t("receipts.unknownMerchant")}
                     </div>
-                    <div
-                      style={{
-                        fontSize: 11,
-                        color: "var(--text-muted)",
-                        marginTop: 1,
-                      }}
-                    >
+                    <div className="text-[11px] text-muted mt-px">
                       {r.ai_date
                         ? dayjs(r.ai_date).format("MMM D, YYYY")
                         : t("receipts.noDate")}
                     </div>
                   </div>
                 </div>
-                <span
-                  style={{
-                    fontSize: 10,
-                    padding: "2px 8px",
-                    borderRadius: 4,
-                    fontWeight: 500,
-                    background: statusColors[r.status]?.bg,
-                    color: statusColors[r.status]?.color,
-                  }}
-                >
+                <Badge tone={STATUS_TONES[r.status] || "neutral"}>
                   {statusLabel(r.status)}
-                </span>
+                </Badge>
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 18,
-                    fontWeight: 600,
-                    color: "var(--text-primary)",
-                  }}
-                >
+              <div className="flex items-center justify-between">
+                <div className="text-lg font-semibold text-ink">
                   {r.ai_total ? fmt(r.ai_total) : "—"}
                 </div>
-                <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                <div className="text-[11px] text-muted">
                   {r.ai_confidence
                     ? t("receipts.confidencePct", {
                         pct: Math.round(r.ai_confidence * 100),
@@ -1460,16 +976,10 @@ export default function Receipts() {
                     : ""}
                 </div>
               </div>
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "var(--text-muted)",
-                  marginTop: 8,
-                }}
-              >
+              <div className="text-[11px] text-muted mt-2">
                 {r.original_filename} · {dayjs(r.created_at).format("MMM D")}
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}

@@ -3,6 +3,18 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import api from "../lib/api";
+import cx from "../lib/cx";
+import {
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  Modal,
+  PageHeader,
+  Select,
+  Textarea,
+} from "../components/ui";
 
 // ── Date helpers ─────────────────────────────────────────────
 function todayStr() {
@@ -65,16 +77,20 @@ const DAY_ABBR = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 function EntryModal({ entry, projects, prefill, onClose, onSave, saving }) {
   const { t } = useTranslation();
   const [form, setForm] = useState(() => ({
-    projectId:   entry?.project_id   ?? prefill?.projectId ?? "",
-    date:        entry?.date         ?? prefill?.date      ?? todayStr(),
-    hours:       entry?.hours        ? String(parseFloat(entry.hours)) : (prefill?.hours ?? ""),
-    description: entry?.description  ?? "",
-    isBillable:  entry?.is_billable  ?? true,
-    hourlyRate:  entry?.hourly_rate  ? String(entry.hourly_rate) : "",
+    projectId: entry?.project_id ?? prefill?.projectId ?? "",
+    date: entry?.date ?? prefill?.date ?? todayStr(),
+    hours: entry?.hours
+      ? String(parseFloat(entry.hours))
+      : (prefill?.hours ?? ""),
+    description: entry?.description ?? "",
+    isBillable: entry?.is_billable ?? true,
+    hourlyRate: entry?.hourly_rate ? String(entry.hourly_rate) : "",
   }));
   const [err, setErr] = useState("");
 
-  function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
+  function set(k, v) {
+    setForm((f) => ({ ...f, [k]: v }));
+  }
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -84,140 +100,114 @@ function EntryModal({ entry, projects, prefill, onClose, onSave, saving }) {
     if (!h || h <= 0) return setErr(t("time.errHoursRequired"));
     onSave({
       ...(entry ? { id: entry.id } : {}),
-      projectId:   form.projectId || null,
-      date:        form.date,
-      hours:       h,
+      projectId: form.projectId || null,
+      date: form.date,
+      hours: h,
       description: form.description || null,
-      isBillable:  form.isBillable,
-      hourlyRate:  form.isBillable && form.hourlyRate ? parseFloat(form.hourlyRate) : null,
+      isBillable: form.isBillable,
+      hourlyRate:
+        form.isBillable && form.hourlyRate ? parseFloat(form.hourlyRate) : null,
     });
   }
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      zIndex: 1000, padding: 16,
-    }}>
-      <div className="card" style={{ width: "100%", maxWidth: 460, maxHeight: "90vh", overflowY: "auto" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
-            {entry ? t("time.editEntry") : t("time.newEntry")}
-          </h2>
-          <button onClick={onClose} className="btn btn-sm btn-secondary"
-            style={{ padding: "4px 8px" }}>
-            <i className="ti ti-x" />
-          </button>
+    <Modal
+      open
+      onClose={onClose}
+      title={entry ? t("time.editEntry") : t("time.newEntry")}
+    >
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+        {/* Project */}
+        <Field label={t("time.project")} className="mb-0">
+          <Select
+            value={form.projectId}
+            onChange={(e) => set("projectId", e.target.value)}
+          >
+            <option value="">{t("time.noProject")}</option>
+            {projects
+              .filter((p) => p.is_active)
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+          </Select>
+        </Field>
+
+        {/* Date + Hours (row) */}
+        <div className="grid grid-cols-2 gap-2.5">
+          <Field label={t("time.date")} className="mb-0">
+            <Input
+              type="date"
+              required
+              value={form.date}
+              onChange={(e) => set("date", e.target.value)}
+            />
+          </Field>
+          <Field label={t("time.hours")} className="mb-0">
+            <Input
+              type="number"
+              required
+              min="0.25"
+              step="0.25"
+              placeholder="0.00"
+              value={form.hours}
+              onChange={(e) => set("hours", e.target.value)}
+            />
+          </Field>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {/* Project */}
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 500, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
-              {t("time.project")}
-            </label>
-            <select
-              value={form.projectId}
-              onChange={e => set("projectId", e.target.value)}
-              className="form-input"
-            >
-              <option value="">{t("time.noProject")}</option>
-              {projects.filter(p => p.is_active).map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-          </div>
+        {/* Description */}
+        <Field label={t("time.description")} className="mb-0">
+          <Textarea
+            rows={2}
+            className="min-h-[60px]"
+            placeholder="What did you work on?"
+            value={form.description}
+            onChange={(e) => set("description", e.target.value)}
+          />
+        </Field>
 
-          {/* Date + Hours (row) */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 500, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
-                {t("time.date")}
-              </label>
-              <input
-                type="date"
-                required
-                value={form.date}
-                onChange={e => set("date", e.target.value)}
-                className="form-input"
-              />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 500, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
-                {t("time.hours")}
-              </label>
-              <input
-                type="number"
-                required
-                min="0.25"
-                step="0.25"
-                placeholder="0.00"
-                value={form.hours}
-                onChange={e => set("hours", e.target.value)}
-                className="form-input"
-              />
-            </div>
-          </div>
-
-          {/* Description */}
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 500, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
-              {t("time.description")}
-            </label>
-            <textarea
-              rows={2}
-              placeholder="What did you work on?"
-              value={form.description}
-              onChange={e => set("description", e.target.value)}
-              className="form-input"
-              style={{ resize: "vertical", minHeight: 60 }}
+        {/* Billable toggle + rate */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <label className="flex items-center gap-1.5 cursor-pointer text-md">
+            <input
+              type="checkbox"
+              checked={form.isBillable}
+              onChange={(e) => set("isBillable", e.target.checked)}
             />
-          </div>
-
-          {/* Billable toggle + rate */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13 }}>
-              <input
-                type="checkbox"
-                checked={form.isBillable}
-                onChange={e => set("isBillable", e.target.checked)}
+            {t("time.billable")}
+          </label>
+          {form.isBillable && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted">{t("time.hourlyRate")}</span>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={form.hourlyRate}
+                onChange={(e) => set("hourlyRate", e.target.value)}
+                className="w-[90px]"
               />
-              {t("time.billable")}
-            </label>
-            {form.isBillable && (
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  {t("time.hourlyRate")}
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={form.hourlyRate}
-                  onChange={e => set("hourlyRate", e.target.value)}
-                  className="form-input"
-                  style={{ width: 90 }}
-                />
-              </div>
-            )}
-          </div>
-
-          {err && (
-            <p style={{ color: "var(--error, #e53e3e)", fontSize: 12, margin: 0 }}>{err}</p>
+            </div>
           )}
+        </div>
 
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
-            <button type="button" onClick={onClose} className="btn btn-secondary">
-              {t("common.cancel")}
-            </button>
-            <button type="submit" disabled={saving} className="btn btn-primary">
-              {saving ? t("time.saving") : entry ? t("time.saveChanges") : t("time.createEntry")}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        {err && <p className="text-danger text-xs">{err}</p>}
+
+        <div className="flex gap-2 justify-end mt-1">
+          <Button onClick={onClose}>{t("common.cancel")}</Button>
+          <Button type="submit" variant="primary" disabled={saving}>
+            {saving
+              ? t("time.saving")
+              : entry
+                ? t("time.saveChanges")
+                : t("time.createEntry")}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -243,7 +233,7 @@ export default function TimeTracking() {
 
   useEffect(() => {
     if (!timerRunning) return;
-    const id = setInterval(() => forceRender(n => n + 1), 1000);
+    const id = setInterval(() => forceRender((n) => n + 1), 1000);
     return () => clearInterval(id);
   }, [timerRunning]);
 
@@ -259,17 +249,17 @@ export default function TimeTracking() {
   // Data
   const { data: entries = [], isLoading: loadingEntries } = useQuery({
     queryKey: ["time-entries", weekStart],
-    queryFn: () => api.get(`/time-entries?week=${weekStart}`).then(r => r.data),
+    queryFn: () => api.get(`/time-entries?week=${weekStart}`).then((r) => r.data),
   });
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects"],
-    queryFn: () => api.get("/projects").then(r => r.data),
+    queryFn: () => api.get("/projects").then((r) => r.data),
   });
 
   // Mutations — entries
   const createEntry = useMutation({
-    mutationFn: body => api.post("/time-entries", body).then(r => r.data),
+    mutationFn: (body) => api.post("/time-entries", body).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["time-entries"] });
       setEntryModal(false);
@@ -278,7 +268,8 @@ export default function TimeTracking() {
   });
 
   const updateEntry = useMutation({
-    mutationFn: ({ id, ...body }) => api.put(`/time-entries/${id}`, body).then(r => r.data),
+    mutationFn: ({ id, ...body }) =>
+      api.put(`/time-entries/${id}`, body).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["time-entries"] });
       setEntryModal(false);
@@ -287,7 +278,7 @@ export default function TimeTracking() {
   });
 
   const deleteEntry = useMutation({
-    mutationFn: id => api.delete(`/time-entries/${id}`).then(r => r.data),
+    mutationFn: (id) => api.delete(`/time-entries/${id}`).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["time-entries"] }),
   });
 
@@ -302,7 +293,11 @@ export default function TimeTracking() {
     setTimerRunning(false);
     setTimerStart(null);
     setEditEntry(null);
-    setEntryPrefill({ hours: String(rounded), projectId: timerProjectId, date: todayStr() });
+    setEntryPrefill({
+      hours: String(rounded),
+      projectId: timerProjectId,
+      date: todayStr(),
+    });
     setEntryModal(true);
   }
 
@@ -326,10 +321,19 @@ export default function TimeTracking() {
 
   // CSV export
   function exportCsv() {
-    const header = ["Date", "Project", "Description", "Hours", "Billable", "Rate", "Amount"].join(",");
-    const rows = entries.map(e => {
+    const header = [
+      "Date",
+      "Project",
+      "Description",
+      "Hours",
+      "Billable",
+      "Rate",
+      "Amount",
+    ].join(",");
+    const rows = entries.map((e) => {
       const rate = e.hourly_rate ? parseFloat(e.hourly_rate) : "";
-      const amount = e.is_billable && rate ? (parseFloat(e.hours) * rate).toFixed(2) : "";
+      const amount =
+        e.is_billable && rate ? (parseFloat(e.hours) * rate).toFixed(2) : "";
       return [
         e.date,
         `"${(e.project_name || "").replace(/"/g, '""')}"`,
@@ -369,150 +373,129 @@ export default function TimeTracking() {
 
   const entrySaving = createEntry.isPending || updateEntry.isPending;
 
-  // Tab pill style
-  const tabStyle = (active) => ({
-    padding: "6px 16px",
-    borderRadius: 6,
-    border: "none",
-    cursor: "pointer",
-    fontSize: 13,
-    fontWeight: active ? 600 : 400,
-    background: active ? "var(--brand)" : "transparent",
-    color: active ? "#fff" : "var(--text-secondary)",
-    transition: "all 0.15s",
-  });
-
   return (
     <div>
-      {/* Header */}
-      <div className="page-header">
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{t("time.title")}</h1>
-      </div>
+      <PageHeader title={t("time.title")} />
 
-      <div className="card">
+      <Card>
         {/* Tabs */}
-        <div style={{ display: "flex", gap: 4, marginBottom: 20, background: "var(--bg-secondary, var(--border-color))", borderRadius: 8, padding: 3, width: "fit-content" }}>
-          <button style={tabStyle(tab === "timesheet")} onClick={() => setTab("timesheet")}>
-            <i className="ti ti-calendar-week" style={{ marginRight: 6 }} />
-            {t("time.timesheet")}
-          </button>
-          <button style={tabStyle(tab === "projects")} onClick={() => setTab("projects")}>
-            <i className="ti ti-folder" style={{ marginRight: 6 }} />
-            {t("time.projects")}
-          </button>
+        <div className="flex gap-1 mb-5 bg-canvas rounded-lg p-1 w-fit">
+          {[
+            { id: "timesheet", icon: "ti-calendar-week", label: t("time.timesheet") },
+            { id: "projects", icon: "ti-folder", label: t("time.projects") },
+          ].map((tb) => (
+            <button
+              key={tb.id}
+              onClick={() => setTab(tb.id)}
+              className={cx(
+                "px-4 py-1.5 rounded-md text-md cursor-pointer transition-all",
+                tab === tb.id
+                  ? "bg-brand text-white font-semibold"
+                  : "bg-transparent text-secondary",
+              )}
+            >
+              <i className={`ti ${tb.icon} mr-1.5`} aria-hidden="true" />
+              {tb.label}
+            </button>
+          ))}
         </div>
 
         {/* ── Timesheet tab ────────────────────────────── */}
         {tab === "timesheet" && (
           <div>
             {/* Timer + week nav + actions row */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", marginBottom: 20 }}>
+            <div className="flex flex-wrap gap-3 items-center mb-5">
               {/* Timer widget */}
-              <div style={{
-                display: "flex", alignItems: "center", gap: 8,
-                padding: "8px 12px", borderRadius: 8,
-                border: "1px solid var(--border-color)",
-                background: timerRunning ? "var(--brand-light, #ebf4ff)" : "var(--bg-secondary, transparent)",
-                flex: "0 0 auto",
-              }}>
+              <div
+                className={cx(
+                  "flex items-center gap-2 px-3 py-2 rounded-lg border border-line shrink-0",
+                  timerRunning ? "bg-brand-light" : "bg-canvas",
+                )}
+              >
                 {!timerRunning ? (
                   <>
-                    <select
+                    <Select
                       value={timerProjectId}
-                      onChange={e => setTimerProjectId(e.target.value)}
-                      className="form-input"
-                      style={{ fontSize: 12, padding: "3px 6px", height: "auto", minWidth: 120, maxWidth: 160 }}
+                      onChange={(e) => setTimerProjectId(e.target.value)}
+                      className="text-xs py-1 px-1.5 min-w-[120px] max-w-[160px] w-auto"
                     >
                       <option value="">{t("time.noProject")}</option>
-                      {projects.filter(p => p.is_active).map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
-                    <button
+                      {projects
+                        .filter((p) => p.is_active)
+                        .map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                    </Select>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon="ti-player-play"
                       onClick={startTimer}
-                      className="btn btn-primary"
-                      style={{ padding: "5px 12px", fontSize: 12, display: "flex", alignItems: "center", gap: 5 }}
                     >
-                      <i className="ti ti-player-play" style={{ fontSize: 13 }} />
                       {t("time.startTimer")}
-                    </button>
+                    </Button>
                   </>
                 ) : (
                   <>
-                    <span style={{ fontFamily: "monospace", fontSize: 18, fontWeight: 600, color: "var(--brand)", minWidth: 72 }}>
+                    <span className="font-mono text-lg font-semibold text-brand min-w-[72px]">
                       {formatElapsed(timerElapsed)}
                     </span>
                     <button
                       onClick={stopTimer}
-                      style={{
-                        padding: "5px 12px", fontSize: 12, borderRadius: 6, border: "none",
-                        cursor: "pointer", background: "var(--error, #e53e3e)", color: "#fff",
-                        display: "flex", alignItems: "center", gap: 5,
-                      }}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-md text-xs bg-danger text-white cursor-pointer"
                     >
-                      <i className="ti ti-player-stop" style={{ fontSize: 13 }} />
+                      <i className="ti ti-player-stop text-md" aria-hidden="true" />
                       {t("time.stopTimer")}
                     </button>
-                    <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{t("time.roundedHint")}</span>
+                    <span className="text-[11px] text-muted">
+                      {t("time.roundedHint")}
+                    </span>
                   </>
                 )}
               </div>
 
               {/* Week navigation */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "1 1 auto", justifyContent: "center" }}>
-                <button
-                  className="btn btn-sm btn-secondary"
-                  onClick={() => setWeekStart(w => addDays(w, -7))}
-                  style={{ padding: "4px 10px" }}
+              <div className="flex items-center gap-2 flex-1 justify-center">
+                <Button
+                  size="sm"
+                  icon="ti-chevron-left"
+                  onClick={() => setWeekStart((w) => addDays(w, -7))}
                   aria-label="Previous week"
-                >
-                  <i className="ti ti-chevron-left" />
-                </button>
-                <span style={{ fontSize: 13, fontWeight: 500, minWidth: 160, textAlign: "center" }}>
+                />
+                <span className="text-md font-medium min-w-[160px] text-center">
                   {fmtWeekRange(weekStart, locale)}
                 </span>
-                <button
-                  className="btn btn-sm btn-secondary"
-                  onClick={() => setWeekStart(w => addDays(w, 7))}
-                  style={{ padding: "4px 10px" }}
+                <Button
+                  size="sm"
+                  icon="ti-chevron-right"
+                  onClick={() => setWeekStart((w) => addDays(w, 7))}
                   aria-label="Next week"
-                >
-                  <i className="ti ti-chevron-right" />
-                </button>
-                <button
-                  className="btn btn-sm btn-secondary"
+                />
+                <Button
+                  size="sm"
                   onClick={() => setWeekStart(getMonday(todayStr()))}
-                  style={{ padding: "4px 10px", fontSize: 11 }}
                 >
                   Today
-                </button>
+                </Button>
               </div>
 
               {/* Actions */}
-              <div style={{ display: "flex", gap: 8, flex: "0 0 auto" }}>
+              <div className="flex gap-2 shrink-0">
                 {entries.length > 0 && (
-                  <button onClick={exportCsv} className="btn btn-sm btn-secondary"
-                    style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    <i className="ti ti-download" style={{ fontSize: 13 }} />
+                  <Button size="sm" icon="ti-download" onClick={exportCsv}>
                     {t("time.exportCsv")}
-                  </button>
+                  </Button>
                 )}
-                <button onClick={openNewEntry} className="btn btn-primary"
-                  style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <i className="ti ti-plus" style={{ fontSize: 14 }} />
+                <Button variant="primary" icon="ti-plus" onClick={openNewEntry}>
                   {t("time.logTime")}
-                </button>
+                </Button>
               </div>
             </div>
 
             {/* Day summary bar */}
-            <div style={{
-              display: "grid", gridTemplateColumns: "repeat(7, 1fr)",
-              gap: 4, marginBottom: 20,
-              padding: "10px 0",
-              borderTop: "1px solid var(--border-color)",
-              borderBottom: "1px solid var(--border-color)",
-            }}>
+            <div className="grid grid-cols-7 gap-1 mb-5 py-2.5 border-t border-b border-line">
               {weekDays.map((day, i) => {
                 const isToday = day === today;
                 const h = hoursByDay[day] || 0;
@@ -520,22 +503,28 @@ export default function TimeTracking() {
                 return (
                   <div
                     key={day}
-                    style={{
-                      textAlign: "center",
-                      padding: "6px 2px",
-                      borderRadius: 6,
-                      background: isToday ? "var(--brand-light, #ebf4ff)" : "transparent",
-                      border: `1px solid ${isToday ? "var(--brand)" : "transparent"}`,
-                    }}
+                    className={cx(
+                      "text-center px-0.5 py-1.5 rounded-md border",
+                      isToday
+                        ? "bg-brand-light border-brand"
+                        : "bg-transparent border-transparent",
+                    )}
                   >
-                    <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 500, textTransform: "uppercase" }}>
+                    <div className="text-[10px] text-muted font-medium uppercase">
                       {DAY_ABBR[i]}
                     </div>
-                    <div style={{ fontSize: 11, color: isToday ? "var(--brand)" : "var(--text-secondary)", fontWeight: isToday ? 600 : 400 }}>
+                    <div
+                      className={cx(
+                        "text-[11px]",
+                        isToday
+                          ? "text-brand font-semibold"
+                          : "text-secondary",
+                      )}
+                    >
                       {dayNum}
                     </div>
                     {h > 0 && (
-                      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--brand)", marginTop: 2 }}>
+                      <div className="text-xs font-bold text-brand mt-0.5">
                         {fmtHours(h)}h
                       </div>
                     )}
@@ -546,122 +535,129 @@ export default function TimeTracking() {
 
             {/* Week total */}
             {weekTotal > 0 && (
-              <div style={{ textAlign: "right", fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
+              <div className="text-right text-xs text-muted mb-3">
                 {t("time.totalHours", { hours: fmtHours(weekTotal) })}
               </div>
             )}
 
             {/* Entry list */}
             {loadingEntries ? (
-              <p style={{ color: "var(--text-muted)", textAlign: "center", padding: "24px 0" }}>
+              <p className="text-muted text-center py-6">
                 {t("common.loading")}
               </p>
             ) : entries.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "40px 0" }}>
-                <i className="ti ti-clock-off" style={{ fontSize: 36, color: "var(--text-muted)", display: "block", marginBottom: 8 }} />
-                <p style={{ color: "var(--text-muted)", margin: 0, fontSize: 14 }}>{t("time.noEntries")}</p>
-                <p style={{ color: "var(--text-muted)", margin: "4px 0 0", fontSize: 12 }}>{t("time.noEntriesHint")}</p>
-              </div>
+              <EmptyState
+                icon="ti-clock-off"
+                title={t("time.noEntries")}
+                message={t("time.noEntriesHint")}
+              />
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                {Object.keys(entriesByDate).sort().map(date => {
-                  const dayEntries = entriesByDate[date];
-                  const dayH = hoursByDay[date] || 0;
-                  return (
-                    <div key={date} style={{ marginBottom: 12 }}>
-                      {/* Day header */}
-                      <div style={{
-                        display: "flex", justifyContent: "space-between", alignItems: "center",
-                        padding: "6px 8px", borderRadius: 6,
-                        background: "var(--bg-secondary, var(--border-color))",
-                        marginBottom: 4,
-                      }}>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
-                          {fmtDate(date, locale)}
-                        </span>
-                        <span style={{ fontSize: 12, color: "var(--brand)", fontWeight: 600 }}>
-                          {fmtHours(dayH)}h
-                        </span>
-                      </div>
+              <div className="flex flex-col gap-0.5">
+                {Object.keys(entriesByDate)
+                  .sort()
+                  .map((date) => {
+                    const dayEntries = entriesByDate[date];
+                    const dayH = hoursByDay[date] || 0;
+                    return (
+                      <div key={date} className="mb-3">
+                        {/* Day header */}
+                        <div className="flex justify-between items-center px-2 py-1.5 rounded-md bg-canvas mb-1">
+                          <span className="text-xs font-semibold text-secondary">
+                            {fmtDate(date, locale)}
+                          </span>
+                          <span className="text-xs text-brand font-semibold">
+                            {fmtHours(dayH)}h
+                          </span>
+                        </div>
 
-                      {/* Entries */}
-                      {dayEntries.map(entry => {
-                        const billAmt = entry.is_billable && entry.hourly_rate
-                          ? (parseFloat(entry.hours) * parseFloat(entry.hourly_rate)).toFixed(2)
-                          : null;
-                        return (
-                          <div key={entry.id} style={{
-                            display: "flex", alignItems: "center", gap: 10,
-                            padding: "10px 8px",
-                            borderBottom: "1px solid var(--border-color)",
-                          }}>
-                            {/* Color dot */}
-                            <div style={{
-                              width: 10, height: 10, borderRadius: "50%", flexShrink: 0,
-                              background: entry.project_color || "var(--text-muted)",
-                            }} />
+                        {/* Entries */}
+                        {dayEntries.map((entry) => {
+                          const billAmt =
+                            entry.is_billable && entry.hourly_rate
+                              ? (
+                                  parseFloat(entry.hours) *
+                                  parseFloat(entry.hourly_rate)
+                                ).toFixed(2)
+                              : null;
+                          return (
+                            <div
+                              key={entry.id}
+                              className="flex items-center gap-2.5 px-2 py-2.5 border-b border-line"
+                            >
+                              {/* Color dot */}
+                              <div
+                                className="w-2.5 h-2.5 rounded-full shrink-0"
+                                style={{
+                                  background:
+                                    entry.project_color || "var(--text-muted)",
+                                }}
+                              />
 
-                            {/* Main info */}
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                                {entry.project_name && (
-                                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>
-                                    {entry.project_name}
+                              {/* Main info */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {entry.project_name && (
+                                    <span className="text-xs font-semibold text-ink">
+                                      {entry.project_name}
+                                    </span>
+                                  )}
+                                  {entry.description && (
+                                    <span className="text-xs text-muted truncate">
+                                      {entry.project_name
+                                        ? `· ${entry.description}`
+                                        : entry.description}
+                                    </span>
+                                  )}
+                                  {!entry.project_name && !entry.description && (
+                                    <span className="text-xs text-muted italic">
+                                      {t("time.noProject")}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Right: hours + billable + actions */}
+                              <div className="flex items-center gap-2 shrink-0">
+                                {entry.is_billable && (
+                                  <span className="text-[10px] px-1.5 py-px rounded-sm bg-brand-light text-brand font-medium">
+                                    {billAmt ? `$${billAmt}` : t("time.billable")}
                                   </span>
                                 )}
-                                {entry.description && (
-                                  <span style={{ fontSize: 12, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                    {entry.project_name ? `· ${entry.description}` : entry.description}
-                                  </span>
-                                )}
-                                {!entry.project_name && !entry.description && (
-                                  <span style={{ fontSize: 12, color: "var(--text-muted)", fontStyle: "italic" }}>
-                                    {t("time.noProject")}
-                                  </span>
-                                )}
+                                <span className="text-md font-bold text-ink min-w-[36px] text-right">
+                                  {fmtHours(entry.hours)}h
+                                </span>
+                                <button
+                                  onClick={() => openEditEntry(entry)}
+                                  className="p-1 text-muted hover:text-ink cursor-pointer"
+                                  title={t("common.edit")}
+                                >
+                                  <i
+                                    className="ti ti-pencil text-md"
+                                    aria-hidden="true"
+                                  />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    if (
+                                      window.confirm(t("time.confirmDeleteEntry"))
+                                    )
+                                      deleteEntry.mutate(entry.id);
+                                  }}
+                                  className="p-1 text-danger cursor-pointer"
+                                  title={t("common.delete")}
+                                >
+                                  <i
+                                    className="ti ti-trash text-md"
+                                    aria-hidden="true"
+                                  />
+                                </button>
                               </div>
                             </div>
-
-                            {/* Right: hours + billable + actions */}
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                              {entry.is_billable && (
-                                <span style={{
-                                  fontSize: 10, padding: "2px 5px", borderRadius: 3,
-                                  background: "var(--brand-light, #ebf4ff)", color: "var(--brand)",
-                                  fontWeight: 500,
-                                }}>
-                                  {billAmt ? `$${billAmt}` : t("time.billable")}
-                                </span>
-                              )}
-                              <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)", minWidth: 36, textAlign: "right" }}>
-                                {fmtHours(entry.hours)}h
-                              </span>
-                              <button
-                                onClick={() => openEditEntry(entry)}
-                                className="btn btn-sm btn-secondary"
-                                style={{ padding: "3px 6px" }}
-                                title={t("common.edit")}
-                              >
-                                <i className="ti ti-pencil" style={{ fontSize: 13 }} />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  if (window.confirm(t("time.confirmDeleteEntry")))
-                                    deleteEntry.mutate(entry.id);
-                                }}
-                                className="btn btn-sm btn-secondary"
-                                style={{ padding: "3px 6px", color: "var(--error, #e53e3e)" }}
-                                title={t("common.delete")}
-                              >
-                                <i className="ti ti-trash" style={{ fontSize: 13 }} />
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
               </div>
             )}
           </div>
@@ -670,73 +666,73 @@ export default function TimeTracking() {
         {/* ── Projects tab ─────────────────────────────── */}
         {tab === "projects" && (
           <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+            <div className="flex justify-between items-center mb-4">
+              <span className="text-xs text-muted">
                 {t("time.projectsReadonly")}
               </span>
-              <Link to="/projects" className="btn btn-sm btn-secondary"
-                style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <i className="ti ti-briefcase" style={{ fontSize: 14 }} />
+              <Link
+                to="/projects"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-md bg-canvas text-ink border border-line hover:bg-sunken"
+              >
+                <i className="ti ti-briefcase text-sm" aria-hidden="true" />
                 {t("time.manageProjects")}
               </Link>
             </div>
 
             {projects.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "40px 0" }}>
-                <i className="ti ti-folder-off" style={{ fontSize: 36, color: "var(--text-muted)", display: "block", marginBottom: 8 }} />
-                <p style={{ color: "var(--text-muted)", margin: 0, fontSize: 14 }}>{t("time.noProjects")}</p>
-                <p style={{ color: "var(--text-muted)", margin: "4px 0 0", fontSize: 12 }}>{t("time.noProjectsHint")}</p>
-              </div>
+              <EmptyState
+                icon="ti-folder-off"
+                title={t("time.noProjects")}
+                message={t("time.noProjectsHint")}
+              />
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                {projects.map(p => (
-                  <div key={p.id} style={{
-                    display: "flex", alignItems: "center", gap: 12,
-                    padding: "12px 8px",
-                    borderBottom: "1px solid var(--border-color)",
-                  }}>
+              <div className="flex flex-col gap-0.5">
+                {projects.map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex items-center gap-3 px-2 py-3 border-b border-line"
+                  >
                     {/* Color swatch */}
-                    <div style={{
-                      width: 14, height: 14, borderRadius: "50%",
-                      background: p.color, flexShrink: 0,
-                    }} />
+                    <div
+                      className="w-3.5 h-3.5 rounded-full shrink-0"
+                      style={{ background: p.color }}
+                    />
 
                     {/* Info */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-md font-medium text-ink">
                           {p.name}
                         </span>
                         {!p.is_active && (
-                          <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "var(--border-color)", color: "var(--text-muted)" }}>
+                          <span className="text-[10px] px-1.5 py-px rounded-sm bg-line text-muted">
                             inactive
                           </span>
                         )}
                       </div>
                       {p.description && (
-                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1 }}>
+                        <div className="text-[11px] text-muted mt-px">
                           {p.description}
                         </div>
                       )}
                     </div>
 
                     {/* Stats */}
-                    <div style={{ textAlign: "right", flexShrink: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
+                    <div className="text-right shrink-0">
+                      <div className="text-md font-semibold text-ink">
                         {fmtHours(p.total_hours)}h
                       </div>
-                      <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                      <div className="text-[11px] text-muted">
                         {t("time.entryCount", { count: p.entry_count })}
                       </div>
                     </div>
-
                   </div>
                 ))}
               </div>
             )}
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Modals */}
       {entryModal && (
@@ -744,7 +740,11 @@ export default function TimeTracking() {
           entry={editEntry}
           prefill={entryPrefill}
           projects={projects}
-          onClose={() => { setEntryModal(false); setEditEntry(null); setEntryPrefill(null); }}
+          onClose={() => {
+            setEntryModal(false);
+            setEditEntry(null);
+            setEntryPrefill(null);
+          }}
           onSave={handleEntrySave}
           saving={entrySaving}
         />

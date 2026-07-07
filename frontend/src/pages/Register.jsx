@@ -4,6 +4,7 @@ import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import useThemeStore from "../store/themeStore";
 import BRAND from "../config/brand";
+import { Button, Card, Field, Input, Select } from "../components/ui";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -61,93 +62,39 @@ export default function Register() {
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "var(--bg-secondary)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 24,
-      }}
-    >
+    <div className="min-h-screen bg-canvas flex items-center justify-center p-6">
       {/* Theme toggle */}
-      <button
+      <Button
+        size="sm"
+        icon={theme === "dark" ? "ti-sun" : "ti-moon"}
         onClick={toggleTheme}
         aria-label="Toggle theme"
-        style={{
-          position: "fixed",
-          top: 16,
-          right: 16,
-          background: "var(--bg-primary)",
-          border: "0.5px solid var(--border-color)",
-          borderRadius: 8,
-          padding: "6px 10px",
-          cursor: "pointer",
-          color: "var(--text-secondary)",
-          fontSize: 14,
-        }}
-      >
-        <i
-          className={`ti ${theme === "dark" ? "ti-sun" : "ti-moon"}`}
-          aria-hidden="true"
-        />
-      </button>
+        className="fixed top-4 right-4 bg-surface"
+      />
 
-      <div
-        className="card fade-in"
-        style={{ width: "100%", maxWidth: 440, padding: 32 }}
-      >
+      <Card padding="lg" className="w-full max-w-[440px] fade-in">
         {/* Logo */}
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div
-            style={{
-              color: "var(--brand)",
-              fontSize: 22,
-              fontWeight: 700,
-              letterSpacing: 4,
-              marginBottom: 6,
-              textTransform: "uppercase",
-            }}
-          >
+        <div className="text-center mb-7">
+          <div className="text-brand text-[22px] font-bold tracking-[4px] uppercase mb-1.5">
             {BRAND.name}
           </div>
-          <div style={{ color: "var(--text-muted)", fontSize: 13 }}>
+          <div className="text-muted text-md">
             Create your business account
           </div>
         </div>
 
         {/* Error */}
         {error && (
-          <div
-            style={{
-              background: "var(--danger-bg)",
-              color: "var(--danger)",
-              border: "0.5px solid var(--danger)",
-              borderRadius: 8,
-              padding: "10px 14px",
-              fontSize: 13,
-              marginBottom: 16,
-            }}
-          >
-            <i
-              className="ti ti-alert-circle"
-              style={{ marginRight: 6 }}
-              aria-hidden="true"
-            />
+          <div className="bg-danger-bg text-danger border border-danger rounded-lg px-3.5 py-2.5 text-md mb-4">
+            <i className="ti ti-alert-circle mr-1.5" aria-hidden="true" />
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
-          {/* Business name */}
-          <div style={{ marginBottom: 14 }}>
-            <label className="label" htmlFor="businessName">
-              Business Name
-            </label>
-            <input
+          <Field label="Business Name" htmlFor="businessName" className="mb-3.5">
+            <Input
               id="businessName"
-              className="input"
               type="text"
               name="businessName"
               placeholder="My Business LLC"
@@ -156,16 +103,11 @@ export default function Register() {
               required
               autoFocus
             />
-          </div>
+          </Field>
 
-          {/* Email */}
-          <div style={{ marginBottom: 14 }}>
-            <label className="label" htmlFor="email">
-              Email
-            </label>
-            <input
+          <Field label="Email" htmlFor="email" className="mb-3.5">
+            <Input
               id="email"
-              className="input"
               type="email"
               name="email"
               placeholder="you@example.com"
@@ -173,41 +115,27 @@ export default function Register() {
               onChange={handleChange}
               required
             />
-          </div>
+          </Field>
 
-          {/* Tax ID */}
-          <div style={{ marginBottom: 14 }}>
-            <label className="label" htmlFor="taxId">
-              Tax ID / EIN
-              <span
-                style={{
-                  color: "var(--text-muted)",
-                  fontWeight: 400,
-                  marginLeft: 4,
-                }}
-              >
-                (optional)
-              </span>
-            </label>
-            <input
+          <Field
+            label="Tax ID / EIN"
+            htmlFor="taxId"
+            hint="Optional"
+            className="mb-3.5"
+          >
+            <Input
               id="taxId"
-              className="input"
               type="text"
               name="taxId"
               placeholder="XX-XXXXXXX"
               value={form.taxId}
               onChange={handleChange}
             />
-          </div>
+          </Field>
 
-          {/* Currency */}
-          <div style={{ marginBottom: 14 }}>
-            <label className="label" htmlFor="currency">
-              Currency
-            </label>
-            <select
+          <Field label="Currency" htmlFor="currency" className="mb-3.5">
+            <Select
               id="currency"
-              className="input"
               name="currency"
               value={form.currency}
               onChange={handleChange}
@@ -215,17 +143,12 @@ export default function Register() {
               <option value="USD">USD — US Dollar</option>
               <option value="EUR">EUR — Euro</option>
               <option value="GBP">GBP — British Pound</option>
-            </select>
-          </div>
+            </Select>
+          </Field>
 
-          {/* Password */}
-          <div style={{ marginBottom: 14 }}>
-            <label className="label" htmlFor="password">
-              Password
-            </label>
-            <input
+          <Field label="Password" htmlFor="password" className="mb-3.5">
+            <Input
               id="password"
-              className="input"
               type="password"
               name="password"
               placeholder="At least 8 characters"
@@ -233,16 +156,11 @@ export default function Register() {
               onChange={handleChange}
               required
             />
-          </div>
+          </Field>
 
-          {/* Confirm password */}
-          <div style={{ marginBottom: 24 }}>
-            <label className="label" htmlFor="confirmPassword">
-              Confirm Password
-            </label>
-            <input
+          <Field label="Confirm Password" htmlFor="confirmPassword" className="mb-6">
+            <Input
               id="confirmPassword"
-              className="input"
               type="password"
               name="confirmPassword"
               placeholder="••••••••"
@@ -250,62 +168,27 @@ export default function Register() {
               onChange={handleChange}
               required
             />
-          </div>
+          </Field>
 
-          <button
+          <Button
             type="submit"
-            className="btn btn-primary"
-            disabled={loading}
-            style={{
-              width: "100%",
-              justifyContent: "center",
-              padding: "10px 14px",
-            }}
+            variant="primary"
+            full
+            loading={loading}
+            icon="ti-building-store"
           >
-            {loading ? (
-              <>
-                <i
-                  className="ti ti-loader-2"
-                  style={{ animation: "spin 1s linear infinite" }}
-                  aria-hidden="true"
-                />
-                Creating account...
-              </>
-            ) : (
-              <>
-                <i className="ti ti-building-store" aria-hidden="true" />
-                Create account
-              </>
-            )}
-          </button>
+            {loading ? "Creating account..." : "Create account"}
+          </Button>
         </form>
 
         {/* Login link */}
-        <div
-          style={{
-            textAlign: "center",
-            marginTop: 20,
-            fontSize: 13,
-            color: "var(--text-muted)",
-          }}
-        >
+        <div className="text-center mt-5 text-md text-muted">
           Already have an account?{" "}
-          <Link
-            to="/login"
-            style={{
-              color: "var(--brand)",
-              textDecoration: "none",
-              fontWeight: 500,
-            }}
-          >
+          <Link to="/login" className="text-brand font-medium">
             Sign in
           </Link>
         </div>
-      </div>
-
-      <style>{`
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-      `}</style>
+      </Card>
     </div>
   );
 }

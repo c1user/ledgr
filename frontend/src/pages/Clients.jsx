@@ -3,6 +3,17 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import dayjs from "dayjs";
+import cx from "../lib/cx";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  Modal,
+  PageHeader,
+} from "../components/ui";
 
 const emptyForm = {
   name: "",
@@ -23,12 +34,12 @@ const makeFmt = (lang) => (val) =>
     currency: "USD",
   }).format(val || 0);
 
-const STATUS_COLORS = {
-  draft: { bg: "var(--bg-secondary)", fg: "var(--text-muted)" },
-  sent: { bg: "var(--brand-light)", fg: "var(--brand)" },
-  overdue: { bg: "var(--expense-bg)", fg: "var(--expense)" },
-  paid: { bg: "var(--income-bg)", fg: "var(--income)" },
-  void: { bg: "var(--bg-secondary)", fg: "var(--text-muted)" },
+const STATUS_TONES = {
+  draft: "neutral",
+  sent: "brand",
+  overdue: "expense",
+  paid: "income",
+  void: "neutral",
 };
 
 // ── Client add/edit modal ─────────────────────────────────────
@@ -78,274 +89,152 @@ function ClientModal({ client, onClose, t }) {
   }
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.45)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-        padding: 16,
-      }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+    <Modal
+      open
+      onClose={onClose}
+      title={isEdit ? t("clients.editClient") : t("clients.newClient")}
     >
-      <div
-        className="card fade-in"
-        style={{
-          width: "100%",
-          maxWidth: 520,
-          padding: 24,
-          maxHeight: "90vh",
-          overflow: "auto",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 20,
-          }}
-        >
-          <h2
-            style={{
-              fontSize: 16,
-              fontWeight: 700,
-              margin: 0,
-              color: "var(--text-primary)",
-            }}
-          >
-            {isEdit ? t("clients.editClient") : t("clients.newClient")}
-          </h2>
-          <button className="btn btn-secondary btn-sm" onClick={onClose}>
-            <i className="ti ti-x" />
-          </button>
+      {error && (
+        <div className="text-md text-expense bg-expense-bg rounded-md px-3 py-2 mb-3.5">
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+        <Field label={t("clients.nameLabel")} className="mb-0">
+          <Input
+            type="text"
+            placeholder={t("clients.namePlaceholder")}
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            autoFocus
+          />
+        </Field>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Field label={t("clients.emailLabel")} className="mb-0">
+            <Input
+              type="email"
+              placeholder="billing@client.com"
+              value={form.billing_email}
+              onChange={(e) =>
+                setForm({ ...form, billing_email: e.target.value })
+              }
+            />
+          </Field>
+          <Field label={t("clients.phoneLabel")} className="mb-0">
+            <Input
+              type="tel"
+              placeholder="(787) 555-0100"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            />
+          </Field>
         </div>
 
-        {error && (
-          <div
-            style={{
-              fontSize: 13,
-              color: "var(--expense, #ef4444)",
-              background: "var(--expense-bg)",
-              borderRadius: 6,
-              padding: "8px 12px",
-              marginBottom: 14,
-            }}
-          >
-            {error}
-          </div>
-        )}
+        <Field label={t("clients.addressLabel")} className="mb-0">
+          <Input
+            type="text"
+            placeholder="123 Main St"
+            value={form.billing_address}
+            onChange={(e) =>
+              setForm({ ...form, billing_address: e.target.value })
+            }
+          />
+        </Field>
 
-        <form
-          onSubmit={handleSubmit}
-          style={{ display: "flex", flexDirection: "column", gap: 14 }}
-        >
-          <div>
-            <label className="label">{t("clients.nameLabel")}</label>
-            <input
-              className="input"
+        <div className="grid grid-cols-[1fr_80px_90px] gap-2">
+          <Field label={t("clients.cityLabel")} className="mb-0">
+            <Input
               type="text"
-              placeholder={t("clients.namePlaceholder")}
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              autoFocus
+              placeholder="San Juan"
+              value={form.city}
+              onChange={(e) => setForm({ ...form, city: e.target.value })}
             />
-          </div>
-
-          <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}
-          >
-            <div>
-              <label className="label">{t("clients.emailLabel")}</label>
-              <input
-                className="input"
-                type="email"
-                placeholder="billing@client.com"
-                value={form.billing_email}
-                onChange={(e) =>
-                  setForm({ ...form, billing_email: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <label className="label">{t("clients.phoneLabel")}</label>
-              <input
-                className="input"
-                type="tel"
-                placeholder="(787) 555-0100"
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="label">{t("clients.addressLabel")}</label>
-            <input
-              className="input"
+          </Field>
+          <Field label={t("clients.stateLabel")} className="mb-0">
+            <Input
               type="text"
-              placeholder="123 Main St"
-              value={form.billing_address}
+              placeholder="PR"
+              value={form.state}
+              onChange={(e) => setForm({ ...form, state: e.target.value })}
+            />
+          </Field>
+          <Field label={t("clients.zipLabel")} className="mb-0">
+            <Input
+              type="text"
+              placeholder="00901"
+              value={form.zip}
+              onChange={(e) => setForm({ ...form, zip: e.target.value })}
+            />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Field label={t("clients.termsLabel")} className="mb-0">
+            <Input
+              type="number"
+              min="0"
+              value={form.payment_terms_days}
               onChange={(e) =>
-                setForm({ ...form, billing_address: e.target.value })
+                setForm({ ...form, payment_terms_days: e.target.value })
               }
             />
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 80px 90px",
-              gap: 8,
-            }}
-          >
-            <div>
-              <label className="label">{t("clients.cityLabel")}</label>
-              <input
-                className="input"
-                type="text"
-                placeholder="San Juan"
-                value={form.city}
-                onChange={(e) => setForm({ ...form, city: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="label">{t("clients.stateLabel")}</label>
-              <input
-                className="input"
-                type="text"
-                placeholder="PR"
-                value={form.state}
-                onChange={(e) => setForm({ ...form, state: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="label">{t("clients.zipLabel")}</label>
-              <input
-                className="input"
-                type="text"
-                placeholder="00901"
-                value={form.zip}
-                onChange={(e) => setForm({ ...form, zip: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}
-          >
-            <div>
-              <label className="label">{t("clients.termsLabel")}</label>
-              <input
-                className="input"
-                type="number"
-                min="0"
-                value={form.payment_terms_days}
-                onChange={(e) =>
-                  setForm({ ...form, payment_terms_days: e.target.value })
-                }
-              />
-            </div>
-            {isEdit && (
-              <div style={{ display: "flex", alignItems: "flex-end" }}>
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    fontSize: 13,
-                    color: "var(--text-primary)",
-                    cursor: "pointer",
-                    paddingBottom: 8,
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={form.is_active}
-                    onChange={(e) =>
-                      setForm({ ...form, is_active: e.target.checked })
-                    }
-                    style={{ width: 16, height: 16, cursor: "pointer" }}
-                  />
-                  {t("clients.activeLabel")}
-                </label>
-              </div>
-            )}
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 10,
-              padding: "10px 14px",
-              background: "var(--bg-secondary)",
-              borderRadius: 8,
-            }}
-          >
-            <input
-              type="checkbox"
-              id="client-taxexempt"
-              checked={form.tax_exempt}
-              onChange={(e) =>
-                setForm({ ...form, tax_exempt: e.target.checked })
-              }
-              style={{ width: 16, height: 16, cursor: "pointer", marginTop: 2 }}
-            />
-            <div>
-              <label
-                htmlFor="client-taxexempt"
-                style={{
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: "var(--text-primary)",
-                  cursor: "pointer",
-                  display: "block",
-                }}
-              >
-                {t("clients.taxExemptLabel")}
+          </Field>
+          {isEdit && (
+            <div className="flex items-end">
+              <label className="flex items-center gap-2 text-md text-ink cursor-pointer pb-2">
+                <input
+                  type="checkbox"
+                  checked={form.is_active}
+                  onChange={(e) =>
+                    setForm({ ...form, is_active: e.target.checked })
+                  }
+                  className="w-4 h-4 cursor-pointer"
+                />
+                {t("clients.activeLabel")}
               </label>
-              <div
-                style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}
-              >
-                {t("clients.taxExemptHint")}
-              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-start gap-2.5 px-3.5 py-2.5 bg-canvas rounded-lg">
+          <input
+            type="checkbox"
+            id="client-taxexempt"
+            checked={form.tax_exempt}
+            onChange={(e) => setForm({ ...form, tax_exempt: e.target.checked })}
+            className="w-4 h-4 cursor-pointer mt-0.5"
+          />
+          <div>
+            <label
+              htmlFor="client-taxexempt"
+              className="block text-md font-medium text-ink cursor-pointer"
+            >
+              {t("clients.taxExemptLabel")}
+            </label>
+            <div className="text-[11px] text-muted mt-0.5">
+              {t("clients.taxExemptHint")}
             </div>
           </div>
+        </div>
 
-          <div
-            style={{
-              display: "flex",
-              gap: 10,
-              justifyContent: "flex-end",
-              marginTop: 4,
-            }}
+        <div className="flex gap-2.5 justify-end mt-1">
+          <Button onClick={onClose}>{t("common.cancel")}</Button>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={saveMutation.isPending}
           >
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={onClose}
-            >
-              {t("common.cancel")}
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={saveMutation.isPending}
-            >
-              {saveMutation.isPending
-                ? t("clients.saving")
-                : isEdit
-                  ? t("clients.saveChanges")
-                  : t("clients.createClient")}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+            {saveMutation.isPending
+              ? t("clients.saving")
+              : isEdit
+                ? t("clients.saveChanges")
+                : t("clients.createClient")}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -359,331 +248,129 @@ function ClientDrawer({ client, onClose, onEdit, onDelete, fmt, t }) {
 
   const invoices = data?.invoices || [];
 
+  const contactRow = (icon, value, iconClass, textClass, alignTop) =>
+    value && (
+      <div
+        className={cx(
+          "flex gap-2 mb-1.5",
+          alignTop ? "items-start" : "items-center",
+        )}
+      >
+        <i
+          className={cx(
+            "ti",
+            icon,
+            "text-sm shrink-0",
+            iconClass || "text-muted",
+            alignTop && "mt-px",
+          )}
+          aria-hidden="true"
+        />
+        <span className={cx("text-md", textClass || "text-secondary")}>
+          {value}
+        </span>
+      </div>
+    );
+
   return (
     <>
-      <div
-        onClick={onClose}
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,0.3)",
-          zIndex: 200,
-        }}
-      />
-      <div
-        className="fade-in"
-        style={{
-          position: "fixed",
-          top: 0,
-          right: 0,
-          bottom: 0,
-          width: 400,
-          maxWidth: "100vw",
-          background: "var(--bg-primary)",
-          borderLeft: "0.5px solid var(--border-color)",
-          zIndex: 201,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            padding: "16px 20px",
-            borderBottom: "0.5px solid var(--border-color)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            gap: 12,
-            flexShrink: 0,
-          }}
-        >
-          <div style={{ minWidth: 0 }}>
-            <div
-              style={{
-                fontSize: 16,
-                fontWeight: 700,
-                color: "var(--text-primary)",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
+      <div onClick={onClose} className="fixed inset-0 bg-black/30 z-[150]" />
+      <div className="fade-in fixed top-0 right-0 bottom-0 w-[400px] max-w-full bg-surface border-l border-line z-[151] flex flex-col overflow-hidden">
+        <div className="flex justify-between items-start gap-3 px-5 py-4 border-b border-line shrink-0">
+          <div className="min-w-0">
+            <div className="text-base font-bold text-ink truncate">
               {client.name}
             </div>
             {!client.is_active && (
-              <span
-                style={{
-                  display: "inline-block",
-                  marginTop: 4,
-                  fontSize: 10,
-                  fontWeight: 600,
-                  padding: "2px 7px",
-                  borderRadius: 4,
-                  background: "var(--bg-secondary)",
-                  color: "var(--text-muted)",
-                }}
-              >
-                {t("clients.inactive")}
-              </span>
+              <div className="mt-1">
+                <Badge tone="neutral">{t("clients.inactive")}</Badge>
+              </div>
             )}
           </div>
-          <button className="btn btn-secondary btn-sm" onClick={onClose}>
-            <i className="ti ti-x" />
-          </button>
+          <Button size="sm" icon="ti-x" onClick={onClose} aria-label="Close" />
         </div>
 
-        <div style={{ flex: 1, overflow: "auto", padding: "16px 20px" }}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 10,
-              marginBottom: 20,
-            }}
-          >
-            <div
-              style={{
-                background: "var(--bg-secondary)",
-                borderRadius: 8,
-                padding: "10px 14px",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "var(--text-muted)",
-                  marginBottom: 2,
-                }}
-              >
+        <div className="flex-1 overflow-auto px-5 py-4">
+          <div className="grid grid-cols-2 gap-2.5 mb-5">
+            <div className="bg-canvas rounded-lg px-3.5 py-2.5">
+              <div className="text-[11px] text-muted mb-0.5">
                 {t("clients.outstanding")}
               </div>
-              <div
-                style={{ fontSize: 16, fontWeight: 700, color: "var(--brand)" }}
-              >
+              <div className="text-base font-bold text-brand">
                 {fmt(data?.outstanding || 0)}
               </div>
             </div>
-            <div
-              style={{
-                background: "var(--bg-secondary)",
-                borderRadius: 8,
-                padding: "10px 14px",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "var(--text-muted)",
-                  marginBottom: 2,
-                }}
-              >
+            <div className="bg-canvas rounded-lg px-3.5 py-2.5">
+              <div className="text-[11px] text-muted mb-0.5">
                 {t("clients.colInvoices")}
               </div>
-              <div
-                style={{
-                  fontSize: 16,
-                  fontWeight: 700,
-                  color: "var(--text-primary)",
-                }}
-              >
+              <div className="text-base font-bold text-ink">
                 {invoices.length}
               </div>
             </div>
           </div>
 
-          <div style={{ marginBottom: 20 }}>
-            {client.billing_email && (
-              <div
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  marginBottom: 6,
-                  alignItems: "center",
-                }}
-              >
-                <i
-                  className="ti ti-mail"
-                  style={{ fontSize: 14, color: "var(--text-muted)" }}
-                />
-                <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-                  {client.billing_email}
-                </span>
-              </div>
+          <div className="mb-5">
+            {contactRow("ti-mail", client.billing_email)}
+            {contactRow("ti-phone", client.phone)}
+            {contactRow(
+              "ti-map-pin",
+              [client.billing_address, client.city, client.state, client.zip]
+                .filter(Boolean)
+                .join(", ") || null,
+              null,
+              null,
+              true,
             )}
-            {client.phone && (
-              <div
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  marginBottom: 6,
-                  alignItems: "center",
-                }}
-              >
-                <i
-                  className="ti ti-phone"
-                  style={{ fontSize: 14, color: "var(--text-muted)" }}
-                />
-                <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-                  {client.phone}
-                </span>
-              </div>
+            {contactRow(
+              "ti-calendar-due",
+              t("clients.termsValue", { days: client.payment_terms_days }),
             )}
-            {(client.billing_address || client.city) && (
-              <div
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  marginBottom: 6,
-                  alignItems: "flex-start",
-                }}
-              >
-                <i
-                  className="ti ti-map-pin"
-                  style={{
-                    fontSize: 14,
-                    color: "var(--text-muted)",
-                    marginTop: 1,
-                  }}
-                />
-                <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-                  {[client.billing_address, client.city, client.state, client.zip]
-                    .filter(Boolean)
-                    .join(", ")}
-                </span>
-              </div>
-            )}
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                marginBottom: 6,
-                alignItems: "center",
-              }}
-            >
-              <i
-                className="ti ti-calendar-due"
-                style={{ fontSize: 14, color: "var(--text-muted)" }}
-              />
-              <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-                {t("clients.termsValue", { days: client.payment_terms_days })}
-              </span>
-            </div>
-            {client.tax_exempt && (
-              <div
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  marginBottom: 6,
-                  alignItems: "center",
-                }}
-              >
-                <i
-                  className="ti ti-discount-check"
-                  style={{ fontSize: 14, color: "var(--income)" }}
-                />
-                <span style={{ fontSize: 13, color: "var(--income)" }}>
-                  {t("clients.taxExemptLabel")}
-                </span>
-              </div>
-            )}
+            {client.tax_exempt &&
+              contactRow(
+                "ti-discount-check",
+                t("clients.taxExemptLabel"),
+                "text-income",
+                "text-income",
+              )}
           </div>
 
-          <button
-            className="btn btn-secondary"
-            onClick={onEdit}
-            style={{
-              width: "100%",
-              marginBottom: 20,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              justifyContent: "center",
-            }}
-          >
-            <i className="ti ti-pencil" style={{ fontSize: 14 }} />
+          <Button icon="ti-pencil" onClick={onEdit} full className="mb-5">
             {t("common.edit")}
-          </button>
+          </Button>
 
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              color: "var(--text-muted)",
-              letterSpacing: 0.5,
-              marginBottom: 10,
-            }}
-          >
-            {t("clients.invoiceHistory").toUpperCase()}
+          <div className="text-[11px] font-semibold text-muted tracking-[0.5px] mb-2.5 uppercase">
+            {t("clients.invoiceHistory")}
           </div>
 
           {isLoading ? (
-            <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-              {t("common.loading")}
-            </div>
+            <div className="text-md text-muted">{t("common.loading")}</div>
           ) : invoices.length === 0 ? (
-            <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-              {t("clients.noInvoices")}
-            </div>
+            <div className="text-md text-muted">{t("clients.noInvoices")}</div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div className="flex flex-col gap-1.5">
               {invoices.map((inv) => {
                 const eff = inv.is_overdue ? "overdue" : inv.status;
-                const c = STATUS_COLORS[eff] || STATUS_COLORS.draft;
                 return (
                   <div
                     key={inv.id}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "8px 10px",
-                      background: "var(--bg-secondary)",
-                      borderRadius: 6,
-                    }}
+                    className="flex justify-between items-center px-2.5 py-2 bg-canvas rounded-md"
                   >
-                    <div style={{ minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: "var(--text-primary)",
-                        }}
-                      >
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-ink">
                         {inv.invoice_number}
                       </div>
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: "var(--text-muted)",
-                          marginTop: 1,
-                        }}
-                      >
+                      <div className="text-[11px] text-muted mt-px">
                         {dayjs(inv.issue_date).format("MMM D, YYYY")}
                       </div>
                     </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: "var(--text-primary)",
-                        }}
-                      >
+                    <div className="text-right">
+                      <div className="text-xs font-semibold text-ink">
                         {fmt(inv.total)}
                       </div>
-                      <span
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 600,
-                          padding: "1px 6px",
-                          borderRadius: 4,
-                          background: c.bg,
-                          color: c.fg,
-                        }}
-                      >
+                      <Badge tone={STATUS_TONES[eff] || "neutral"}>
                         {t(`invoices.status.${eff}`)}
-                      </span>
+                      </Badge>
                     </div>
                   </div>
                 );
@@ -692,28 +379,10 @@ function ClientDrawer({ client, onClose, onEdit, onDelete, fmt, t }) {
           )}
         </div>
 
-        <div
-          style={{
-            padding: "12px 20px",
-            borderTop: "0.5px solid var(--border-color)",
-            flexShrink: 0,
-          }}
-        >
-          <button
-            className="btn btn-secondary"
-            onClick={onDelete}
-            style={{
-              width: "100%",
-              color: "var(--expense, #ef4444)",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              justifyContent: "center",
-            }}
-          >
-            <i className="ti ti-trash" style={{ fontSize: 14 }} />
+        <div className="px-5 py-3 border-t border-line shrink-0">
+          <Button variant="danger" icon="ti-trash" onClick={onDelete} full>
             {t("common.delete")}
-          </button>
+          </Button>
         </div>
       </div>
     </>
@@ -775,263 +444,142 @@ export default function Clients() {
   ];
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          marginBottom: 20,
-          gap: 12,
-          flexWrap: "wrap",
-        }}
-      >
-        <div>
-          <h1
-            style={{
-              fontSize: 20,
-              fontWeight: 700,
-              color: "var(--text-primary)",
-              margin: 0,
+    <div className="max-w-[900px] mx-auto">
+      <PageHeader
+        title={t("clients.title")}
+        subtitle={t("clients.subtitle")}
+        actions={
+          <Button
+            variant="primary"
+            icon="ti-plus"
+            onClick={() => {
+              setEditClient(null);
+              setShowModal(true);
             }}
           >
-            {t("clients.title")}
-          </h1>
-          <p
-            style={{ fontSize: 12, color: "var(--text-muted)", margin: "4px 0 0" }}
-          >
-            {t("clients.subtitle")}
-          </p>
-        </div>
-        <button
-          className="btn btn-primary"
-          onClick={() => {
-            setEditClient(null);
-            setShowModal(true);
-          }}
-          style={{ display: "flex", alignItems: "center", gap: 6 }}
-        >
-          <i className="ti ti-plus" style={{ fontSize: 15 }} />
-          {t("clients.addClient")}
-        </button>
-      </div>
+            {t("clients.addClient")}
+          </Button>
+        }
+      />
 
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 16,
-          gap: 12,
-          flexWrap: "wrap",
-        }}
-      >
-        <div style={{ display: "flex", gap: 4 }}>
+      <div className="flex justify-between items-center mb-4 gap-3 flex-wrap">
+        <div className="flex gap-1">
           {TABS.map((tb) => (
-            <button
+            <Button
               key={tb.key}
-              className={`btn btn-sm ${tab === tb.key ? "btn-primary" : "btn-secondary"}`}
+              size="sm"
+              variant={tab === tb.key ? "primary" : "secondary"}
               onClick={() => setTab(tb.key)}
             >
               {tb.label}
-            </button>
+            </Button>
           ))}
         </div>
-        <div style={{ position: "relative" }}>
+        <div className="relative">
           <i
-            className="ti ti-search"
-            style={{
-              position: "absolute",
-              left: 10,
-              top: "50%",
-              transform: "translateY(-50%)",
-              fontSize: 14,
-              color: "var(--text-muted)",
-              pointerEvents: "none",
-            }}
+            className="ti ti-search absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted pointer-events-none"
+            aria-hidden="true"
           />
-          <input
-            className="input"
+          <Input
             type="text"
             placeholder={t("clients.search")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ paddingLeft: 30, width: 220 }}
+            className="pl-[30px] w-[220px]"
           />
         </div>
       </div>
 
       {isLoading && (
-        <div
-          style={{
-            fontSize: 14,
-            color: "var(--text-muted)",
-            padding: "40px 0",
-            textAlign: "center",
-          }}
-        >
+        <div className="text-sm text-muted py-10 text-center">
           {t("common.loading")}
         </div>
       )}
 
       {!isLoading && clients.length === 0 && (
-        <div className="card" style={{ padding: 48, textAlign: "center" }}>
-          <i
-            className="ti ti-address-book"
-            style={{
-              fontSize: 40,
-              color: "var(--text-muted)",
-              display: "block",
-              marginBottom: 12,
-            }}
+        <Card>
+          <EmptyState
+            icon="ti-address-book"
+            title={search ? t("clients.noneFound") : t("clients.noneYet")}
+            message={!search ? t("clients.noneYetHint") : undefined}
           />
-          <div
-            style={{
-              fontSize: 15,
-              fontWeight: 600,
-              color: "var(--text-primary)",
-              marginBottom: 6,
-            }}
-          >
-            {search ? t("clients.noneFound") : t("clients.noneYet")}
-          </div>
-          {!search && (
-            <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-              {t("clients.noneYetHint")}
-            </div>
-          )}
-        </div>
+        </Card>
       )}
 
       {!isLoading && clients.length > 0 && (
-        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 180px 90px 120px 50px",
-              padding: "10px 16px",
-              borderBottom: "0.5px solid var(--border-color)",
-              background: "var(--bg-secondary)",
-              fontSize: 11,
-              color: "var(--text-muted)",
-              fontWeight: 500,
-              letterSpacing: 0.5,
-            }}
-          >
-            <div>{t("clients.colName")}</div>
-            <div>{t("clients.colContact")}</div>
-            <div style={{ textAlign: "center" }}>{t("clients.colInvoices")}</div>
-            <div style={{ textAlign: "right" }}>{t("clients.colOutstanding")}</div>
-            <div></div>
-          </div>
-
-          {clients.map((client) => (
-            <div
-              key={client.id}
-              onClick={() => setSelected(client)}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 180px 90px 120px 50px",
-                padding: "12px 16px",
-                borderBottom: "0.5px solid var(--border-color)",
-                alignItems: "center",
-                cursor: "pointer",
-                transition: "background 0.15s",
-                opacity: client.is_active ? 1 : 0.55,
-              }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "var(--bg-secondary)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "transparent")
-              }
-            >
-              <div>
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: "var(--text-primary)",
-                  }}
-                >
-                  {client.name}
-                </div>
-                {(client.city || client.state) && (
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: "var(--text-muted)",
-                      marginTop: 1,
-                    }}
-                  >
-                    {[client.city, client.state].filter(Boolean).join(", ")}
-                  </div>
-                )}
-              </div>
-
-              <div style={{ minWidth: 0 }}>
-                {client.billing_email && (
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: "var(--text-secondary)",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {client.billing_email}
-                  </div>
-                )}
-                {client.phone && (
-                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                    {client.phone}
-                  </div>
-                )}
-              </div>
-
-              <div
-                style={{
-                  textAlign: "center",
-                  fontSize: 13,
-                  color: "var(--text-secondary)",
-                }}
-              >
-                {client.invoice_count}
-              </div>
-
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color:
-                    parseFloat(client.outstanding) > 0
-                      ? "var(--brand)"
-                      : "var(--text-muted)",
-                  textAlign: "right",
-                }}
-              >
-                {parseFloat(client.outstanding) > 0
-                  ? fmt(client.outstanding)
-                  : "—"}
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openEdit(client);
-                  }}
-                  style={{ padding: "4px 8px" }}
-                  title={t("common.edit")}
-                >
-                  <i className="ti ti-pencil" style={{ fontSize: 13 }} />
-                </button>
-              </div>
+        <Card padding="none" className="overflow-x-auto">
+          <div className="min-w-[560px]">
+            <div className="grid grid-cols-[1fr_180px_90px_120px_50px] px-4 py-2.5 border-b border-line bg-canvas text-[11px] text-muted font-medium tracking-[0.5px]">
+              <div>{t("clients.colName")}</div>
+              <div>{t("clients.colContact")}</div>
+              <div className="text-center">{t("clients.colInvoices")}</div>
+              <div className="text-right">{t("clients.colOutstanding")}</div>
+              <div></div>
             </div>
-          ))}
-        </div>
+
+            {clients.map((client) => (
+              <div
+                key={client.id}
+                onClick={() => setSelected(client)}
+                className={cx(
+                  "grid grid-cols-[1fr_180px_90px_120px_50px] px-4 py-3 border-b border-line items-center cursor-pointer transition-colors hover:bg-canvas",
+                  !client.is_active && "opacity-55",
+                )}
+              >
+                <div>
+                  <div className="text-md font-semibold text-ink">
+                    {client.name}
+                  </div>
+                  {(client.city || client.state) && (
+                    <div className="text-[11px] text-muted mt-px">
+                      {[client.city, client.state].filter(Boolean).join(", ")}
+                    </div>
+                  )}
+                </div>
+
+                <div className="min-w-0">
+                  {client.billing_email && (
+                    <div className="text-[11px] text-secondary truncate">
+                      {client.billing_email}
+                    </div>
+                  )}
+                  {client.phone && (
+                    <div className="text-[11px] text-muted">{client.phone}</div>
+                  )}
+                </div>
+
+                <div className="text-center text-md text-secondary">
+                  {client.invoice_count}
+                </div>
+
+                <div
+                  className={cx(
+                    "text-md font-semibold text-right",
+                    parseFloat(client.outstanding) > 0
+                      ? "text-brand"
+                      : "text-muted",
+                  )}
+                >
+                  {parseFloat(client.outstanding) > 0
+                    ? fmt(client.outstanding)
+                    : "—"}
+                </div>
+
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    icon="ti-pencil"
+                    title={t("common.edit")}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openEdit(client);
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
       )}
 
       {selected && (
