@@ -14,6 +14,13 @@
       "runtimeArgs": ["--prefix", "backend", "run", "dev"],
       "port": 5000,
       "autoPort": false
+    },
+    {
+      "name": "frontend-dist",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend", "run", "preview"],
+      "port": 4173,
+      "autoPort": false
     }
   ]
 }
