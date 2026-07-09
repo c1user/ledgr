@@ -10,9 +10,24 @@
 import express from "express";
 import pool from "../config/db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { getPlan } from "../middleware/entitlements.js";
+import { getEntitlements } from "../config/entitlements.js";
 
 const router = express.Router();
 router.use(requireAuth);
+
+// ── GET /api/business/entitlements ───────────────────────────
+// The frontend mirror of config/entitlements.js: current plan, its feature
+// list and limits, plus the feature→minimum-plan map that drives upsell copy.
+router.get("/entitlements", async (req, res) => {
+  try {
+    const plan = await getPlan(req.user.businessId);
+    return res.json(getEntitlements(plan));
+  } catch (err) {
+    console.error("Get entitlements error:", err);
+    return res.status(500).json({ error: "Failed to fetch entitlements" });
+  }
+});
 
 // ── GET /api/business ────────────────────────────────────────
 router.get("/", async (req, res) => {

@@ -41,6 +41,7 @@ import Projects from "./pages/Projects";
 
 // Layout
 import AppLayout from "./components/AppLayout";
+import RequireFeature from "./components/RequireFeature";
 
 // Protected route wrapper
 const ProtectedRoute = ({ children }) => {
@@ -86,7 +87,14 @@ export default function App() {
           {/* Transactions hub — ledger, recurring schedules and rules */}
           <Route path="transactions" element={<TransactionsHub />}>
             <Route index element={<Transactions />} />
-            <Route path="recurring" element={<Recurring />} />
+            <Route
+              path="recurring"
+              element={
+                <RequireFeature feature="recurring">
+                  <Recurring />
+                </RequireFeature>
+              }
+            />
             <Route path="rules" element={<Rules />} />
           </Route>
           {/* Legacy redirects for the old top-level routes */}
@@ -105,15 +113,36 @@ export default function App() {
           />
           <Route path="accounts" element={<Accounts />} />
           <Route path="receipts" element={<Receipts />} />
-          <Route path="payroll" element={<Payroll />} />
-          <Route path="ai" element={<AiChat />} />
+          <Route
+            path="payroll"
+            element={
+              <RequireFeature feature="payroll">
+                <Payroll />
+              </RequireFeature>
+            }
+          />
+          <Route
+            path="ai"
+            element={
+              <RequireFeature feature="ai_chat">
+                <AiChat />
+              </RequireFeature>
+            }
+          />
 
           {/* Reports hub — P&L, balance sheet, tax summary and Hacienda */}
           <Route path="reports" element={<Reports />}>
             <Route index element={<ProfitLoss />} />
             <Route path="balance-sheet" element={<BalanceSheet />} />
             <Route path="tax-summary" element={<TaxSummary />} />
-            <Route path="hacienda" element={<Hacienda />} />
+            <Route
+              path="hacienda"
+              element={
+                <RequireFeature feature="hacienda">
+                  <Hacienda />
+                </RequireFeature>
+              }
+            />
           </Route>
           {/* Legacy redirects for the old top-level report routes */}
           <Route
@@ -131,10 +160,24 @@ export default function App() {
 
           <Route path="settings" element={<BusinessProfile />} />
           <Route path="chart-of-accounts" element={<Accounting />} />
-          <Route path="vendors" element={<Vendors />} />
+          <Route
+            path="vendors"
+            element={
+              <RequireFeature feature="vendors">
+                <Vendors />
+              </RequireFeature>
+            }
+          />
 
           {/* Sales hub — clients, invoices and receivables as tab routes */}
-          <Route path="sales" element={<Sales />}>
+          <Route
+            path="sales"
+            element={
+              <RequireFeature feature="invoicing">
+                <Sales />
+              </RequireFeature>
+            }
+          >
             <Route index element={<Navigate to="/sales/invoices" replace />} />
             <Route path="clients" element={<Clients />} />
             <Route path="invoices" element={<Invoices />} />
@@ -154,10 +197,24 @@ export default function App() {
             element={<RedirectWithQuery to="/sales/receivables" />}
           />
 
-          <Route path="budget" element={<Budget />} />
+          <Route
+            path="budget"
+            element={
+              <RequireFeature feature="budgets">
+                <Budget />
+              </RequireFeature>
+            }
+          />
 
           {/* Projects hub — projects and time tracking (job costing) */}
-          <Route path="projects" element={<ProjectsHub />}>
+          <Route
+            path="projects"
+            element={
+              <RequireFeature feature="projects">
+                <ProjectsHub />
+              </RequireFeature>
+            }
+          >
             <Route index element={<Projects />} />
             <Route path="time" element={<TimeTracking />} />
           </Route>
@@ -167,7 +224,14 @@ export default function App() {
             element={<Navigate to="/projects/time" replace />}
           />
 
-          <Route path="inventory" element={<Inventory />} />
+          <Route
+            path="inventory"
+            element={
+              <RequireFeature feature="inventory">
+                <Inventory />
+              </RequireFeature>
+            }
+          />
         </Route>
 
         {/* Catch all */}

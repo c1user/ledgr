@@ -29,6 +29,14 @@
     "groupAccounting": "Contabilidad",
     "groupOperations": "Operaciones"
   },
+  "upgrade": {
+    "title": "Disponible en el plan {{plan}}",
+    "message": "Tu plan actual no incluye esta función. Actualiza tu plan para desbloquearla — la facturación estará disponible pronto.",
+    "plan_starter": "Starter",
+    "plan_professional": "Profesional",
+    "plan_premium": "Premium",
+    "locked": "Requiere actualizar el plan"
+  },
   "common": {
     "save": "Guardar",
     "downloadPdf": "Descargar PDF",

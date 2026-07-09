@@ -9,6 +9,8 @@ import {
   deleteReceiptFromS3,
 } from "../services/s3.js";
 import { extractReceiptData } from "../services/claude.js";
+import { getPlan } from "../middleware/entitlements.js";
+import { LIMITS } from "../config/entitlements.js";
 
 const router = express.Router();
 
@@ -47,6 +49,31 @@ router.post("/upload", upload.single("receipt"), async (req, res) => {
   }
 
   try {
+    // 0. Metered feature: Starter caps AI receipt scans per calendar month.
+    //    Checked BEFORE the S3 upload and Claude call so no cost is incurred.
+    const plan = await getPlan(businessId);
+    const monthlyLimit = LIMITS[plan]?.aiReceiptsPerMonth ?? null;
+    if (monthlyLimit !== null) {
+      const used = await pool.query(
+        `SELECT COUNT(*)::INT AS count
+           FROM receipts
+          WHERE business_id = $1
+            AND created_at >= DATE_TRUNC('month', NOW())`,
+        [businessId],
+      );
+      if (used.rows[0].count >= monthlyLimit) {
+        return res.status(403).json({
+          error: `Monthly receipt scan limit reached (${monthlyLimit}/month on the ${plan} plan)`,
+          code: "UPGRADE_REQUIRED",
+          feature: "ai_receipts",
+          plan,
+          requiredPlan: "professional",
+          limit: monthlyLimit,
+          used: used.rows[0].count,
+        });
+      }
+    }
+
     // 1. Upload image to S3
     const s3Key = await uploadReceiptToS3(
       req.file.buffer,

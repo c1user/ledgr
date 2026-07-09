@@ -18,6 +18,7 @@ import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { uuidParam } from "../middleware/validateUuid.js";
 import { buildCoaPdf, fetchBusiness } from "../services/reportPdf.js";
+import { requireFeature } from "../middleware/entitlements.js";
 
 const router = express.Router();
 router.use(requireAuth);
@@ -74,7 +75,7 @@ router.get("/", async (req, res) => {
 
 // ── GET /api/chart-of-accounts/pdf ───────────────────────────
 // Server-side Chart of Accounts PDF (Phase 3 — replaces window.print()).
-router.get("/pdf", async (req, res) => {
+router.get("/pdf", requireFeature("pdf_reports"), async (req, res) => {
   const { businessId } = req.user;
   const lang = req.query.lang === "es" ? "es" : "en";
 

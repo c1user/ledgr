@@ -29,6 +29,14 @@
     "groupAccounting": "Accounting",
     "groupOperations": "Operations"
   },
+  "upgrade": {
+    "title": "Available on the {{plan}} plan",
+    "message": "Your current plan doesn't include this feature. Upgrade to unlock it — billing is coming soon.",
+    "plan_starter": "Starter",
+    "plan_professional": "Professional",
+    "plan_premium": "Premium",
+    "locked": "Requires a plan upgrade"
+  },
   "common": {
     "save": "Save",
     "downloadPdf": "Download PDF",

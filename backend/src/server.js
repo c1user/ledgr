@@ -37,6 +37,8 @@ import inventoryRoutes from "./routes/inventory.js";
 import recurringRoutes from "./routes/recurring.js";
 import businessRoutes from "./routes/business.js";
 import { generalLimiter, authLimiter } from "./middleware/rateLimiter.js";
+import { requireAuth } from "./middleware/auth.js";
+import { requireFeature } from "./middleware/entitlements.js";
 import chartOfAccountsRoutes from "./routes/chartOfAccounts.js";
 import ledgerRoutes from "./routes/ledger.js";
 
@@ -126,27 +128,32 @@ app.use((req, res, next) => {
 });
 
 // ── Routes ────────────────────────────────────────────────────
-// authLimiter applied specifically to login/register to stop brute force
+// authLimiter applied specifically to login/register to stop brute force.
+// Professional/Premium routers are plan-gated at the mount: requireAuth
+// populates req.user, then requireFeature checks the business plan against
+// config/entitlements.js (finer-grained gates live inside reports.js etc.).
+const gate = (feature) => [requireAuth, requireFeature(feature)];
+
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/transactions", transactionRoutes);
 app.use("/api/accounts", accountRoutes);
 app.use("/api/receipts", receiptRoutes);
-app.use("/api/employees", employeeRoutes);
-app.use("/api/payroll", payrollRoutes);
+app.use("/api/employees", ...gate("payroll"), employeeRoutes);
+app.use("/api/payroll", ...gate("payroll"), payrollRoutes);
 // aiChatLimiter is applied inside ai.js on the /chat route only
-app.use("/api/ai", aiRoutes);
+app.use("/api/ai", ...gate("ai_chat"), aiRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/rules", rulesRoutes);
-app.use("/api/vendors", vendorRoutes);
-app.use("/api/clients", clientRoutes);
-app.use("/api/invoices", invoiceRoutes);
-app.use("/api/budgets", budgetRoutes);
+app.use("/api/vendors", ...gate("vendors"), vendorRoutes);
+app.use("/api/clients", ...gate("invoicing"), clientRoutes);
+app.use("/api/invoices", ...gate("invoicing"), invoiceRoutes);
+app.use("/api/budgets", ...gate("budgets"), budgetRoutes);
 app.use("/api/fx-rates", fxRoutes);
-app.use("/api/projects", projectRoutes);
-app.use("/api/time-entries", timeEntryRoutes);
-app.use("/api/products", productRoutes);
-app.use("/api/inventory", inventoryRoutes);
-app.use("/api/recurring", recurringRoutes);
+app.use("/api/projects", ...gate("projects"), projectRoutes);
+app.use("/api/time-entries", ...gate("projects"), timeEntryRoutes);
+app.use("/api/products", ...gate("inventory"), productRoutes);
+app.use("/api/inventory", ...gate("inventory"), inventoryRoutes);
+app.use("/api/recurring", ...gate("recurring"), recurringRoutes);
 app.use("/api/business", businessRoutes);
 app.use("/api/chart-of-accounts", chartOfAccountsRoutes);
 app.use("/api/ledger", ledgerRoutes);

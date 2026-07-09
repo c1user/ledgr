@@ -1,6 +1,7 @@
 import express from "express";
 import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { requireFeature } from "../middleware/entitlements.js";
 import {
   buildPlPdf,
   buildTaxPdf,
@@ -141,7 +142,7 @@ router.get("/pl", async (req, res) => {
 
 // ── GET /api/reports/pl/pdf ──────────────────────────────────
 // Server-side P&L PDF (Phase 3 — replaces window.print()).
-router.get("/pl/pdf", async (req, res) => {
+router.get("/pl/pdf", requireFeature("pdf_reports"), async (req, res) => {
   const { businessId } = req.user;
   const startDate = req.query.startDate || monthStartStr();
   const endDate = req.query.endDate || todayStr();
@@ -297,7 +298,7 @@ router.get("/tax", async (req, res) => {
 
 // ── GET /api/reports/tax/pdf ─────────────────────────────────
 // Server-side Tax Summary PDF (Phase 3 — replaces window.print()).
-router.get("/tax/pdf", async (req, res) => {
+router.get("/tax/pdf", requireFeature("pdf_reports"), async (req, res) => {
   const { businessId } = req.user;
   const year = parseInt(req.query.year) || new Date().getFullYear();
   const lang = req.query.lang === "es" ? "es" : "en";
@@ -347,7 +348,7 @@ const EMPTY_BUCKETS = () => ({
 // ── GET /api/reports/ar-aging ────────────────────────────────
 // Aging buckets + the underlying outstanding invoices (each with days_overdue
 // and its bucket), so the UI can render both the summary and an overdue list.
-router.get("/ar-aging", async (req, res) => {
+router.get("/ar-aging", requireFeature("invoicing"), async (req, res) => {
   const { businessId } = req.user;
   try {
     const result = await pool.query(
@@ -401,7 +402,7 @@ router.get("/ar-aging", async (req, res) => {
 
 // ── GET /api/reports/ar-summary ──────────────────────────────
 // Total outstanding by client, with the same aging buckets per client.
-router.get("/ar-summary", async (req, res) => {
+router.get("/ar-summary", requireFeature("invoicing"), async (req, res) => {
   const { businessId } = req.user;
   try {
     const result = await pool.query(
@@ -502,7 +503,7 @@ function csvCell(val) {
 // ── GET /api/reports/1099?year= ──────────────────────────────
 // 1099-NEC prep: eligible vendors, who crosses the $600 threshold, and which
 // flagged vendors are missing required recipient fields (blocks export).
-router.get("/1099", async (req, res) => {
+router.get("/1099", requireFeature("vendors"), async (req, res) => {
   const { businessId } = req.user;
   const year = parseInt(req.query.year, 10) || new Date().getFullYear();
 
@@ -531,7 +532,7 @@ router.get("/1099", async (req, res) => {
 // CSV in 1099-NEC recipient layout, flagged vendors only. Blocks (422) if any
 // flagged vendor is missing required fields, returning the offenders so the UI
 // can point the owner at exactly what to fix.
-router.get("/1099/export", async (req, res) => {
+router.get("/1099/export", requireFeature("vendors"), async (req, res) => {
   const { businessId } = req.user;
   const year = parseInt(req.query.year, 10) || new Date().getFullYear();
 
@@ -659,7 +660,7 @@ async function fetchPayer(businessId) {
 }
 
 // ── GET /api/reports/480-6sp?year= ───────────────────────────
-router.get("/480-6sp", async (req, res) => {
+router.get("/480-6sp", requireFeature("hacienda"), async (req, res) => {
   const { businessId } = req.user;
   const year = parseInt(req.query.year, 10) || new Date().getFullYear();
 
@@ -713,7 +714,7 @@ router.get("/480-6sp", async (req, res) => {
 // ── GET /api/reports/480-6sp/export?year= ────────────────────
 // CSV in 480.6SP recipient layout, flagged vendors only. Blocks (422) if the
 // payer block is incomplete or any flagged vendor is missing required fields.
-router.get("/480-6sp/export", async (req, res) => {
+router.get("/480-6sp/export", requireFeature("hacienda"), async (req, res) => {
   const { businessId } = req.user;
   const year = parseInt(req.query.year, 10) || new Date().getFullYear();
 

@@ -8,23 +8,41 @@ import LanguageToggle from "../components/LanguageToggle";
 import { setAppLanguage } from "../i18n";
 import BRAND from "../config/brand";
 import cx from "../lib/cx";
+import useEntitlements from "../lib/useEntitlements";
 import { Toggle } from "./ui";
 
 // Sidebar nav, organized into labelled sections. Groups without a `label`
 // (dashboard at the top, AI/settings at the bottom) render as ungrouped rows.
+// `feature` marks plan-gated items: they stay visible (upsell) with a lock
+// badge when the business plan doesn't include the feature.
 const navGroups = [
   {
     items: [
       { to: "/dashboard", icon: "ti-layout-dashboard", label: "nav.dashboard" },
-      { to: "/sales", icon: "ti-file-invoice", label: "nav.sales" },
+      {
+        to: "/sales",
+        icon: "ti-file-invoice",
+        label: "nav.sales",
+        feature: "invoicing",
+      },
     ],
   },
   {
     label: "nav.groupExpenses",
     items: [
-      { to: "/vendors", icon: "ti-users", label: "nav.vendors" },
+      {
+        to: "/vendors",
+        icon: "ti-users",
+        label: "nav.vendors",
+        feature: "vendors",
+      },
       { to: "/receipts", icon: "ti-receipt", label: "nav.receipts" },
-      { to: "/payroll", icon: "ti-businessplan", label: "nav.payroll" },
+      {
+        to: "/payroll",
+        icon: "ti-businessplan",
+        label: "nav.payroll",
+        feature: "payroll",
+      },
     ],
   },
   {
@@ -46,20 +64,35 @@ const navGroups = [
         icon: "ti-list-tree",
         label: "nav.chartOfAccounts",
       },
-      { to: "/budget", icon: "ti-wallet", label: "nav.budget" },
+      {
+        to: "/budget",
+        icon: "ti-wallet",
+        label: "nav.budget",
+        feature: "budgets",
+      },
       { to: "/reports", icon: "ti-chart-bar", label: "nav.reports" },
     ],
   },
   {
     label: "nav.groupOperations",
     items: [
-      { to: "/projects", icon: "ti-briefcase", label: "nav.projects" },
-      { to: "/inventory", icon: "ti-box", label: "nav.inventory" },
+      {
+        to: "/projects",
+        icon: "ti-briefcase",
+        label: "nav.projects",
+        feature: "projects",
+      },
+      {
+        to: "/inventory",
+        icon: "ti-box",
+        label: "nav.inventory",
+        feature: "inventory",
+      },
     ],
   },
   {
     items: [
-      { to: "/ai", icon: "ti-sparkles", label: "nav.aiChat" },
+      { to: "/ai", icon: "ti-sparkles", label: "nav.aiChat", feature: "ai_chat" },
       { to: "/settings", icon: "ti-settings", label: "nav.businessProfile" },
     ],
   },
@@ -71,6 +104,7 @@ export default function AppLayout() {
   const { t, i18n } = useTranslation();
   const { user, business, logout } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
+  const { plan, hasFeature, isLoading: entLoading } = useEntitlements();
   const reorderCount = useInventoryStore((s) => s.reorderCount);
   const navigate = useNavigate();
   const location = useLocation();
@@ -215,8 +249,19 @@ export default function AppLayout() {
                   />
                   {sidebarOpen && <span>{t(item.label)}</span>}
                   {sidebarOpen &&
+                    item.feature &&
+                    !entLoading &&
+                    !hasFeature(item.feature) && (
+                      <i
+                        className="ti ti-lock ml-auto text-muted text-sm shrink-0"
+                        title={t("upgrade.locked")}
+                        aria-hidden="true"
+                      />
+                    )}
+                  {sidebarOpen &&
                     item.to === "/inventory" &&
-                    reorderCount > 0 && (
+                    reorderCount > 0 &&
+                    (!item.feature || hasFeature(item.feature)) && (
                       <span className="ml-auto bg-[#e53e3e] text-white text-[10px] font-bold px-1.5 rounded-lg leading-4">
                         {reorderCount}
                       </span>
@@ -342,7 +387,7 @@ export default function AppLayout() {
           <div className="flex items-center gap-2 shrink-0">
             <LanguageToggle />
             <span className="text-[11px] px-2 py-[3px] rounded bg-brand-light text-brand font-medium">
-              {business?.plan?.toUpperCase() || "FREE"}
+              {(plan || business?.plan || "starter").toUpperCase()}
             </span>
           </div>
         </header>

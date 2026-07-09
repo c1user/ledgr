@@ -19,6 +19,7 @@ import express from "express";
 import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { buildBalanceSheetPdf, fetchBusiness } from "../services/reportPdf.js";
+import { requireFeature } from "../middleware/entitlements.js";
 
 const router = express.Router();
 router.use(requireAuth);
@@ -148,28 +149,32 @@ router.get("/balance-sheet", async (req, res) => {
 
 // ── GET /api/ledger/balance-sheet/pdf ────────────────────────
 // Server-side Balance Sheet PDF (Phase 3 — replaces window.print()).
-router.get("/balance-sheet/pdf", async (req, res) => {
-  const { businessId } = req.user;
-  const asOf = req.query.asOf || new Date().toISOString().slice(0, 10);
-  const lang = req.query.lang === "es" ? "es" : "en";
+router.get(
+  "/balance-sheet/pdf",
+  requireFeature("pdf_reports"),
+  async (req, res) => {
+    const { businessId } = req.user;
+    const asOf = req.query.asOf || new Date().toISOString().slice(0, 10);
+    const lang = req.query.lang === "es" ? "es" : "en";
 
-  try {
-    const [data, business] = await Promise.all([
-      computeBalanceSheet(businessId, asOf),
-      fetchBusiness(businessId),
-    ]);
-    const pdf = await buildBalanceSheetPdf(data, business, { asOf, lang });
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="balance-sheet-${asOf}.pdf"`,
-    );
-    return res.send(pdf);
-  } catch (err) {
-    console.error("Balance sheet PDF error:", err);
-    return res.status(500).json({ error: "Failed to generate PDF" });
-  }
-});
+    try {
+      const [data, business] = await Promise.all([
+        computeBalanceSheet(businessId, asOf),
+        fetchBusiness(businessId),
+      ]);
+      const pdf = await buildBalanceSheetPdf(data, business, { asOf, lang });
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="balance-sheet-${asOf}.pdf"`,
+      );
+      return res.send(pdf);
+    } catch (err) {
+      console.error("Balance sheet PDF error:", err);
+      return res.status(500).json({ error: "Failed to generate PDF" });
+    }
+  },
+);
 
 // ── GET /api/ledger/journal ──────────────────────────────────
 router.get("/journal", async (req, res) => {
