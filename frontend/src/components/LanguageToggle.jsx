@@ -40,7 +40,9 @@ export default function LanguageToggle() {
   const btnClass = (lang) =>
     cx(
       "px-2.5 py-[3px] text-[11px] font-medium cursor-pointer transition-all",
-      current === lang ? "bg-brand text-white" : "bg-transparent text-secondary",
+      current === lang
+        ? "bg-brand text-on-brand"
+        : "bg-transparent text-secondary",
     );
 
   return (

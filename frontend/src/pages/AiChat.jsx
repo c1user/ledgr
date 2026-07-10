@@ -37,7 +37,7 @@ function Message({ msg }) {
         className={cx(
           "max-w-[75%] px-3.5 py-2.5 text-md leading-[1.7] whitespace-pre-wrap",
           isUser
-            ? "rounded-xl rounded-br-sm bg-brand text-white"
+            ? "rounded-xl rounded-br-sm bg-brand text-on-brand"
             : "rounded-xl rounded-bl-sm bg-canvas text-ink border border-line",
         )}
       >
@@ -276,7 +276,7 @@ export default function AiChat() {
               className={cx(
                 "flex items-center justify-center w-[34px] h-[34px] rounded-lg shrink-0 transition-colors",
                 input.trim() && !isTyping
-                  ? "bg-brand text-white cursor-pointer"
+                  ? "bg-brand text-on-brand cursor-pointer"
                   : "bg-line text-muted cursor-not-allowed",
               )}
             >

@@ -19,10 +19,10 @@ const makeFmt =
 // severity increases from current → 90+.
 const BUCKETS = [
   { key: "current", labelKey: "ar.bucketCurrent", color: "var(--income)" },
-  { key: "d1_30", labelKey: "ar.bucket1_30", color: "#eab308" },
-  { key: "d31_60", labelKey: "ar.bucket31_60", color: "#f97316" },
-  { key: "d61_90", labelKey: "ar.bucket61_90", color: "#ef4444" },
-  { key: "d90_plus", labelKey: "ar.bucket90_plus", color: "var(--expense)" },
+  { key: "d1_30", labelKey: "ar.bucket1_30", color: "#b88a1f" },
+  { key: "d31_60", labelKey: "ar.bucket31_60", color: "#c86a2e" },
+  { key: "d61_90", labelKey: "ar.bucket61_90", color: "var(--expense)" },
+  { key: "d90_plus", labelKey: "ar.bucket90_plus", color: "var(--danger)" },
 ];
 
 // ── Summary stat card ─────────────────────────────────────────

@@ -29,26 +29,30 @@ const NORMAL_BALANCE = {
 };
 
 // code, name_key, type, color
+// Colors follow the "Ink & plum" identity (Roadmap v2 · Phase 1.3):
+// teal-greens for assets/revenue, warm rusts for liabilities, plums for
+// equity, and a full categorical spread for expenses (they appear together
+// in the spending charts, so they must be mutually distinct).
 const COA_TEMPLATE = [
   // ── Assets (1000s) ──
-  { code: "1000", key: "coa.accounts.cash", type: "asset", color: "#00C896" },
+  { code: "1000", key: "coa.accounts.cash", type: "asset", color: "#2E8570" },
   {
     code: "1100",
     key: "coa.accounts.accounts_receivable",
     type: "asset",
-    color: "#5DCAA5",
+    color: "#4C8F8A",
   },
   {
     code: "1200",
     key: "coa.accounts.inventory_asset",
     type: "asset",
-    color: "#9FE1CB",
+    color: "#7FA982",
   },
   {
     code: "1900",
     key: "coa.accounts.other_current_asset",
     type: "asset",
-    color: "#7FD4B8",
+    color: "#98B99F",
   },
 
   // ── Liabilities (2000s) ──
@@ -56,31 +60,31 @@ const COA_TEMPLATE = [
     code: "2000",
     key: "coa.accounts.accounts_payable",
     type: "liability",
-    color: "#E24B4A",
+    color: "#C24E24",
   },
   {
     code: "2100",
     key: "coa.accounts.credit_card_payable",
     type: "liability",
-    color: "#E86A69",
+    color: "#A6543F",
   },
   {
     code: "2200",
     key: "coa.accounts.sales_tax_payable",
     type: "liability",
-    color: "#F0997B",
+    color: "#C86A2E",
   }, // IVU (PR)
   {
     code: "2300",
     key: "coa.accounts.payroll_liabilities",
     type: "liability",
-    color: "#D85A30",
+    color: "#B0603A",
   },
   {
     code: "2400",
     key: "coa.accounts.services_withholding_payable",
     type: "liability",
-    color: "#D85A30",
+    color: "#8A4A2A",
   }, // §1062.03 service withholding owed to Hacienda
 
   // ── Equity (3000s) ──
@@ -88,13 +92,13 @@ const COA_TEMPLATE = [
     code: "3000",
     key: "coa.accounts.owner_equity",
     type: "equity",
-    color: "#534AB7",
+    color: "#5B3A9B",
   },
   {
     code: "3900",
     key: "coa.accounts.retained_earnings",
     type: "equity",
-    color: "#7F77DD",
+    color: "#7D63C4",
   },
 
   // ── Revenue (4000s) ──
@@ -102,19 +106,19 @@ const COA_TEMPLATE = [
     code: "4000",
     key: "coa.accounts.sales_revenue",
     type: "revenue",
-    color: "#1D9E75",
+    color: "#1E7A5B",
   },
   {
     code: "4100",
     key: "coa.accounts.consulting_revenue",
     type: "revenue",
-    color: "#5DCAA5",
+    color: "#4C8F8A",
   },
   {
     code: "4900",
     key: "coa.accounts.other_income",
     type: "revenue",
-    color: "#9FE1CB",
+    color: "#7FA982",
   },
 
   // ── Expenses (5000s) ──
@@ -122,33 +126,33 @@ const COA_TEMPLATE = [
     code: "5000",
     key: "coa.accounts.payroll_expense",
     type: "expense",
-    color: "#4F8EF7",
+    color: "#2F6BC6",
   },
-  { code: "5100", key: "coa.accounts.rent", type: "expense", color: "#F7934C" },
+  { code: "5100", key: "coa.accounts.rent", type: "expense", color: "#C24E24" },
   {
     code: "5200",
     key: "coa.accounts.utilities",
     type: "expense",
-    color: "#A259FF",
+    color: "#7D63C4",
   },
   {
     code: "5300",
     key: "coa.accounts.supplies",
     type: "expense",
-    color: "#F7C948",
+    color: "#B88A1F",
   },
   {
     code: "5400",
     key: "coa.accounts.marketing",
     type: "expense",
-    color: "#E24B4A",
+    color: "#9C2F6F",
   },
-  { code: "5500", key: "coa.accounts.cogs", type: "expense", color: "#D85A30" },
+  { code: "5500", key: "coa.accounts.cogs", type: "expense", color: "#A6543F" },
   {
     code: "5900",
     key: "coa.accounts.other_expense",
     type: "expense",
-    color: "#888780",
+    color: "#6B6880",
   },
 ];
 

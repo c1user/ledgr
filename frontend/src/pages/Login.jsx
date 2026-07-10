@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import BRAND from "../config/brand";
+import BrandMark from "../components/BrandMark";
 import { Button, Card, Field, Input } from "../components/ui";
 
 export default function Login() {
@@ -63,7 +64,8 @@ export default function Login() {
 
       <Card padding="lg" className="w-full max-w-[400px] fade-in">
         <div className="text-center mb-7">
-          <div className="text-brand text-[22px] font-bold tracking-[4px] uppercase mb-1.5">
+          <BrandMark size={52} className="mx-auto mb-3" />
+          <div className="font-display text-brand text-[22px] font-bold tracking-[4px] uppercase mb-1.5">
             {BRAND.name}
           </div>
           <div className="text-muted text-md">Sign in to your account</div>

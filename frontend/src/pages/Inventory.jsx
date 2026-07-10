@@ -577,7 +577,7 @@ export default function Inventory() {
                 className={cx(
                   "px-4 py-1.5 rounded-md text-md cursor-pointer transition-all",
                   tab === tb
-                    ? "bg-brand text-white font-semibold"
+                    ? "bg-brand text-on-brand font-semibold"
                     : "bg-transparent text-secondary",
                 )}
               >

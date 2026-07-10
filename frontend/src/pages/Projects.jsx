@@ -49,7 +49,7 @@ const makeEmptyForm = () => ({
   budget: "",
   start_date: "",
   end_date: "",
-  color: "#4f8ef7",
+  color: "#2f6bc6",
   description: "",
 });
 
@@ -65,7 +65,7 @@ function ProjectModal({ onClose, clients, editItem, t }) {
           budget: editItem.budget != null ? String(editItem.budget) : "",
           start_date: editItem.start_date || "",
           end_date: editItem.end_date || "",
-          color: editItem.color || "#4f8ef7",
+          color: editItem.color || "#2f6bc6",
           description: editItem.description || "",
         }
       : makeEmptyForm(),

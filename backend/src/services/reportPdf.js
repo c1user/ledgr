@@ -94,10 +94,12 @@ function fmtDate(value, lang) {
 const LEFT = 50;
 const RIGHT = 562; // 612pt LETTER − 50 margin
 const BOTTOM = 720;
-const INK = "#1a1a1a";
-const GRAY = "#666666";
-const FAINT = "#888888";
-const RULE = "#e5e5e3";
+// "Ink & plum" print palette (Roadmap v2 · Phase 1.3)
+const INK = "#191524";
+const GRAY = "#4f4a60";
+const FAINT = "#948fa6";
+const RULE = "#e6e3ef";
+const PLUM = "#5b3a9b";
 
 function startDoc() {
   const doc = new PDFDocument({ size: "LETTER", margin: 50 });
@@ -129,7 +131,7 @@ function pageHeader(ctx, business, title, subtitle) {
   doc.font("Helvetica").fontSize(9).fillColor(GRAY);
   addr.forEach((line, i) => doc.text(line, LEFT, 72 + i * 12, { width: 280 }));
 
-  doc.font("Helvetica-Bold").fontSize(15).fillColor("#444444");
+  doc.font("Helvetica-Bold").fontSize(15).fillColor(PLUM);
   doc.text(title, 300, 52, { width: RIGHT - 300, align: "right" });
   if (subtitle) {
     doc.font("Helvetica").fontSize(9).fillColor(GRAY);

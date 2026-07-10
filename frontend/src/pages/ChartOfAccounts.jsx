@@ -134,7 +134,7 @@ export default function ChartOfAccounts() {
               className={cx(
                 "text-md px-3 py-1 rounded-full border border-line cursor-pointer transition-colors",
                 active
-                  ? "bg-brand text-white font-semibold"
+                  ? "bg-brand text-on-brand font-semibold"
                   : "bg-transparent text-secondary",
               )}
             >

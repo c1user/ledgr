@@ -16,19 +16,20 @@ import {
   Tabs,
 } from "../components/ui";
 
-const emptyForm = { name: "", type: "expense", color: "#4F8EF7", parentId: "" };
+const emptyForm = { name: "", type: "expense", color: "#2F6BC6", parentId: "" };
 
+// Categorical presets harmonized with the "Ink & plum" identity.
 const COLOR_PRESETS = [
-  "#00C896",
-  "#4F8EF7",
-  "#A259FF",
-  "#F7934C",
-  "#F7C948",
-  "#E24B4A",
-  "#5DCAA5",
-  "#185FA5",
-  "#534AB7",
-  "#888780",
+  "#5B3A9B",
+  "#7D63C4",
+  "#9C2F6F",
+  "#C24E24",
+  "#A6543F",
+  "#B88A1F",
+  "#1E7A5B",
+  "#4C8F8A",
+  "#2F6BC6",
+  "#6B6880",
 ];
 
 // ── Category Modal ────────────────────────────────────────────

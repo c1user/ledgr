@@ -40,7 +40,7 @@ function CategoryRow({ color, name, total, fmt, currency }) {
       <div className="flex items-center gap-2">
         <div
           className="w-2.5 h-2.5 rounded-full shrink-0"
-          style={{ background: color || "#888888" }}
+          style={{ background: color || "#6b6880" }}
         />
         <span className="text-sm text-ink">{name}</span>
       </div>
@@ -211,9 +211,9 @@ export default function TaxSummary() {
       {/* Header */}
       <div className="print-hide flex justify-between items-center mb-5 flex-wrap gap-3">
         <h1 className="text-xl font-bold text-ink">{t("tax.title")}</h1>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap">
           {/* Year selector */}
-          <div className="flex gap-1.5">
+          <div className="flex gap-1.5 flex-wrap">
             {YEARS.map((y) => (
               <Button
                 key={y}

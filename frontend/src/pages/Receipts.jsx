@@ -477,7 +477,7 @@ function ReceiptModal({ receipt, onClose, transactions, accounts, fmt, t }) {
             <div
               className={cx(
                 "flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold",
-                step >= s ? "bg-brand text-white" : "bg-line text-muted",
+                step >= s ? "bg-brand text-on-brand" : "bg-line text-muted",
               )}
             >
               {step > s ? (

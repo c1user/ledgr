@@ -25,6 +25,9 @@ export default {
           light: "var(--brand-light)",
           hover: "var(--brand-hover)",
         },
+        // Text/icon color on solid brand surfaces (white in light mode,
+        // ink in dark mode where the brand plum is light)
+        "on-brand": "var(--on-brand)",
         income: { DEFAULT: "var(--income)", bg: "var(--income-bg)" },
         expense: { DEFAULT: "var(--expense)", bg: "var(--expense-bg)" },
         payroll: { DEFAULT: "var(--payroll)", bg: "var(--payroll-bg)" },
@@ -44,11 +47,13 @@ export default {
       },
       fontFamily: {
         sans: ["Inter", "sans-serif"],
+        display: ["Fraunces", "Georgia", "serif"],
         mono: ["DM Mono", "monospace"],
       },
       fontSize: {
-        // The app's dominant control/body size
-        md: ["13px", { lineHeight: "1.6" }],
+        // The app's dominant control/body size (bumped 13→14px for
+        // readability — Roadmap v2 · Phase 1.2)
+        md: ["14px", { lineHeight: "1.6" }],
       },
     },
   },

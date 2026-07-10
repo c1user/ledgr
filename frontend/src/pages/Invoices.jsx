@@ -48,7 +48,7 @@ function StatusBadge({ status, t }) {
 // Confidence indicator for AI-drafted line items (#12).
 const CONFIDENCE_COLORS = {
   high: "var(--income)",
-  medium: "#eab308",
+  medium: "#b88a1f",
   low: "var(--expense)",
 };
 

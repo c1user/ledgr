@@ -281,7 +281,7 @@ function RuleCard({ rule, index, total, onMoveUp, onMoveDown, onEdit, onDelete, 
           <span className="flex items-center gap-1">
             <span
               className="inline-block w-2 h-2 rounded-full"
-              style={{ background: rule.category_color || "#888" }}
+              style={{ background: rule.category_color || "#6b6880" }}
             />
             {resolveCatName(rule.category_name_key, rule.category_name, t)}
             <span className="text-muted text-[11px]">

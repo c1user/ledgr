@@ -97,7 +97,7 @@ function SpendingChart({ transactions, currency, navigate, fmt, t }) {
         const key =
           (split.name_key ? t(split.name_key) : split.name) ||
           t("dashboard.uncategorized");
-        const color = split.color || "#888780";
+        const color = split.color || "#6b6880";
         if (!categoryMap[key])
           categoryMap[key] = { name: key, value: 0, color };
         categoryMap[key].value += parseFloat(split.amount || 0);
@@ -106,7 +106,7 @@ function SpendingChart({ transactions, currency, navigate, fmt, t }) {
       // No ledger lines (shouldn't normally happen) — keep the chart total honest.
       const key = t("dashboard.uncategorized");
       if (!categoryMap[key])
-        categoryMap[key] = { name: key, value: 0, color: "#888780" };
+        categoryMap[key] = { name: key, value: 0, color: "#6b6880" };
       categoryMap[key].value += parseFloat(tx.total_amount || 0);
     }
   }

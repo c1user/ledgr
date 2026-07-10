@@ -7,6 +7,7 @@ import useInventoryStore from "../store/inventoryStore";
 import LanguageToggle from "../components/LanguageToggle";
 import { setAppLanguage } from "../i18n";
 import BRAND from "../config/brand";
+import BrandMark from "./BrandMark";
 import cx from "../lib/cx";
 import useEntitlements from "../lib/useEntitlements";
 import { Toggle } from "./ui";
@@ -188,12 +189,15 @@ export default function AppLayout() {
           )}
         >
           {sidebarOpen && (
-            <div>
-              <div className="text-brand text-[15px] font-bold tracking-[3px] uppercase">
-                {BRAND.name}
-              </div>
-              <div className="text-muted text-[11px] mt-px">
-                {business?.name || t("nav.myBusiness")}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <BrandMark size={28} className="shrink-0" />
+              <div className="min-w-0">
+                <div className="font-display text-brand text-[15px] font-bold tracking-[3px] uppercase">
+                  {BRAND.name}
+                </div>
+                <div className="text-muted text-[11px] mt-px truncate">
+                  {business?.name || t("nav.myBusiness")}
+                </div>
               </div>
             </div>
           )}
@@ -262,7 +266,7 @@ export default function AppLayout() {
                     item.to === "/inventory" &&
                     reorderCount > 0 &&
                     (!item.feature || hasFeature(item.feature)) && (
-                      <span className="ml-auto bg-[#e53e3e] text-white text-[10px] font-bold px-1.5 rounded-lg leading-4">
+                      <span className="ml-auto bg-danger text-white text-[10px] font-bold px-1.5 rounded-lg leading-4">
                         {reorderCount}
                       </span>
                     )}
@@ -362,7 +366,7 @@ export default function AppLayout() {
 
           {/* Mobile logo */}
           {mobile && (
-            <div className="text-brand text-sm font-bold tracking-[3px] uppercase">
+            <div className="font-display text-brand text-sm font-bold tracking-[3px] uppercase">
               {BRAND.name}
             </div>
           )}

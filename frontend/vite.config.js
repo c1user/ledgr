@@ -16,8 +16,8 @@ export default defineConfig({
         short_name: "Abaco",
         description:
           "Accounting for small businesses — invoicing, payroll, taxes and a real double-entry ledger.",
-        theme_color: "#0f6e56",
-        background_color: "#f5f5f4",
+        theme_color: "#5b3a9b",
+        background_color: "#f7f6fa",
         display: "standalone",
         start_url: "/",
         icons: [

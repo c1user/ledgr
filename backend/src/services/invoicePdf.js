@@ -77,10 +77,10 @@ export function buildInvoicePdf(invoice, business, lang = "en") {
 
     const left = 50;
     const right = 562; // 612pt page width − 50 margin
-    const grayrgb = "#666666";
+    const grayrgb = "#4f4a60";
 
     // ── Header: business (left) + INVOICE meta (right) ──
-    doc.fillColor("#1a1a1a").font("Helvetica-Bold").fontSize(18);
+    doc.fillColor("#191524").font("Helvetica-Bold").fontSize(18);
     doc.text(business?.name || "", left, 50, { width: 280 });
     const bizAddr = [
       business?.address,
@@ -89,9 +89,9 @@ export function buildInvoicePdf(invoice, business, lang = "en") {
     doc.font("Helvetica").fontSize(9).fillColor(grayrgb);
     bizAddr.forEach((line, i) => doc.text(line, left, 74 + i * 12, { width: 280 }));
 
-    doc.font("Helvetica-Bold").fontSize(22).fillColor("#444444");
+    doc.font("Helvetica-Bold").fontSize(22).fillColor("#5b3a9b");
     doc.text(L.invoice, 330, 50, { width: right - 330, align: "right" });
-    doc.font("Helvetica").fontSize(10).fillColor("#333333");
+    doc.font("Helvetica").fontSize(10).fillColor("#403a52");
     doc.text(invoice.invoice_number || "", 330, 80, { width: right - 330, align: "right" });
     doc.fillColor(grayrgb).fontSize(9);
     doc.text(`${L.issueDate}: ${fmtDate(invoice.issue_date, lang)}`, 330, 96, { width: right - 330, align: "right" });
@@ -99,9 +99,9 @@ export function buildInvoicePdf(invoice, business, lang = "en") {
 
     // ── Bill to ──
     let y = 150;
-    doc.fillColor("#888888").font("Helvetica").fontSize(8).text(L.billTo.toUpperCase(), left, y);
+    doc.fillColor("#948fa6").font("Helvetica").fontSize(8).text(L.billTo.toUpperCase(), left, y);
     y += 14;
-    doc.fillColor("#333333").fontSize(10);
+    doc.fillColor("#403a52").fontSize(10);
     const billTo = [
       invoice.client_name,
       invoice.billing_address,
@@ -120,7 +120,7 @@ export function buildInvoicePdf(invoice, business, lang = "en") {
     };
     const colW = { desc: 270, qty: 60, unit: 60, amount: 92 };
     const headRow = (yy) => {
-      doc.font("Helvetica-Bold").fontSize(8).fillColor("#1a1a1a");
+      doc.font("Helvetica-Bold").fontSize(8).fillColor("#191524");
       doc.text(L.description.toUpperCase(), cols.desc, yy, { width: colW.desc });
       doc.text(L.qty.toUpperCase(), cols.qty, yy, { width: colW.qty, align: "right" });
       doc.text(L.unitPrice.toUpperCase(), cols.unit, yy, { width: colW.unit, align: "right" });
@@ -128,29 +128,29 @@ export function buildInvoicePdf(invoice, business, lang = "en") {
     };
     headRow(y);
     y += 14;
-    doc.moveTo(left, y).lineTo(right, y).lineWidth(1.5).strokeColor("#1a1a1a").stroke();
+    doc.moveTo(left, y).lineTo(right, y).lineWidth(1.5).strokeColor("#191524").stroke();
     y += 8;
 
-    doc.font("Helvetica").fontSize(10).fillColor("#1a1a1a");
+    doc.font("Helvetica").fontSize(10).fillColor("#191524");
     for (const item of invoice.line_items || []) {
       const descHeight = doc.heightOfString(item.description || "", { width: colW.desc });
       if (y + descHeight > 700) { doc.addPage(); y = 50; headRow(y); y += 22; }
-      doc.fillColor("#1a1a1a").text(item.description || "", cols.desc, y, { width: colW.desc });
-      doc.fillColor("#333333");
+      doc.fillColor("#191524").text(item.description || "", cols.desc, y, { width: colW.desc });
+      doc.fillColor("#403a52");
       doc.text(String(Number(item.quantity)), cols.qty, y, { width: colW.qty, align: "right" });
       doc.text(money(item.unit_price), cols.unit, y, { width: colW.unit, align: "right" });
       doc.text(money(item.total), cols.amount, y, { width: colW.amount, align: "right" });
       y += Math.max(descHeight, 12) + 8;
-      doc.moveTo(left, y - 4).lineTo(right, y - 4).lineWidth(0.5).strokeColor("#eeeeee").stroke();
+      doc.moveTo(left, y - 4).lineTo(right, y - 4).lineWidth(0.5).strokeColor("#e6e3ef").stroke();
     }
 
     // ── Totals ──
     y += 8;
     const totalLine = (label, value, opts = {}) => {
       doc.font(opts.bold ? "Helvetica-Bold" : "Helvetica").fontSize(opts.bold ? 13 : 10);
-      doc.fillColor(opts.bold ? "#1a1a1a" : grayrgb);
+      doc.fillColor(opts.bold ? "#191524" : grayrgb);
       doc.text(label, cols.unit - 60, y, { width: 120 + 60, align: "right" });
-      doc.fillColor("#1a1a1a").text(value, cols.amount, y, { width: colW.amount, align: "right" });
+      doc.fillColor("#191524").text(value, cols.amount, y, { width: colW.amount, align: "right" });
       y += opts.bold ? 22 : 16;
     };
     totalLine(L.subtotal, money(invoice.subtotal));
@@ -158,16 +158,16 @@ export function buildInvoicePdf(invoice, business, lang = "en") {
       const taxName = invoice.tax_type === "ivu" ? "IVU" : L.tax;
       totalLine(`${taxName} (${Number(invoice.tax_rate)}%)`, money(invoice.tax_total));
     }
-    doc.moveTo(cols.unit - 60, y).lineTo(right, y).lineWidth(1.5).strokeColor("#1a1a1a").stroke();
+    doc.moveTo(cols.unit - 60, y).lineTo(right, y).lineWidth(1.5).strokeColor("#191524").stroke();
     y += 6;
     totalLine(L.total, money(invoice.total), { bold: true });
 
     // ── Notes ──
     if (invoice.notes) {
       y += 16;
-      doc.fillColor("#888888").font("Helvetica").fontSize(8).text(L.notes.toUpperCase(), left, y);
+      doc.fillColor("#948fa6").font("Helvetica").fontSize(8).text(L.notes.toUpperCase(), left, y);
       y += 12;
-      doc.fillColor("#555555").fontSize(10).text(invoice.notes, left, y, { width: right - left });
+      doc.fillColor("#4f4a60").fontSize(10).text(invoice.notes, left, y, { width: right - left });
     }
 
     doc.end();

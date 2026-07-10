@@ -4,6 +4,7 @@ import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import useThemeStore from "../store/themeStore";
 import BRAND from "../config/brand";
+import BrandMark from "../components/BrandMark";
 import { Button, Card, Field, Input, Select } from "../components/ui";
 
 export default function Register() {
@@ -75,7 +76,8 @@ export default function Register() {
       <Card padding="lg" className="w-full max-w-[440px] fade-in">
         {/* Logo */}
         <div className="text-center mb-7">
-          <div className="text-brand text-[22px] font-bold tracking-[4px] uppercase mb-1.5">
+          <BrandMark size={52} className="mx-auto mb-3" />
+          <div className="font-display text-brand text-[22px] font-bold tracking-[4px] uppercase mb-1.5">
             {BRAND.name}
           </div>
           <div className="text-muted text-md">

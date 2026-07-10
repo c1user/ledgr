@@ -141,7 +141,7 @@ function PLRow({ color, name, total, fmt, currency }) {
       <div className="flex items-center gap-2">
         <div
           className="w-2.5 h-2.5 rounded-full shrink-0"
-          style={{ background: color || "#888888" }}
+          style={{ background: color || "#6b6880" }}
         />
         <span className="text-sm text-ink">{name}</span>
       </div>

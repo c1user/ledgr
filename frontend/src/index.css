@@ -1,74 +1,78 @@
-/* ── Import font (must precede all other statements) ─────── */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap");
+/* ── Import fonts (must precede all other statements) ──────
+   Inter = UI body · Fraunces = display face (titles, wordmark) ·
+   DM Mono = code/mono */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=DM+Mono:wght@400;500&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ── Light theme (default) ───────────────────────────────── */
+/* ── Light theme (default) — "Ink & plum" brand identity ─── */
 :root {
   --bg-primary: #ffffff;
-  --bg-secondary: #f5f5f4;
-  --bg-tertiary: #eeeeec;
-  --bg-sidebar: #ffffff;
+  --bg-secondary: #f7f6fa;
+  --bg-tertiary: #efedf5;
+  --bg-sidebar: #fbfafd;
 
-  --text-primary: #111111;
-  --text-secondary: #555555;
-  --text-muted: #999999;
+  --text-primary: #191524;
+  --text-secondary: #4f4a60;
+  --text-muted: #948fa6;
 
-  --border-color: #e5e5e3;
-  --border-hover: #d0d0ce;
+  --border-color: #e6e3ef;
+  --border-hover: #cec9e0;
 
-  --brand: #0f6e56;
-  --brand-light: #e8f5f0;
-  --brand-hover: #085041;
+  --brand: #5b3a9b;
+  --brand-light: #eee7fa;
+  --brand-hover: #472a7e;
+  --on-brand: #ffffff; /* text/icon color on solid brand surfaces */
 
-  --income: #0f6e56;
-  --expense: #993c1d;
-  --payroll: #185fa5;
-  --profit: #534ab7;
+  --income: #1e7a5b;
+  --expense: #c24e24;
+  --payroll: #2f6bc6;
+  --profit: #9c2f6f;
 
-  --income-bg: #e1f5ee;
-  --expense-bg: #faece7;
-  --payroll-bg: #e6f1fb;
+  --income-bg: #e0f3eb;
+  --expense-bg: #fbe8df;
+  --payroll-bg: #e5edfb;
 
-  --danger: #a32d2d;
-  --danger-bg: #fcebeb;
+  --danger: #b3323c;
+  --danger-bg: #fae5e7;
 
-  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --card-shadow: 0 1px 3px rgba(30, 20, 60, 0.07);
 }
 
 /* ── Dark theme ──────────────────────────────────────────── */
 [data-theme="dark"] {
-  --bg-primary: #111111;
-  --bg-secondary: #1a1a1a;
-  --bg-tertiary: #080808;
-  --bg-sidebar: #0d0d0d;
+  --bg-primary: #181420;
+  --bg-secondary: #110e18;
+  --bg-tertiary: #0b0811;
+  --bg-sidebar: #14101b;
 
-  --text-primary: #e0e0e0;
-  --text-secondary: #888888;
-  --text-muted: #444444;
+  --text-primary: #e9e6f3;
+  --text-secondary: #9b95af;
+  --text-muted: #575069;
 
-  --border-color: #242424;
-  --border-hover: #333333;
+  --border-color: #2b2439;
+  --border-hover: #3d3454;
 
-  --brand: #00c896;
-  --brand-light: #00c89611;
-  --brand-hover: #00a87e;
+  --brand: #a987e9;
+  --brand-light: #251d39;
+  --brand-hover: #9169de;
+  --on-brand: #191524; /* dark ink on the light plum — readable buttons */
 
-  --income: #00c896;
-  --expense: #f7934c;
-  --payroll: #4f8ef7;
-  --profit: #a259ff;
+  --income: #4fc79a;
+  --expense: #f0895c;
+  --payroll: #6e9ef0;
+  --profit: #e06aae;
 
-  --income-bg: #04342c;
-  --expense-bg: #4a1b0c;
-  --payroll-bg: #042c53;
+  --income-bg: #11352a;
+  --expense-bg: #3c2114;
+  --payroll-bg: #142640;
 
-  --danger: #e24b4a;
-  --danger-bg: #501313;
+  --danger: #e85d67;
+  --danger-bg: #45181d;
 
-  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 /* ── Base styles ─────────────────────────────────────────── */
@@ -84,9 +88,17 @@ body {
   color: var(--text-primary);
   font-size: 14px;
   line-height: 1.6;
+  /* Digits align in every table/column — this is an accounting app. */
+  font-variant-numeric: tabular-nums;
   transition:
     background-color 0.2s,
     color 0.2s;
+}
+
+/* Display face for page titles (component-level uses `font-display`). */
+h1 {
+  font-family: "Fraunces", Georgia, serif;
+  letter-spacing: -0.01em;
 }
 
 /* ── Scrollbar ───────────────────────────────────────────── */

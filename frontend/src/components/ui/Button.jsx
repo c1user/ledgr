@@ -1,7 +1,7 @@
 import cx from "../../lib/cx";
 
 const VARIANTS = {
-  primary: "bg-brand text-white hover:bg-brand-hover",
+  primary: "bg-brand text-on-brand hover:bg-brand-hover",
   secondary: "bg-canvas text-ink border border-line hover:bg-sunken",
   danger: "bg-danger-bg text-danger border border-danger hover:opacity-80",
   ghost: "bg-transparent text-secondary hover:bg-canvas hover:text-ink",

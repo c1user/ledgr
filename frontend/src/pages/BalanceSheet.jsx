@@ -75,7 +75,7 @@ export default function BalanceSheet() {
             )}
           </div>
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap">
           <Input
             type="date"
             value={asOf}

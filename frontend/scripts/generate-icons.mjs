@@ -64,11 +64,11 @@ function encodePng(size, rgba) {
   ]);
 }
 
-// ── scene (unit coordinates 0..1) ────────────────────────────
-const BG = [0x0f, 0x6e, 0x56]; // --brand (light theme)
+// ── scene (unit coordinates 0..1) — "Ink & plum" identity ────
+const BG = [0x5b, 0x3a, 0x9b]; // --brand (plum)
 const BEAD = [0xff, 0xff, 0xff];
-const ACCENT = [0x00, 0xc8, 0x96]; // --brand (dark theme)
-const ROD = [0x0a, 0x52, 0x40];
+const ACCENT = [0xf0, 0x89, 0x5c]; // hot accent (burnt orange)
+const ROD = [0x47, 0x2a, 0x7e]; // --brand-hover (deep plum)
 
 const RODS = [
   { y: 0.32, beads: [{ x: 0.28 }, { x: 0.45 }, { x: 0.72, accent: true }] },
