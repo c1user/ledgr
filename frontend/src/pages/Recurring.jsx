@@ -5,6 +5,7 @@ import dayjs from "dayjs";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import { coaToCategories } from "../lib/coaCategories";
+import { confirmDialog } from "../store/feedbackStore";
 import cx from "../lib/cx";
 import {
   Badge,
@@ -517,8 +518,14 @@ function RecurringCard({ item, fmt, currency, onEdit, t }) {
           variant="danger"
           size="sm"
           icon="ti-trash"
-          onClick={() => {
-            if (window.confirm(t("recurring.confirmDelete"))) del.mutate();
+          onClick={async () => {
+            if (
+              await confirmDialog({
+                message: t("recurring.confirmDelete"),
+                danger: true,
+              })
+            )
+              del.mutate();
           }}
           disabled={busy}
         >

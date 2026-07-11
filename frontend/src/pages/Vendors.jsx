@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import dayjs from "dayjs";
+import { confirmDialog } from "../store/feedbackStore";
 import cx from "../lib/cx";
 import {
   Badge,
@@ -625,8 +626,13 @@ export default function Vendors() {
     },
   });
 
-  function handleDelete(vendor) {
-    if (window.confirm(t("vendors.confirmDelete", { name: vendor.name }))) {
+  async function handleDelete(vendor) {
+    if (
+      await confirmDialog({
+        message: t("vendors.confirmDelete", { name: vendor.name }),
+        danger: true,
+      })
+    ) {
       deleteMutation.mutate(vendor.id);
     }
   }

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import { coaToCategories } from "../lib/coaCategories";
+import { confirmDialog, toast } from "../store/feedbackStore";
 import cx from "../lib/cx";
 import {
   Button,
@@ -319,7 +320,7 @@ export default function Categories() {
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["chart-of-accounts"] }),
     onError: (err) =>
-      alert(err.response?.data?.error || t("categories.deleteFailed")),
+      toast.error(err.response?.data?.error || t("categories.deleteFailed")),
   });
 
   const handleEdit = (cat) => {
@@ -330,8 +331,13 @@ export default function Categories() {
     setShowModal(false);
     setEditCategory(null);
   };
-  const handleDelete = (cat) => {
-    if (window.confirm(t("categories.confirmDelete", { name: cat.name }))) {
+  const handleDelete = async (cat) => {
+    if (
+      await confirmDialog({
+        message: t("categories.confirmDelete", { name: cat.name }),
+        danger: true,
+      })
+    ) {
       deleteMutation.mutate(cat.id);
     }
   };

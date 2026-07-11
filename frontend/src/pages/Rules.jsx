@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import { coaToCategories, resolveCatName } from "../lib/coaCategories";
+import { confirmDialog } from "../store/feedbackStore";
 import cx from "../lib/cx";
 import {
   Button,
@@ -353,8 +354,13 @@ export default function Rules() {
     reorderMutation.mutate(newRules.map((r) => r.id));
   }
 
-  function handleDelete(rule) {
-    if (window.confirm(t("rules.confirmDelete", { name: rule.name }))) {
+  async function handleDelete(rule) {
+    if (
+      await confirmDialog({
+        message: t("rules.confirmDelete", { name: rule.name }),
+        danger: true,
+      })
+    ) {
       deleteMutation.mutate(rule.id);
     }
   }

@@ -29,15 +29,26 @@ distinctive, and easier to read and navigate.
 
 ## Phase 2 — Easier to read & navigate
 
-- [ ] **5. Kill the browser dialogs** — replace `window.confirm`/`alert`
+- [x] **5. Kill the browser dialogs** — replace `window.confirm`/`alert`
       with a confirm dialog + toast system built on the Modal kit.
-- [ ] **6. Command palette + global search (Ctrl+K)** — jump to any page,
-      find any transaction/invoice/client from anywhere.
-- [ ] **7. Global quick-add** — one "+" in the header for new
-      transaction/invoice/receipt from any page.
-- [ ] **8. Dashboard as a home base** — action items (recurring due,
+      feedbackStore (zustand) exposes plain-function `toast.*` and
+      promise-based `confirmDialog()`; FeedbackHost renders both from App.
+      All 24 call sites across 14 pages converted.
+- [x] **6. Command palette + global search (Ctrl+K)** — jump to any page,
+      find any transaction/invoice/client from anywhere. CommandPalette
+      (Ctrl+K / header search button) lists all 23 routes from the shared
+      nav config and queries GET /api/search (transactions, invoices,
+      clients, vendors); invoice/client hits deep-link into their detail
+      views.
+- [x] **7. Global quick-add** — one "+" in the header for new
+      transaction/invoice/receipt from any page. QuickAdd menu navigates
+      with `?new=<nonce>`; Transactions opens its add modal, Invoices its
+      builder, Receipts lands on the upload zone.
+- [x] **8. Dashboard as a home base** — action items (recurring due,
       invoices overdue, receipts pending review), cash position,
-      getting-started checklist for empty businesses.
+      getting-started checklist for empty businesses. Attention chips +
+      5-step checklist (hidden once complete) above the KPI cards; cash
+      position was already covered by Total Balance + Accounts panel.
 - [ ] **9. Guided empty states** — every empty list teaches the next step
       and chains into the others.
 - [ ] **10. Readability pass** — muted-text contrast, table density options,

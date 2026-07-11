@@ -42,6 +42,7 @@ import Projects from "./pages/Projects";
 // Layout
 import AppLayout from "./components/AppLayout";
 import RequireFeature from "./components/RequireFeature";
+import FeedbackHost from "./components/FeedbackHost";
 
 // Protected route wrapper
 const ProtectedRoute = ({ children }) => {
@@ -237,6 +238,9 @@ export default function App() {
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
+
+      {/* Toasts + confirm dialog (replaces window.alert / window.confirm) */}
+      <FeedbackHost />
     </BrowserRouter>
   );
 }

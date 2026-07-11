@@ -37,10 +37,17 @@
     "plan_premium": "Premium",
     "locked": "Requiere actualizar el plan"
   },
+  "palette": {
+    "placeholder": "Buscar páginas, facturas, clientes…",
+    "pages": "Páginas",
+    "noResults": "Sin resultados para \"{{q}}\""
+  },
   "common": {
     "save": "Guardar",
     "downloadPdf": "Descargar PDF",
     "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "confirmTitle": "¿Estás seguro?",
     "delete": "Eliminar",
     "edit": "Editar",
     "add": "Añadir",
@@ -115,6 +122,21 @@
     "scanReceipt": "Escanear recibo",
     "runPayroll": "Procesar nómina",
     "quickActions": "Acciones rápidas",
+    "gettingStarted": "Primeros pasos",
+    "checklistProgress": "{{done}} de {{total}} completados",
+    "stepAccount": "Añade una cuenta bancaria o de efectivo",
+    "stepTransaction": "Registra tu primera transacción",
+    "stepClient": "Añade tu primer cliente",
+    "stepInvoice": "Envía tu primera factura",
+    "stepReceipt": "Escanea un recibo",
+    "overdueInvoices_one": "{{count}} factura vencida · {{total}}",
+    "overdueInvoices_other": "{{count}} facturas vencidas · {{total}}",
+    "recurringDue_one": "{{count}} transacción recurrente vence esta semana",
+    "recurringDue_other": "{{count}} transacciones recurrentes vencen esta semana",
+    "receiptsToReview_one": "{{count}} recibo por revisar",
+    "receiptsToReview_other": "{{count}} recibos por revisar",
+    "lowStock_one": "{{count}} producto bajo el punto de reorden",
+    "lowStock_other": "{{count}} productos bajo el punto de reorden",
     "askAi": "Pregúntale a la IA sobre tus finanzas",
     "askAiExample": "\"¿Cuál fue mi mayor gasto este mes?\"",
     "total": "TOTAL",
@@ -780,6 +802,7 @@
     "saveDataFailed": "No se pudieron guardar los datos del recibo. Inténtalo de nuevo.",
     "errSelectTx": "Por favor selecciona una transacción",
     "errSelectAccount": "Por favor selecciona una cuenta",
+    "errSelectCategory": "Por favor selecciona una categoría",
     "errValidTotal": "El recibo debe tener un monto total válido"
   },
   "fx": {

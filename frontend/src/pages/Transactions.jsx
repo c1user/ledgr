@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
+import { confirmDialog } from "../store/feedbackStore";
 import dayjs from "dayjs";
 import Papa from "papaparse";
 import cx from "../lib/cx";
@@ -1042,6 +1044,17 @@ export default function Transactions() {
   const [showModal, setShowModal] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [editTx, setEditTx] = useState(null);
+
+  // Global quick-add: /transactions?new=<nonce> opens the add-transaction
+  // modal. State is synced during render (guarded by a change check) rather
+  // than in an effect, per react.dev/learn/you-might-not-need-an-effect.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const newParam = searchParams.get("new") || "";
+  const [appliedNewParam, setAppliedNewParam] = useState("");
+  if (newParam !== appliedNewParam) {
+    setAppliedNewParam(newParam);
+    if (newParam) setShowModal(true);
+  }
   const [filters, setFilters] = useState({
     type: "",
     startDate: "",
@@ -1149,6 +1162,7 @@ export default function Transactions() {
   const handleClose = () => {
     setShowModal(false);
     setEditTx(null);
+    if (searchParams.get("new")) setSearchParams({}, { replace: true });
   };
 
   const handleExport = async () => {
@@ -1392,8 +1406,13 @@ export default function Transactions() {
                   <i className="ti ti-pencil text-[15px]" aria-hidden="true" />
                 </button>
                 <button
-                  onClick={() => {
-                    if (window.confirm(t("transactions.confirmDelete")))
+                  onClick={async () => {
+                    if (
+                      await confirmDialog({
+                        message: t("transactions.confirmDelete"),
+                        danger: true,
+                      })
+                    )
                       deleteMutation.mutate(tx.id);
                   }}
                   className="p-1 text-danger cursor-pointer"
@@ -1483,8 +1502,13 @@ export default function Transactions() {
                       {t("common.edit")}
                     </button>
                     <button
-                      onClick={() => {
-                        if (window.confirm(t("transactions.confirmDelete")))
+                      onClick={async () => {
+                        if (
+                          await confirmDialog({
+                            message: t("transactions.confirmDelete"),
+                            danger: true,
+                          })
+                        )
                           deleteMutation.mutate(tx.id);
                       }}
                       className="flex items-center gap-1 px-2 py-1 text-md text-danger cursor-pointer"

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
+import { confirmDialog, toast } from "../store/feedbackStore";
 import dayjs from "dayjs";
 import cx from "../lib/cx";
 import {
@@ -803,7 +804,7 @@ function InvoiceDrawer({
       showEmailResult(data.email);
     },
     onError: (err) =>
-      window.alert(err.response?.data?.error || t("invoices.sendFailed")),
+      toast.error(err.response?.data?.error || t("invoices.sendFailed")),
   });
   const resendMutation = useMutation({
     mutationFn: () =>
@@ -813,7 +814,7 @@ function InvoiceDrawer({
       showEmailResult(data.email);
     },
     onError: (err) =>
-      window.alert(err.response?.data?.error || t("invoices.resendFailed")),
+      toast.error(err.response?.data?.error || t("invoices.resendFailed")),
   });
   const downloadPdf = useMutation({
     mutationFn: async () => {
@@ -834,7 +835,7 @@ function InvoiceDrawer({
     mutationFn: () => api.post(`/invoices/${invoiceId}/void`).then((r) => r.data),
     onSuccess: invalidate,
     onError: (err) =>
-      window.alert(err.response?.data?.error || t("invoices.voidFailed")),
+      toast.error(err.response?.data?.error || t("invoices.voidFailed")),
   });
   const deleteMutation = useMutation({
     mutationFn: () => api.delete(`/invoices/${invoiceId}`).then((r) => r.data),
@@ -843,7 +844,7 @@ function InvoiceDrawer({
       onClose();
     },
     onError: (err) =>
-      window.alert(err.response?.data?.error || t("invoices.deleteFailed")),
+      toast.error(err.response?.data?.error || t("invoices.deleteFailed")),
   });
 
   const eff = invoice?.is_overdue ? "overdue" : invoice?.status;
@@ -985,8 +986,13 @@ function InvoiceDrawer({
                     variant="danger"
                     icon="ti-trash"
                     title={t("common.delete")}
-                    onClick={() => {
-                      if (window.confirm(t("invoices.confirmDelete")))
+                    onClick={async () => {
+                      if (
+                        await confirmDialog({
+                          message: t("invoices.confirmDelete"),
+                          danger: true,
+                        })
+                      )
                         deleteMutation.mutate();
                     }}
                   />
@@ -1031,8 +1037,14 @@ function InvoiceDrawer({
                 </Button>
                 <Button
                   variant="danger"
-                  onClick={() => {
-                    if (window.confirm(t("invoices.confirmVoid")))
+                  onClick={async () => {
+                    if (
+                      await confirmDialog({
+                        message: t("invoices.confirmVoid"),
+                        confirmLabel: t("invoices.void"),
+                        danger: true,
+                      })
+                    )
                       voidMutation.mutate();
                   }}
                   className="flex-1 justify-center"
@@ -1053,8 +1065,14 @@ function InvoiceDrawer({
               <Button
                 variant="danger"
                 full
-                onClick={() => {
-                  if (window.confirm(t("invoices.confirmVoid")))
+                onClick={async () => {
+                  if (
+                    await confirmDialog({
+                      message: t("invoices.confirmVoid"),
+                      confirmLabel: t("invoices.void"),
+                      danger: true,
+                    })
+                  )
                     voidMutation.mutate();
                 }}
               >
@@ -1122,6 +1140,17 @@ export default function Invoices() {
     if (invoiceParam) setSelectedId(invoiceParam);
   }
 
+  // Global quick-add: /sales/invoices?new=<nonce> opens the invoice builder.
+  const newParam = searchParams.get("new") || "";
+  const [appliedNewParam, setAppliedNewParam] = useState("");
+  if (newParam !== appliedNewParam) {
+    setAppliedNewParam(newParam);
+    if (newParam) {
+      setEditInvoice(null);
+      setShowBuilder(true);
+    }
+  }
+
   const { data: invoices = [], isLoading } = useQuery({
     // clientFilter (from /invoices?client=<id>) scopes the list to one client.
     queryKey: ["invoices", statusTab, clientFilter],
@@ -1174,6 +1203,7 @@ export default function Invoices() {
   function closeBuilder() {
     setShowBuilder(false);
     setEditInvoice(null);
+    if (searchParams.get("new")) updateParams((p) => p.delete("new"));
   }
   function closeDrawer() {
     setSelectedId(null);

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
+import { confirmDialog } from "../store/feedbackStore";
 import cx from "../lib/cx";
 import {
   Button,
@@ -321,8 +322,14 @@ export default function Accounts() {
                     <i className="ti ti-pencil text-[15px]" aria-hidden="true" />
                   </button>
                   <button
-                    onClick={() => {
-                      if (window.confirm(t("accounts.confirmDeactivate")))
+                    onClick={async () => {
+                      if (
+                        await confirmDialog({
+                          message: t("accounts.confirmDeactivate"),
+                          confirmLabel: t("accounts.deactivate"),
+                          danger: true,
+                        })
+                      )
                         deleteMutation.mutate(acc.id);
                     }}
                     className="p-1 rounded text-danger cursor-pointer"

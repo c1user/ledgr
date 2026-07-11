@@ -5,6 +5,8 @@ import { useTranslation } from "react-i18next";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
+import useInventoryStore from "../store/inventoryStore";
+import useEntitlements from "../lib/useEntitlements";
 import dayjs from "dayjs";
 import cx from "../lib/cx";
 import { Button, Card, EmptyState } from "../components/ui";
@@ -238,6 +240,81 @@ function PanelHeader({ title, sub, action }) {
   );
 }
 
+// ── Needs-attention chips ────────────────────────────────────
+const CHIP_TONES = {
+  danger: "bg-danger-bg text-danger border-danger",
+  expense: "bg-expense-bg text-expense border-expense",
+  payroll: "bg-payroll-bg text-payroll border-payroll",
+  income: "bg-income-bg text-income border-income",
+};
+
+function AttentionChips({ items, navigate }) {
+  return (
+    <div className="flex flex-wrap gap-2 mb-6">
+      {items.map(({ key, icon, tone, label, to }) => (
+        <button
+          key={key}
+          onClick={() => navigate(to)}
+          className={cx(
+            "flex items-center gap-2 px-3 py-2 rounded-lg border text-md font-medium cursor-pointer hover:opacity-80 transition-opacity",
+            CHIP_TONES[tone],
+          )}
+        >
+          <i className={cx("ti", icon)} aria-hidden="true" />
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Getting-started checklist (empty businesses) ─────────────
+function GettingStarted({ steps, navigate, t }) {
+  const done = steps.filter((s) => s.done).length;
+  return (
+    <Card padding="none" className="mb-6 overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-[18px] py-3 border-b border-line">
+        <div className="text-sm font-semibold text-ink">
+          <i className="ti ti-flag text-brand mr-1.5" aria-hidden="true" />
+          {t("dashboard.gettingStarted")}
+        </div>
+        <div className="text-xs text-muted shrink-0">
+          {t("dashboard.checklistProgress", { done, total: steps.length })}
+        </div>
+      </div>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 px-2 py-1.5">
+        {steps.map((step) => (
+          <button
+            key={step.key}
+            onClick={() => navigate(step.to)}
+            disabled={step.done}
+            className={cx(
+              "flex items-center gap-2.5 px-2.5 py-2 rounded-md text-md text-left",
+              step.done
+                ? "text-muted cursor-default"
+                : "text-ink hover:bg-canvas cursor-pointer",
+            )}
+          >
+            <i
+              className={cx(
+                "ti",
+                step.done ? "ti-circle-check text-income" : "ti-circle text-muted",
+              )}
+              aria-hidden="true"
+            />
+            <span className={cx("flex-1", step.done && "line-through")}>
+              {t(step.label)}
+            </span>
+            {!step.done && (
+              <i className="ti ti-chevron-right text-muted text-xs" aria-hidden="true" />
+            )}
+          </button>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 // ── Main Dashboard ────────────────────────────────────────────
 export default function Dashboard() {
   const { t, i18n } = useTranslation();
@@ -295,6 +372,116 @@ export default function Dashboard() {
       api.get(`/budgets/summary?month=${currentMonth}`).then((r) => r.data),
   });
 
+  // ── Home-base data: action items + getting-started checklist ──
+  const { hasFeature } = useEntitlements();
+  const reorderCount = useInventoryStore((s) => s.reorderCount);
+
+  const { data: invoicesList = [] } = useQuery({
+    queryKey: ["invoices", "all", ""],
+    queryFn: () => api.get("/invoices").then((r) => r.data),
+    enabled: hasFeature("invoicing"),
+  });
+  const { data: clientsList = [] } = useQuery({
+    queryKey: ["clients", "", "active"],
+    queryFn: () => api.get("/clients?active=true").then((r) => r.data),
+    enabled: hasFeature("invoicing"),
+  });
+  const { data: recurringList = [] } = useQuery({
+    queryKey: ["recurring"],
+    queryFn: () => api.get("/recurring").then((r) => r.data),
+    enabled: hasFeature("recurring"),
+  });
+  const { data: receiptsList = [] } = useQuery({
+    queryKey: ["receipts", "all"],
+    queryFn: () => api.get("/receipts").then((r) => r.data),
+  });
+
+  const overdueInvoices = invoicesList.filter(
+    (i) => i.is_overdue || i.status === "overdue",
+  );
+  const overdueTotal = overdueInvoices.reduce(
+    (s, i) => s + Number(i.total || 0),
+    0,
+  );
+  const weekAhead = now.add(7, "day");
+  const recurringDue = recurringList.filter(
+    (r) => r.is_active && r.next_due && !dayjs(r.next_due).isAfter(weekAhead),
+  );
+  const pendingReceipts = receiptsList.filter((r) => r.status === "pending");
+
+  const attention = [
+    overdueInvoices.length > 0 && {
+      key: "overdue",
+      icon: "ti-alert-triangle",
+      tone: "danger",
+      label: t("dashboard.overdueInvoices", {
+        count: overdueInvoices.length,
+        total: fmt(overdueTotal, currency),
+      }),
+      to: "/sales/invoices",
+    },
+    recurringDue.length > 0 && {
+      key: "recurring",
+      icon: "ti-repeat",
+      tone: "payroll",
+      label: t("dashboard.recurringDue", { count: recurringDue.length }),
+      to: "/transactions/recurring",
+    },
+    pendingReceipts.length > 0 && {
+      key: "receipts",
+      icon: "ti-receipt",
+      tone: "expense",
+      label: t("dashboard.receiptsToReview", { count: pendingReceipts.length }),
+      to: "/receipts",
+    },
+    hasFeature("inventory") &&
+      reorderCount > 0 && {
+        key: "stock",
+        icon: "ti-box",
+        tone: "expense",
+        label: t("dashboard.lowStock", { count: reorderCount }),
+        to: "/inventory",
+      },
+  ].filter(Boolean);
+
+  const checklistSteps = [
+    {
+      key: "account",
+      done: (accounts?.length || 0) > 0,
+      label: "dashboard.stepAccount",
+      to: "/accounts",
+    },
+    {
+      key: "transaction",
+      done: (recentData?.transactions?.length || 0) > 0,
+      label: "dashboard.stepTransaction",
+      to: "/transactions",
+    },
+    ...(hasFeature("invoicing")
+      ? [
+          {
+            key: "client",
+            done: clientsList.length > 0,
+            label: "dashboard.stepClient",
+            to: "/sales/clients",
+          },
+          {
+            key: "invoice",
+            done: invoicesList.length > 0,
+            label: "dashboard.stepInvoice",
+            to: "/sales/invoices",
+          },
+        ]
+      : []),
+    {
+      key: "receipt",
+      done: receiptsList.length > 0,
+      label: "dashboard.stepReceipt",
+      to: "/receipts",
+    },
+  ];
+  const showChecklist = checklistSteps.some((s) => !s.done);
+
   const income = parseFloat(summary?.total_income || 0);
   const expenses = parseFloat(summary?.total_expenses || 0);
   const net = income - expenses;
@@ -319,6 +506,16 @@ export default function Dashboard() {
           {t("dashboard.overview", { month: monthLabel })}
         </div>
       </div>
+
+      {/* Getting-started checklist — only while steps remain */}
+      {showChecklist && (
+        <GettingStarted steps={checklistSteps} navigate={navigate} t={t} />
+      )}
+
+      {/* Action items */}
+      {attention.length > 0 && (
+        <AttentionChips items={attention} navigate={navigate} />
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3 mb-6">

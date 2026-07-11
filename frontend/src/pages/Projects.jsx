@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import { resolveCatName } from "../lib/coaCategories";
+import { confirmDialog } from "../store/feedbackStore";
 import cx from "../lib/cx";
 import {
   Badge,
@@ -402,8 +403,14 @@ function ProjectCard({ p, fmt, currency, onEdit, t }) {
             <i className="ti ti-pencil text-[15px]" aria-hidden="true" />
           </button>
           <button
-            onClick={() => {
-              if (window.confirm(t("projects.confirmDelete"))) del.mutate();
+            onClick={async () => {
+              if (
+                await confirmDialog({
+                  message: t("projects.confirmDelete"),
+                  danger: true,
+                })
+              )
+                del.mutate();
             }}
             title={t("common.delete")}
             className="p-1 text-danger cursor-pointer"

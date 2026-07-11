@@ -41,6 +41,7 @@ import { requireAuth } from "./middleware/auth.js";
 import { requireFeature } from "./middleware/entitlements.js";
 import chartOfAccountsRoutes from "./routes/chartOfAccounts.js";
 import ledgerRoutes from "./routes/ledger.js";
+import searchRoutes from "./routes/search.js";
 
 dotenv.config();
 
@@ -157,6 +158,7 @@ app.use("/api/recurring", ...gate("recurring"), recurringRoutes);
 app.use("/api/business", businessRoutes);
 app.use("/api/chart-of-accounts", chartOfAccountsRoutes);
 app.use("/api/ledger", ledgerRoutes);
+app.use("/api/search", searchRoutes);
 
 // ── Health check — no sensitive info ─────────────────────────
 app.get("/health", (req, res) => {

@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import dayjs from "dayjs";
+import { confirmDialog, toast } from "../store/feedbackStore";
 import cx from "../lib/cx";
 import {
   Badge,
@@ -411,18 +413,35 @@ export default function Clients() {
     },
   });
 
+  // Deep link: /sales/clients?client=<id> opens that client's detail panel
+  // (used by the command palette). The param drives the drawer directly —
+  // no state sync — and is cleared when the drawer closes.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const clientParam = searchParams.get("client");
+  const clearClientParam = () => {
+    if (clientParam) setSearchParams({}, { replace: true });
+  };
+  const activeClient =
+    selected || (clientParam && clients.find((c) => c.id === clientParam)) || null;
+
   const deleteMutation = useMutation({
     mutationFn: (id) => api.delete(`/clients/${id}`).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["clients"] });
       setSelected(null);
+      clearClientParam();
     },
     onError: (err) =>
-      window.alert(err.response?.data?.error || t("clients.deleteFailed")),
+      toast.error(err.response?.data?.error || t("clients.deleteFailed")),
   });
 
-  function handleDelete(client) {
-    if (window.confirm(t("clients.confirmDelete", { name: client.name }))) {
+  async function handleDelete(client) {
+    if (
+      await confirmDialog({
+        message: t("clients.confirmDelete", { name: client.name }),
+        danger: true,
+      })
+    ) {
       deleteMutation.mutate(client.id);
     }
   }
@@ -431,6 +450,7 @@ export default function Clients() {
     setEditClient(client);
     setShowModal(true);
     setSelected(null);
+    clearClientParam();
   }
 
   function closeModal() {
@@ -582,12 +602,15 @@ export default function Clients() {
         </Card>
       )}
 
-      {selected && (
+      {activeClient && (
         <ClientDrawer
-          client={selected}
-          onClose={() => setSelected(null)}
-          onEdit={() => openEdit(selected)}
-          onDelete={() => handleDelete(selected)}
+          client={activeClient}
+          onClose={() => {
+            setSelected(null);
+            clearClientParam();
+          }}
+          onEdit={() => openEdit(activeClient)}
+          onDelete={() => handleDelete(activeClient)}
           fmt={fmt}
           t={t}
         />

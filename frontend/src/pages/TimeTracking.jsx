@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import api from "../lib/api";
+import { confirmDialog } from "../store/feedbackStore";
 import cx from "../lib/cx";
 import {
   Button,
@@ -637,9 +638,12 @@ export default function TimeTracking() {
                                   />
                                 </button>
                                 <button
-                                  onClick={() => {
+                                  onClick={async () => {
                                     if (
-                                      window.confirm(t("time.confirmDeleteEntry"))
+                                      await confirmDialog({
+                                        message: t("time.confirmDeleteEntry"),
+                                        danger: true,
+                                      })
                                     )
                                       deleteEntry.mutate(entry.id);
                                   }}

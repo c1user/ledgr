@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import dayjs from "dayjs";
+import { confirmDialog } from "../store/feedbackStore";
 import cx from "../lib/cx";
 import {
   Badge,
@@ -547,8 +548,13 @@ function PayrollRunModal({ run, onClose, fmt, t }) {
             variant="danger"
             icon="ti-trash"
             disabled={deleteMutation.isPending}
-            onClick={() => {
-              if (window.confirm(t("payroll.confirmDeleteRun")))
+            onClick={async () => {
+              if (
+                await confirmDialog({
+                  message: t("payroll.confirmDeleteRun"),
+                  danger: true,
+                })
+              )
                 deleteMutation.mutate();
             }}
           >
@@ -775,13 +781,15 @@ export default function Payroll() {
                         {t("common.edit")}
                       </button>
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           if (
-                            window.confirm(
-                              t("payroll.confirmDeactivate", {
+                            await confirmDialog({
+                              message: t("payroll.confirmDeactivate", {
                                 name: emp.name,
                               }),
-                            )
+                              confirmLabel: t("payroll.deactivate"),
+                              danger: true,
+                            })
                           )
                             deactivateMutation.mutate(emp.id);
                         }}
@@ -855,13 +863,15 @@ export default function Payroll() {
                         />
                       </button>
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           if (
-                            window.confirm(
-                              t("payroll.confirmDeactivate", {
+                            await confirmDialog({
+                              message: t("payroll.confirmDeactivate", {
                                 name: emp.name,
                               }),
-                            )
+                              confirmLabel: t("payroll.deactivate"),
+                              danger: true,
+                            })
                           )
                             deactivateMutation.mutate(emp.id);
                         }}

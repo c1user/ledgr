@@ -37,10 +37,17 @@
     "plan_premium": "Premium",
     "locked": "Requires a plan upgrade"
   },
+  "palette": {
+    "placeholder": "Search pages, invoices, clients…",
+    "pages": "Pages",
+    "noResults": "No results for \"{{q}}\""
+  },
   "common": {
     "save": "Save",
     "downloadPdf": "Download PDF",
     "cancel": "Cancel",
+    "confirm": "Confirm",
+    "confirmTitle": "Are you sure?",
     "delete": "Delete",
     "edit": "Edit",
     "add": "Add",
@@ -115,6 +122,21 @@
     "scanReceipt": "Scan receipt",
     "runPayroll": "Run payroll",
     "quickActions": "Quick Actions",
+    "gettingStarted": "Getting started",
+    "checklistProgress": "{{done}} of {{total}} done",
+    "stepAccount": "Add a bank or cash account",
+    "stepTransaction": "Record your first transaction",
+    "stepClient": "Add your first client",
+    "stepInvoice": "Send your first invoice",
+    "stepReceipt": "Scan a receipt",
+    "overdueInvoices_one": "{{count}} overdue invoice · {{total}}",
+    "overdueInvoices_other": "{{count}} overdue invoices · {{total}}",
+    "recurringDue_one": "{{count}} recurring transaction due this week",
+    "recurringDue_other": "{{count}} recurring transactions due this week",
+    "receiptsToReview_one": "{{count}} receipt to review",
+    "receiptsToReview_other": "{{count}} receipts to review",
+    "lowStock_one": "{{count}} product below reorder point",
+    "lowStock_other": "{{count}} products below reorder point",
     "askAi": "Ask AI about your finances",
     "askAiExample": "\"What was my biggest expense this month?\"",
     "total": "TOTAL",
@@ -780,6 +802,7 @@
     "saveDataFailed": "Failed to save receipt data. Please try again.",
     "errSelectTx": "Please select a transaction",
     "errSelectAccount": "Please select an account",
+    "errSelectCategory": "Please select a category",
     "errValidTotal": "Receipt must have a valid total amount"
   },
   "fx": {

@@ -8,96 +8,12 @@ import LanguageToggle from "../components/LanguageToggle";
 import { setAppLanguage } from "../i18n";
 import BRAND from "../config/brand";
 import BrandMark from "./BrandMark";
+import CommandPalette from "./CommandPalette";
+import QuickAdd from "./QuickAdd";
+import { navGroups } from "../config/nav";
 import cx from "../lib/cx";
 import useEntitlements from "../lib/useEntitlements";
 import { Toggle } from "./ui";
-
-// Sidebar nav, organized into labelled sections. Groups without a `label`
-// (dashboard at the top, AI/settings at the bottom) render as ungrouped rows.
-// `feature` marks plan-gated items: they stay visible (upsell) with a lock
-// badge when the business plan doesn't include the feature.
-const navGroups = [
-  {
-    items: [
-      { to: "/dashboard", icon: "ti-layout-dashboard", label: "nav.dashboard" },
-      {
-        to: "/sales",
-        icon: "ti-file-invoice",
-        label: "nav.sales",
-        feature: "invoicing",
-      },
-    ],
-  },
-  {
-    label: "nav.groupExpenses",
-    items: [
-      {
-        to: "/vendors",
-        icon: "ti-users",
-        label: "nav.vendors",
-        feature: "vendors",
-      },
-      { to: "/receipts", icon: "ti-receipt", label: "nav.receipts" },
-      {
-        to: "/payroll",
-        icon: "ti-businessplan",
-        label: "nav.payroll",
-        feature: "payroll",
-      },
-    ],
-  },
-  {
-    label: "nav.groupBanking",
-    items: [
-      {
-        to: "/transactions",
-        icon: "ti-arrows-up-down",
-        label: "nav.transactions",
-      },
-      { to: "/accounts", icon: "ti-building-bank", label: "nav.accounts" },
-    ],
-  },
-  {
-    label: "nav.groupAccounting",
-    items: [
-      {
-        to: "/chart-of-accounts",
-        icon: "ti-list-tree",
-        label: "nav.chartOfAccounts",
-      },
-      {
-        to: "/budget",
-        icon: "ti-wallet",
-        label: "nav.budget",
-        feature: "budgets",
-      },
-      { to: "/reports", icon: "ti-chart-bar", label: "nav.reports" },
-    ],
-  },
-  {
-    label: "nav.groupOperations",
-    items: [
-      {
-        to: "/projects",
-        icon: "ti-briefcase",
-        label: "nav.projects",
-        feature: "projects",
-      },
-      {
-        to: "/inventory",
-        icon: "ti-box",
-        label: "nav.inventory",
-        feature: "inventory",
-      },
-    ],
-  },
-  {
-    items: [
-      { to: "/ai", icon: "ti-sparkles", label: "nav.aiChat", feature: "ai_chat" },
-      { to: "/settings", icon: "ti-settings", label: "nav.businessProfile" },
-    ],
-  },
-];
 
 const MOBILE_BREAKPOINT = 768;
 
@@ -115,6 +31,19 @@ export default function AppLayout() {
   // Sidebar open state — collapsed by default on mobile
   const [sidebarOpen, setSidebarOpen] = useState(() => !isMobile());
   const [mobile, setMobile] = useState(() => isMobile());
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // Ctrl+K / Cmd+K toggles the command palette
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // Apply the user's saved language on login and on page refresh
   useEffect(() => {
@@ -389,6 +318,19 @@ export default function AppLayout() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            <QuickAdd />
+            <button
+              onClick={() => setPaletteOpen(true)}
+              title={t("palette.placeholder")}
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-secondary hover:text-ink hover:bg-canvas cursor-pointer"
+            >
+              <i className="ti ti-search" aria-hidden="true" />
+              {!mobile && (
+                <kbd className="text-[10px] text-muted border border-line rounded px-1 py-px">
+                  Ctrl K
+                </kbd>
+              )}
+            </button>
             <LanguageToggle />
             <span className="text-[11px] px-2 py-[3px] rounded bg-brand-light text-brand font-medium">
               {(plan || business?.plan || "starter").toUpperCase()}
@@ -401,6 +343,8 @@ export default function AppLayout() {
           <Outlet />
         </div>
       </div>
+
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
   );
 }

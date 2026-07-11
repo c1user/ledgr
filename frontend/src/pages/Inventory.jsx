@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
 import useInventoryStore from "../store/inventoryStore";
 import { coaToCategories, resolveCatName } from "../lib/coaCategories";
+import { confirmDialog } from "../store/feedbackStore";
 import cx from "../lib/cx";
 import {
   Badge,
@@ -530,9 +531,12 @@ export default function Inventory() {
     }
   };
 
-  const handleDelete = (product) => {
-    if (!window.confirm(t("inventory.confirmDelete", { name: product.name })))
-      return;
+  const handleDelete = async (product) => {
+    const ok = await confirmDialog({
+      message: t("inventory.confirmDelete", { name: product.name }),
+      danger: true,
+    });
+    if (!ok) return;
     deleteProduct.mutate(product.id);
   };
 

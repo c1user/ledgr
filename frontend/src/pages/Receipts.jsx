@@ -1,8 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import dayjs from "dayjs";
+import { coaToCategories } from "../lib/coaCategories";
+import { confirmDialog } from "../store/feedbackStore";
 import cx from "../lib/cx";
 import {
   Badge,
@@ -355,12 +357,47 @@ function ReceiptModal({ receipt, onClose, transactions, accounts, fmt, t }) {
   const [action, setAction] = useState(null); // "link" | "create"
   const [linkTxId, setLinkTxId] = useState("");
   const [newTx, setNewTx] = useState({
-    accountId: "",
+    accountId: "", // prefixed: "acct:<id>" (bank) or "coa:<id>" (ledger)
     type: "expense",
+    categoryId: "",
     notes: "",
   });
   const [error, setError] = useState("");
   const confidence = parseFloat(receipt.ai_confidence || 0);
+
+  // Categories + ledger funding sources come from the chart of accounts —
+  // same shape as the add-transaction form in Transactions.jsx.
+  const { data: coaGroups } = useQuery({
+    queryKey: ["chart-of-accounts"],
+    queryFn: () => api.get("/chart-of-accounts").then((r) => r.data),
+  });
+  const categories = useMemo(
+    () => coaToCategories(coaGroups, t),
+    [coaGroups, t],
+  );
+  // Asset & liability ledger accounts that can fund the transaction, minus
+  // the COA "twin" of each operational bank account.
+  const ledgerAccounts = useMemo(() => {
+    if (!coaGroups) return [];
+    const twinIds = new Set(
+      (accounts || []).map((a) => a.coa_account_id).filter(Boolean),
+    );
+    const out = [];
+    const walk = (acc) => {
+      if (!twinIds.has(acc.id))
+        out.push({
+          id: acc.id,
+          name: acc.name_key ? t(acc.name_key) : acc.name,
+          code: acc.code,
+        });
+      acc.children?.forEach(walk);
+    };
+    for (const g of coaGroups) {
+      if (g.account_type === "asset" || g.account_type === "liability")
+        g.accounts.forEach(walk);
+    }
+    return out;
+  }, [coaGroups, accounts, t]);
 
   // Save edited receipt data
   const reviewMutation = useMutation({
@@ -389,13 +426,20 @@ function ReceiptModal({ receipt, onClose, transactions, accounts, fmt, t }) {
   // Create new transaction from receipt data
   const createTxMutation = useMutation({
     mutationFn: async () => {
+      // newTx.accountId is prefixed: "acct:<id>" (operational bank account)
+      // or "coa:<id>" (asset/liability ledger account).
+      const isLedgerFunded = newTx.accountId.startsWith("coa:");
+      const fundingId = newTx.accountId.replace(/^(coa|acct):/, "");
       // First create the transaction
       const txRes = await api.post("/transactions", {
-        accountId: newTx.accountId,
+        ...(isLedgerFunded
+          ? { fundingCoaId: fundingId }
+          : { accountId: fundingId }),
         date: form.date || dayjs().format("YYYY-MM-DD"),
         merchant: form.merchant || undefined,
         totalAmount: parseFloat(form.total || 0),
         type: newTx.type,
+        categoryId: newTx.categoryId,
         notes: newTx.notes || undefined,
         receiptId: receipt.id,
       });
@@ -443,6 +487,8 @@ function ReceiptModal({ receipt, onClose, transactions, accounts, fmt, t }) {
       linkMutation.mutate();
     } else if (action === "create") {
       if (!newTx.accountId) return setError(t("receipts.errSelectAccount"));
+      if (!newTx.categoryId)
+        return setError(t("receipts.errSelectCategory"));
       if (!form.total || parseFloat(form.total) <= 0)
         return setError(t("receipts.errValidTotal"));
       createTxMutation.mutate();
@@ -648,8 +694,13 @@ function ReceiptModal({ receipt, onClose, transactions, accounts, fmt, t }) {
               variant="danger"
               icon="ti-trash"
               disabled={receipt.status === "linked"}
-              onClick={() => {
-                if (window.confirm(t("receipts.confirmDelete")))
+              onClick={async () => {
+                if (
+                  await confirmDialog({
+                    message: t("receipts.confirmDelete"),
+                    danger: true,
+                  })
+                )
                   deleteMutation.mutate();
               }}
             >
@@ -799,11 +850,24 @@ function ReceiptModal({ receipt, onClose, transactions, accounts, fmt, t }) {
                     }
                   >
                     <option value="">{t("receipts.selectAccount")}</option>
-                    {accounts?.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name}
-                      </option>
-                    ))}
+                    {accounts?.length > 0 && (
+                      <optgroup label={t("transactions.bankAccounts")}>
+                        {accounts.map((a) => (
+                          <option key={a.id} value={`acct:${a.id}`}>
+                            {a.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {ledgerAccounts?.length > 0 && (
+                      <optgroup label={t("transactions.ledgerAccounts")}>
+                        {ledgerAccounts.map((a) => (
+                          <option key={a.id} value={`coa:${a.id}`}>
+                            {a.code ? `${a.code} · ${a.name}` : a.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </Select>
                 </Field>
                 <Field
@@ -814,13 +878,38 @@ function ReceiptModal({ receipt, onClose, transactions, accounts, fmt, t }) {
                   <Select
                     id="new-type"
                     value={newTx.type}
-                    onChange={(e) => setNewTx({ ...newTx, type: e.target.value })}
+                    onChange={(e) =>
+                      // category list is type-filtered — reset it on change
+                      setNewTx({ ...newTx, type: e.target.value, categoryId: "" })
+                    }
                   >
                     <option value="expense">{t("common.expense")}</option>
                     <option value="income">{t("common.income")}</option>
                   </Select>
                 </Field>
               </div>
+              <Field
+                label={t("common.category")}
+                htmlFor="new-category"
+                className="mb-3"
+              >
+                <Select
+                  id="new-category"
+                  value={newTx.categoryId}
+                  onChange={(e) =>
+                    setNewTx({ ...newTx, categoryId: e.target.value })
+                  }
+                >
+                  <option value="">{t("transactions.selectACategory")}</option>
+                  {categories
+                    .filter((c) => c.type === newTx.type)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                </Select>
+              </Field>
               <Field
                 label={t("receipts.notesOptional")}
                 htmlFor="new-notes"
