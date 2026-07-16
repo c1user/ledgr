@@ -1352,7 +1352,7 @@ export default function Transactions() {
           transactions.map((tx) => (
             <div
               key={tx.id}
-              className="grid grid-cols-[100px_1fr_120px_110px_90px_70px] px-[18px] py-3 border-b border-line items-center transition-colors hover:bg-canvas"
+              className="grid grid-cols-[100px_1fr_120px_110px_90px_70px] px-[18px] py-[var(--row-y)] border-b border-line items-center transition-colors hover:bg-canvas"
             >
               <div className="text-xs text-muted">
                 {dayjs(tx.date).format("MMM D, YYYY")}

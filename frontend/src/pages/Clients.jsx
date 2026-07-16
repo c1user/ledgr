@@ -522,6 +522,20 @@ export default function Clients() {
             icon="ti-address-book"
             title={search ? t("clients.noneFound") : t("clients.noneYet")}
             message={!search ? t("clients.noneYetHint") : undefined}
+            action={
+              !search && (
+                <Button
+                  variant="primary"
+                  icon="ti-plus"
+                  onClick={() => {
+                    setEditClient(null);
+                    setShowModal(true);
+                  }}
+                >
+                  {t("clients.addClient")}
+                </Button>
+              )
+            }
           />
         </Card>
       )}

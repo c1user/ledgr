@@ -722,6 +722,20 @@ export default function Vendors() {
                 icon="ti-users"
                 title={search ? t("vendors.noneFound") : t("vendors.noneYet")}
                 message={!search ? t("vendors.noneYetHint") : undefined}
+                action={
+                  !search && (
+                    <Button
+                      variant="primary"
+                      icon="ti-plus"
+                      onClick={() => {
+                        setEditVendor(null);
+                        setShowModal(true);
+                      }}
+                    >
+                      {t("vendors.addVendor")}
+                    </Button>
+                  )
+                }
               />
             </Card>
           )}

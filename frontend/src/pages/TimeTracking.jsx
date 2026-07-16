@@ -551,6 +551,15 @@ export default function TimeTracking() {
                 icon="ti-clock-off"
                 title={t("time.noEntries")}
                 message={t("time.noEntriesHint")}
+                action={
+                  <Button
+                    variant="primary"
+                    icon="ti-plus"
+                    onClick={openNewEntry}
+                  >
+                    {t("time.logTime")}
+                  </Button>
+                }
               />
             ) : (
               <div className="flex flex-col gap-0.5">
@@ -688,6 +697,15 @@ export default function TimeTracking() {
                 icon="ti-folder-off"
                 title={t("time.noProjects")}
                 message={t("time.noProjectsHint")}
+                action={
+                  <Link
+                    to="/projects"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 text-md font-medium rounded-lg bg-brand text-on-brand hover:bg-brand-hover"
+                  >
+                    <i className="ti ti-plus" aria-hidden="true" />
+                    {t("time.addProject")}
+                  </Link>
+                }
               />
             ) : (
               <div className="flex flex-col gap-0.5">

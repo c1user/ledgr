@@ -600,7 +600,7 @@ export default function Dashboard() {
                 {recentData?.transactions?.slice(0, 8).map((tx) => (
                   <div
                     key={tx.id}
-                    className="flex items-center justify-between gap-3 px-[18px] py-3 border-b border-line cursor-pointer transition-colors hover:bg-canvas"
+                    className="flex items-center justify-between gap-3 px-[18px] py-[var(--row-y)] border-b border-line cursor-pointer transition-colors hover:bg-canvas"
                     onClick={() => navigate("/transactions")}
                   >
                     <div

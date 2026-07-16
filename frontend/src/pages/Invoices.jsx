@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import { confirmDialog, toast } from "../store/feedbackStore";
@@ -1119,6 +1119,7 @@ export default function Invoices() {
   const clientFilter = searchParams.get("client") || "";
   const invoiceParam = searchParams.get("invoice") || "";
 
+  const navigate = useNavigate();
   const [statusTab, setStatusTab] = useState("all");
   const [selectedId, setSelectedId] = useState(null);
   const [showBuilder, setShowBuilder] = useState(false);
@@ -1320,6 +1321,28 @@ export default function Invoices() {
               clients.length === 0
                 ? t("invoices.needClient")
                 : t("invoices.noneYetHint")
+            }
+            action={
+              clients.length === 0 ? (
+                <Button
+                  variant="primary"
+                  icon="ti-plus"
+                  onClick={() => navigate("/sales/clients")}
+                >
+                  {t("clients.addClient")}
+                </Button>
+              ) : (
+                <Button
+                  variant="primary"
+                  icon="ti-plus"
+                  onClick={() => {
+                    setEditInvoice(null);
+                    setShowBuilder(true);
+                  }}
+                >
+                  {t("invoices.newInvoice")}
+                </Button>
+              )
             }
           />
         </Card>

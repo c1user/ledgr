@@ -623,6 +623,15 @@ export default function Inventory() {
               icon="ti-box"
               title={t("inventory.noProducts")}
               message={t("inventory.noProductsHint")}
+              action={
+                <Button
+                  variant="primary"
+                  icon="ti-plus"
+                  onClick={() => setProductModal({ open: true, product: null })}
+                >
+                  {t("inventory.addProduct")}
+                </Button>
+              }
             />
           ) : (
             <table className="w-full border-collapse text-md min-w-[720px]">

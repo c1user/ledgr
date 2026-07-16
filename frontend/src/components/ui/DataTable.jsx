@@ -19,7 +19,7 @@ export default function DataTable({
                 key={col.key}
                 className={cx(
                   "text-left text-[11px] uppercase tracking-wide font-semibold text-muted",
-                  "px-3 py-2.5 border-b border-line whitespace-nowrap",
+                  "px-3 py-[var(--row-y-sm)] border-b border-line whitespace-nowrap",
                   col.align === "right" && "text-right",
                   col.headerClassName,
                 )}
@@ -53,7 +53,7 @@ export default function DataTable({
                   <td
                     key={col.key}
                     className={cx(
-                      "px-3 py-2.5 align-middle",
+                      "px-3 py-[var(--row-y-sm)] align-middle",
                       col.align === "right" && "text-right",
                       col.className,
                     )}

@@ -16,7 +16,8 @@
 
   --text-primary: #191524;
   --text-secondary: #4f4a60;
-  --text-muted: #948fa6;
+  /* ≥4.5:1 on white and canvas — muted labels are 11px, AA applies */
+  --text-muted: #706a86;
 
   --border-color: #e6e3ef;
   --border-hover: #cec9e0;
@@ -39,6 +40,15 @@
   --danger-bg: #fae5e7;
 
   --card-shadow: 0 1px 3px rgba(30, 20, 60, 0.07);
+
+  /* Table density — rows read these via py-[var(--row-y)] etc. */
+  --row-y: 12px;
+  --row-y-sm: 10px;
+}
+
+[data-density="compact"] {
+  --row-y: 7px;
+  --row-y-sm: 6px;
 }
 
 /* ── Dark theme ──────────────────────────────────────────── */
@@ -50,7 +60,8 @@
 
   --text-primary: #e9e6f3;
   --text-secondary: #9b95af;
-  --text-muted: #575069;
+  /* ≥4.5:1 on card surfaces (#181420) — the old #575069 sat at 2.4:1 */
+  --text-muted: #8b84a3;
 
   --border-color: #2b2439;
   --border-hover: #3d3454;
@@ -99,6 +110,18 @@ body {
 h1 {
   font-family: "Fraunces", Georgia, serif;
   letter-spacing: -0.01em;
+}
+
+/* ── Keyboard navigation ─────────────────────────────────────
+   Visible ring on keyboard focus only. Form fields are excluded —
+   they carry their own focus:border-brand treatment. */
+button:focus-visible,
+a:focus-visible,
+[role="menuitem"]:focus-visible,
+[role="tab"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
 }
 
 /* ── Scrollbar ───────────────────────────────────────────── */

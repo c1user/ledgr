@@ -60,11 +60,16 @@ const RedirectWithQuery = ({ to }) => {
 
 export default function App() {
   const theme = useThemeStore((s) => s.theme);
+  const density = useThemeStore((s) => s.density);
 
-  // Apply theme to document root
+  // Apply theme + table density to document root
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
-  }, [theme]);
+    document.documentElement.setAttribute(
+      "data-density",
+      density || "comfortable",
+    );
+  }, [theme, density]);
 
   return (
     <BrowserRouter>

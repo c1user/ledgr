@@ -825,7 +825,7 @@ export default function Payroll() {
                 {employees.map((emp) => (
                   <div
                     key={emp.id}
-                    className="grid grid-cols-[1fr_100px_120px_110px_90px_70px] px-[18px] py-3 border-b border-line items-center"
+                    className="grid grid-cols-[1fr_100px_120px_110px_90px_70px] px-[18px] py-[var(--row-y)] border-b border-line items-center"
                   >
                     <div>
                       <div className="text-md font-medium text-ink">
@@ -995,7 +995,7 @@ export default function Payroll() {
                 {payrollRuns.map((run) => (
                   <div
                     key={run.id}
-                    className="grid grid-cols-[1fr_1fr_110px_110px_90px_70px] px-[18px] py-3 border-b border-line items-center cursor-pointer transition-colors hover:bg-canvas"
+                    className="grid grid-cols-[1fr_1fr_110px_110px_90px_70px] px-[18px] py-[var(--row-y)] border-b border-line items-center cursor-pointer transition-colors hover:bg-canvas"
                     onClick={() => setSelectedRun(run)}
                   >
                     <div className="text-md text-ink">

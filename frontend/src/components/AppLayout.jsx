@@ -20,7 +20,7 @@ const MOBILE_BREAKPOINT = 768;
 export default function AppLayout() {
   const { t, i18n } = useTranslation();
   const { user, business, logout } = useAuthStore();
-  const { theme, toggleTheme } = useThemeStore();
+  const { theme, toggleTheme, density, toggleDensity } = useThemeStore();
   const { plan, hasFeature, isLoading: entLoading } = useEntitlements();
   const reorderCount = useInventoryStore((s) => s.reorderCount);
   const navigate = useNavigate();
@@ -214,7 +214,7 @@ export default function AppLayout() {
         >
           {/* Theme toggle */}
           {sidebarOpen ? (
-            <div className="flex items-center justify-between mb-3 px-1 py-1.5">
+            <div className="flex items-center justify-between mb-1 px-1 py-1.5">
               <div className="flex items-center gap-2 text-secondary text-xs">
                 <i
                   className={`ti ${theme === "dark" ? "ti-moon" : "ti-sun"} text-[15px]`}
@@ -239,6 +239,24 @@ export default function AppLayout() {
                 aria-hidden="true"
               />
             </button>
+          )}
+
+          {/* Table density toggle */}
+          {sidebarOpen && (
+            <div className="flex items-center justify-between mb-3 px-1 py-1.5">
+              <div className="flex items-center gap-2 text-secondary text-xs">
+                <i
+                  className="ti ti-baseline-density-medium text-[15px]"
+                  aria-hidden="true"
+                />
+                {t("nav.compactRows")}
+              </div>
+              <Toggle
+                checked={density === "compact"}
+                onChange={toggleDensity}
+                aria-label={t("nav.compactRows")}
+              />
+            </div>
           )}
 
           {/* User info */}

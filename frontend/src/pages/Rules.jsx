@@ -407,6 +407,18 @@ export default function Rules() {
             icon="ti-filter-cog"
             title={t("rules.noRules")}
             message={t("rules.noRulesHint")}
+            action={
+              <Button
+                variant="primary"
+                icon="ti-plus"
+                onClick={() => {
+                  setEditRule(null);
+                  setShowModal(true);
+                }}
+              >
+                {t("rules.addRule")}
+              </Button>
+            }
           />
         </Card>
       )}

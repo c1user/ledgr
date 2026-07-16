@@ -49,11 +49,19 @@ distinctive, and easier to read and navigate.
       getting-started checklist for empty businesses. Attention chips +
       5-step checklist (hidden once complete) above the KPI cards; cash
       position was already covered by Total Balance + Accounts panel.
-- [ ] **9. Guided empty states** — every empty list teaches the next step
-      and chains into the others.
-- [ ] **10. Readability pass** — muted-text contrast, table density options,
+- [x] **9. Guided empty states** — every empty list teaches the next step.
+      Added primary actions to Clients, Vendors, Invoices (add-client
+      prerequisite branch), Inventory, Rules and both TimeTracking panels;
+      the rest already had them or are informational by design.
+- [x] **10. Readability pass** — muted-text contrast, table density options,
       focus states / keyboard navigation, ES-string layout fit (incl. the
       "Effectivo" typo, which is now baked into PDFs).
+      Muted text now ≥4.5:1 in both themes (#706a86 light / #8b84a3 dark —
+      dark was at 2.4:1); global :focus-visible brand ring on buttons/links;
+      "Compact rows" toggle in the sidebar (persisted, drives --row-y vars
+      consumed by DataTable + Transactions/Payroll/Dashboard rows);
+      "Efectivo" fixed in es.json (PDFs read it at runtime); 9-route ES
+      mobile sweep clean.
 
 ## Phase 3 — Feature development
 

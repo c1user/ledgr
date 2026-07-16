@@ -17,6 +17,7 @@
     "signOut": "Cerrar sesión",
     "darkMode": "Modo oscuro",
     "lightMode": "Modo claro",
+    "compactRows": "Filas compactas",
     "myBusiness": "Mi negocio",
     "openMenu": "Abrir menú",
     "collapseSidebar": "Colapsar barra lateral",
@@ -429,7 +430,7 @@
     "loading": "Cargando...",
     "error": "Error al cargar el plan de cuentas",
     "accounts": {
-      "cash": "Effectivo",
+      "cash": "Efectivo",
       "accounts_receivable": "Cuentas por cobrar",
       "inventory_asset": "Inventario",
       "other_current_asset": "Otros activos corrientes",
