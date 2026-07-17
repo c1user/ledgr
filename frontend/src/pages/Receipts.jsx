@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import api from "../lib/api";
@@ -133,7 +134,16 @@ function UploadZone({ onUploaded, t }) {
       });
       onUploaded(data);
     } catch (err) {
-      setError(err.response?.data?.error || t("receipts.uploadFailed"));
+      // The scan-limit 403 gets a friendly upsell instead of raw error text.
+      if (err.response?.data?.code === "UPGRADE_REQUIRED") {
+        setError({
+          upsell: true,
+          used: err.response.data.used,
+          limit: err.response.data.limit,
+        });
+      } else {
+        setError(err.response?.data?.error || t("receipts.uploadFailed"));
+      }
     } finally {
       setUploading(false);
     }
@@ -325,7 +335,25 @@ function UploadZone({ onUploaded, t }) {
         )}
       </div>
 
-      {error && (
+      {error && error.upsell && (
+        <div className="flex items-center gap-3 flex-wrap bg-brand-light border border-brand rounded-lg px-3.5 py-2.5 text-md text-ink mt-2.5">
+          <i className="ti ti-sparkles text-brand" aria-hidden="true" />
+          <span className="flex-1 min-w-[200px]">
+            {t("receipts.scanLimitReached", {
+              used: error.used,
+              limit: error.limit,
+            })}
+          </span>
+          <Link
+            to="/plans"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-md font-medium rounded-lg bg-brand text-on-brand hover:bg-brand-hover shrink-0"
+          >
+            <i className="ti ti-crown" aria-hidden="true" />
+            {t("upgrade.viewPlans")}
+          </Link>
+        </div>
+      )}
+      {error && !error.upsell && (
         <div className="bg-danger-bg text-danger border border-danger rounded-lg px-3.5 py-2.5 text-md mt-2.5">
           <i className="ti ti-alert-circle mr-1.5" aria-hidden="true" />
           {error}

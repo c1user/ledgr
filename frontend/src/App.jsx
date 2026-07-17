@@ -12,6 +12,8 @@ import useThemeStore from "./store/themeStore";
 // Pages
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import Join from "./pages/Join";
+import Team from "./pages/Team";
 import Dashboard from "./pages/Dashboard";
 import TransactionsHub from "./pages/TransactionsHub";
 import Transactions from "./pages/Transactions";
@@ -22,8 +24,10 @@ import Payroll from "./pages/Payroll";
 import AiChat from "./pages/AiChat";
 import Reports from "./pages/Reports";
 import ProfitLoss from "./pages/ProfitLoss";
+import CashFlow from "./pages/CashFlow";
 import TaxSummary from "./pages/TaxSummary";
 import Rules from "./pages/Rules";
+import Reconcile from "./pages/Reconcile";
 import Vendors from "./pages/Vendors";
 import Clients from "./pages/Clients";
 import Invoices from "./pages/Invoices";
@@ -36,6 +40,8 @@ import Sales from "./pages/Sales";
 import Recurring from "./pages/Recurring";
 import Hacienda from "./pages/Hacienda";
 import BusinessProfile from "./pages/BusinessProfile";
+import Activity from "./pages/Activity";
+import Plans from "./pages/Plans";
 import ProjectsHub from "./pages/ProjectsHub";
 import Projects from "./pages/Projects";
 
@@ -77,6 +83,7 @@ export default function App() {
         {/* Public routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/join" element={<Join />} />
 
         {/* Protected routes — all wrapped in AppLayout */}
         <Route
@@ -102,6 +109,14 @@ export default function App() {
               }
             />
             <Route path="rules" element={<Rules />} />
+            <Route
+              path="reconcile"
+              element={
+                <RequireFeature feature="reconciliation">
+                  <Reconcile />
+                </RequireFeature>
+              }
+            />
           </Route>
           {/* Legacy redirects for the old top-level routes */}
           <Route
@@ -139,6 +154,14 @@ export default function App() {
           {/* Reports hub — P&L, balance sheet, tax summary and Hacienda */}
           <Route path="reports" element={<Reports />}>
             <Route index element={<ProfitLoss />} />
+            <Route
+              path="cash-flow"
+              element={
+                <RequireFeature feature="advanced_reports">
+                  <CashFlow />
+                </RequireFeature>
+              }
+            />
             <Route path="balance-sheet" element={<BalanceSheet />} />
             <Route path="tax-summary" element={<TaxSummary />} />
             <Route
@@ -165,6 +188,23 @@ export default function App() {
           />
 
           <Route path="settings" element={<BusinessProfile />} />
+          <Route path="plans" element={<Plans />} />
+          <Route
+            path="team"
+            element={
+              <RequireFeature feature="multi_user">
+                <Team />
+              </RequireFeature>
+            }
+          />
+          <Route
+            path="activity"
+            element={
+              <RequireFeature feature="audit_log">
+                <Activity />
+              </RequireFeature>
+            }
+          />
           <Route path="chart-of-accounts" element={<Accounting />} />
           <Route
             path="vendors"

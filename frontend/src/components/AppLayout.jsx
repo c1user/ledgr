@@ -350,9 +350,13 @@ export default function AppLayout() {
               )}
             </button>
             <LanguageToggle />
-            <span className="text-[11px] px-2 py-[3px] rounded bg-brand-light text-brand font-medium">
+            <button
+              onClick={() => navigate("/plans")}
+              title={t("plans.title")}
+              className="text-[11px] px-2 py-[3px] rounded bg-brand-light text-brand font-medium cursor-pointer hover:opacity-80"
+            >
               {(plan || business?.plan || "starter").toUpperCase()}
-            </span>
+            </button>
           </div>
         </header>
 

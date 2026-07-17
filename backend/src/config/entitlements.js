@@ -32,6 +32,8 @@ const PROFESSIONAL_FEATURES = [
   "hacienda", // 480.6SP prep
   "pdf_reports", // server-side report PDFs
   "multi_user",
+  "reconciliation", // manual bank reconciliation + period locking
+  "audit_log", // activity history — who did what, when
 ];
 
 const PREMIUM_FEATURES = [

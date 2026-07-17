@@ -11,7 +11,7 @@ import express from "express";
 import pool from "../config/db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { getPlan } from "../middleware/entitlements.js";
-import { getEntitlements } from "../config/entitlements.js";
+import { getEntitlements, PLANS } from "../config/entitlements.js";
 
 const router = express.Router();
 router.use(requireAuth);
@@ -26,6 +26,27 @@ router.get("/entitlements", async (req, res) => {
   } catch (err) {
     console.error("Get entitlements error:", err);
     return res.status(500).json({ error: "Failed to fetch entitlements" });
+  }
+});
+
+// ── PUT /api/business/plan ───────────────────────────────────
+// Owner-only plan switch. Billing is deliberately not wired yet — until
+// Stripe lands, the owner picks the tier directly and the entitlement
+// gates apply immediately.
+router.put("/plan", requireRole("owner"), async (req, res) => {
+  const { plan } = req.body;
+  if (!PLANS.includes(plan)) {
+    return res.status(400).json({ error: "Invalid plan" });
+  }
+  try {
+    const result = await pool.query(
+      "UPDATE businesses SET plan = $2 WHERE id = $1 RETURNING plan",
+      [req.user.businessId, plan],
+    );
+    return res.json(getEntitlements(result.rows[0].plan));
+  } catch (err) {
+    console.error("Update plan error:", err);
+    return res.status(500).json({ error: "Failed to update plan" });
   }
 });
 

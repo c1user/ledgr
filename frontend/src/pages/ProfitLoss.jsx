@@ -13,14 +13,14 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import dayjs from "dayjs";
-import quarterOfYear from "dayjs/plugin/quarterOfYear";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
+import useEntitlements from "../lib/useEntitlements";
 import cx from "../lib/cx";
 import { downloadFile } from "../lib/download";
-import { Button, Card, Input } from "../components/ui";
-
-dayjs.extend(quarterOfYear);
+import PeriodSelector from "../components/PeriodSelector";
+import { getDateRange } from "../lib/reportPeriods";
+import { Button, Card, Select } from "../components/ui";
 
 const makeFmt =
   (lang) =>
@@ -30,130 +30,89 @@ const makeFmt =
       currency,
     }).format(val || 0);
 
-const PRESETS = [
-  "thisMonth",
-  "lastMonth",
-  "thisQuarter",
-  "lastQuarter",
-  "thisYear",
-  "lastYear",
-];
-
-function getDateRange(period) {
-  const now = dayjs();
-  switch (period) {
-    case "thisMonth":
-      return {
-        startDate: now.startOf("month").format("YYYY-MM-DD"),
-        endDate: now.endOf("month").format("YYYY-MM-DD"),
-      };
-    case "lastMonth": {
-      const l = now.subtract(1, "month");
-      return {
-        startDate: l.startOf("month").format("YYYY-MM-DD"),
-        endDate: l.endOf("month").format("YYYY-MM-DD"),
-      };
-    }
-    case "thisQuarter":
-      return {
-        startDate: now.startOf("quarter").format("YYYY-MM-DD"),
-        endDate: now.endOf("quarter").format("YYYY-MM-DD"),
-      };
-    case "lastQuarter": {
-      const l = now.subtract(1, "quarter");
-      return {
-        startDate: l.startOf("quarter").format("YYYY-MM-DD"),
-        endDate: l.endOf("quarter").format("YYYY-MM-DD"),
-      };
-    }
-    case "thisYear":
-      return {
-        startDate: now.startOf("year").format("YYYY-MM-DD"),
-        endDate: now.endOf("year").format("YYYY-MM-DD"),
-      };
-    case "lastYear": {
-      const l = now.subtract(1, "year");
-      return {
-        startDate: l.startOf("year").format("YYYY-MM-DD"),
-        endDate: l.endOf("year").format("YYYY-MM-DD"),
-      };
-    }
-    default:
-      return { startDate: null, endDate: null };
+// ── Comparison range (previous period / same period last year) ──
+function getCompareRange(startDate, endDate, mode) {
+  if (!startDate || !endDate || mode === "none")
+    return { prevStart: null, prevEnd: null };
+  const s = dayjs(startDate);
+  const e = dayjs(endDate);
+  if (mode === "prevYear") {
+    return {
+      prevStart: s.subtract(1, "year").format("YYYY-MM-DD"),
+      prevEnd: e.subtract(1, "year").format("YYYY-MM-DD"),
+    };
   }
+  // previous period of equal length, ending the day before startDate
+  const days = e.diff(s, "day") + 1;
+  return {
+    prevStart: s.subtract(days, "day").format("YYYY-MM-DD"),
+    prevEnd: s.subtract(1, "day").format("YYYY-MM-DD"),
+  };
 }
 
-// ── Period Selector ───────────────────────────────────────────
-function PeriodSelector({
-  period,
-  setPeriod,
-  customStart,
-  setCustomStart,
-  customEnd,
-  setCustomEnd,
-  t,
-}) {
+// Change vs the comparison period. `invert` flips the good/bad coloring —
+// expenses going down is the good direction.
+function Delta({ current, prev, invert }) {
+  if (prev === undefined || prev === null) return null;
+  if (prev === 0 && current === 0) return null;
+  const pct =
+    prev === 0 ? null : ((current - prev) / Math.abs(prev)) * 100;
+  const up = current >= prev;
+  const good = invert ? !up : up;
   return (
-    <div className="print-hide flex flex-wrap gap-2 items-center">
-      {PRESETS.map((p) => (
-        <Button
-          key={p}
-          size="sm"
-          variant={period === p ? "primary" : "secondary"}
-          onClick={() => setPeriod(p)}
-        >
-          {t(`reports.period_${p}`)}
-        </Button>
-      ))}
-      <Button
-        size="sm"
-        variant={period === "custom" ? "primary" : "secondary"}
-        onClick={() => setPeriod("custom")}
-      >
-        {t("reports.periodCustom")}
-      </Button>
-      {period === "custom" && (
-        <div className="flex gap-2 items-center flex-wrap">
-          <label className="text-md text-muted">{t("reports.customFrom")}</label>
-          <Input
-            type="date"
-            className="w-auto px-2 py-1"
-            value={customStart}
-            onChange={(e) => setCustomStart(e.target.value)}
-          />
-          <label className="text-md text-muted">{t("reports.customTo")}</label>
-          <Input
-            type="date"
-            className="w-auto px-2 py-1"
-            value={customEnd}
-            onChange={(e) => setCustomEnd(e.target.value)}
-          />
-        </div>
+    <span
+      className={cx(
+        "text-[11px] font-semibold px-1.5 py-px rounded",
+        good ? "bg-income-bg text-income" : "bg-expense-bg text-expense",
       )}
-    </div>
+    >
+      {pct === null ? "new" : `${pct >= 0 ? "+" : ""}${pct.toFixed(0)}%`}
+    </span>
   );
 }
 
 // ── P&L Row ───────────────────────────────────────────────────
-function PLRow({ color, name, total, fmt, currency }) {
+function PLRow({ color, name, total, prev, invert, comparing, fmt, currency }) {
   return (
-    <div className="flex items-center justify-between py-2 border-b border-line">
-      <div className="flex items-center gap-2">
+    <div className="flex items-center justify-between gap-2 py-2 border-b border-line">
+      <div className="flex items-center gap-2 min-w-0">
         <div
           className="w-2.5 h-2.5 rounded-full shrink-0"
           style={{ background: color || "#6b6880" }}
         />
-        <span className="text-sm text-ink">{name}</span>
+        <span className="text-sm text-ink truncate">{name}</span>
       </div>
-      <span className="text-sm font-medium text-ink">
-        {fmt(total, currency)}
-      </span>
+      <div className="flex items-center gap-2 shrink-0">
+        {comparing && (
+          <>
+            <span className="text-xs text-muted">
+              {fmt(prev || 0, currency)}
+            </span>
+            <Delta current={total} prev={prev || 0} invert={invert} />
+          </>
+        )}
+        <span className="text-sm font-medium text-ink">
+          {fmt(total, currency)}
+        </span>
+      </div>
     </div>
   );
 }
 
 // ── P&L Section ───────────────────────────────────────────────
-function PLSection({ title, categories, total, totalLabel, fmt, currency, t }) {
+function PLSection({
+  title,
+  categories,
+  total,
+  totalLabel,
+  prevTotals,
+  prevTotal,
+  invert,
+  comparing,
+  fmt,
+  currency,
+  t,
+}) {
   return (
     <div className="mb-4">
       <div className="text-[11px] font-bold tracking-[1.5px] text-muted uppercase pb-2 border-b-[1.5px] border-line mb-1">
@@ -168,14 +127,27 @@ function PLSection({ title, categories, total, totalLabel, fmt, currency, t }) {
             color={cat.category_color}
             name={resolveCatName(cat.category_name_key, cat.category_name, t)}
             total={parseFloat(cat.total)}
+            prev={prevTotals?.[cat.category_id]}
+            invert={invert}
+            comparing={comparing}
             fmt={fmt}
             currency={currency}
           />
         ))
       )}
-      <div className="flex justify-between pt-2.5 pb-1 font-bold text-sm text-ink">
+      <div className="flex justify-between items-center gap-2 pt-2.5 pb-1 font-bold text-sm text-ink">
         <span>{totalLabel}</span>
-        <span>{fmt(total, currency)}</span>
+        <div className="flex items-center gap-2">
+          {comparing && (
+            <>
+              <span className="text-xs text-muted font-normal">
+                {fmt(prevTotal || 0, currency)}
+              </span>
+              <Delta current={total} prev={prevTotal || 0} invert={invert} />
+            </>
+          )}
+          <span>{fmt(total, currency)}</span>
+        </div>
       </div>
     </div>
   );
@@ -263,8 +235,25 @@ function TrendChart({ data, fmt, currency, t }) {
 }
 
 // ── P&L Statement ─────────────────────────────────────────────
-function PLStatement({ data, startDate, endDate, fmt, currency, t }) {
+function PLStatement({
+  data,
+  prevData,
+  prevLabel,
+  startDate,
+  endDate,
+  fmt,
+  currency,
+  t,
+}) {
   const isProfit = data.net_income >= 0;
+  const comparing = !!prevData;
+
+  const toMap = (cats) =>
+    Object.fromEntries(
+      (cats || []).map((c) => [c.category_id, parseFloat(c.total)]),
+    );
+  const prevIncome = comparing ? toMap(prevData.income_categories) : null;
+  const prevExpense = comparing ? toMap(prevData.expense_categories) : null;
 
   return (
     <Card padding="none" className="p-6">
@@ -277,6 +266,11 @@ function PLStatement({ data, startDate, endDate, fmt, currency, t }) {
           <div className="text-xs text-muted mt-1">
             {dayjs(startDate).format("MMM D, YYYY")} –{" "}
             {dayjs(endDate).format("MMM D, YYYY")}
+            {comparing && prevLabel && (
+              <span className="ml-1">
+                · {t("reports.compareVs", { range: prevLabel })}
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -286,6 +280,9 @@ function PLStatement({ data, startDate, endDate, fmt, currency, t }) {
         categories={data.income_categories}
         total={data.total_income}
         totalLabel={t("reports.totalRevenue")}
+        prevTotals={prevIncome}
+        prevTotal={prevData?.total_income}
+        comparing={comparing}
         fmt={fmt}
         currency={currency}
         t={t}
@@ -296,24 +293,38 @@ function PLStatement({ data, startDate, endDate, fmt, currency, t }) {
         categories={data.expense_categories}
         total={data.total_expenses}
         totalLabel={t("reports.totalExpenses")}
+        prevTotals={prevExpense}
+        prevTotal={prevData?.total_expenses}
+        invert
+        comparing={comparing}
         fmt={fmt}
         currency={currency}
         t={t}
       />
 
       {/* Net income line */}
-      <div className="border-t-2 border-line pt-3 flex justify-between items-center">
+      <div className="border-t-2 border-line pt-3 flex justify-between items-center gap-2">
         <span className="text-[15px] font-bold text-ink">
           {isProfit ? t("reports.netIncome") : t("reports.netLoss")}
         </span>
-        <span
-          className={cx(
-            "text-lg font-bold",
-            isProfit ? "text-income" : "text-expense",
+        <div className="flex items-center gap-2">
+          {comparing && (
+            <>
+              <span className="text-xs text-muted">
+                {fmt(prevData.net_income, currency)}
+              </span>
+              <Delta current={data.net_income} prev={prevData.net_income} />
+            </>
           )}
-        >
-          {fmt(Math.abs(data.net_income), currency)}
-        </span>
+          <span
+            className={cx(
+              "text-lg font-bold",
+              isProfit ? "text-income" : "text-expense",
+            )}
+          >
+            {fmt(Math.abs(data.net_income), currency)}
+          </span>
+        </div>
       </div>
     </Card>
   );
@@ -363,12 +374,14 @@ function FXSummary({ currencies, baseCurrency, fmt, t }) {
 export default function ProfitLoss() {
   const { t, i18n } = useTranslation();
   const { business } = useAuthStore();
+  const { hasFeature } = useEntitlements();
   const fmt = makeFmt(i18n.language);
   const currency = business?.currency || "USD";
 
   const [period, setPeriod] = useState("thisMonth");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
+  const [compare, setCompare] = useState("none"); // none | prevPeriod | prevYear
 
   const { startDate, endDate } =
     period === "custom"
@@ -383,6 +396,26 @@ export default function ProfitLoss() {
         .then((r) => r.data),
     enabled: !!(startDate && endDate),
   });
+
+  // Period-over-period comparison (premium): same report, shifted range.
+  const canCompare = hasFeature("advanced_reports");
+  const { prevStart, prevEnd } = getCompareRange(
+    startDate,
+    endDate,
+    canCompare ? compare : "none",
+  );
+  const { data: prevData } = useQuery({
+    queryKey: ["pl-report", prevStart, prevEnd],
+    queryFn: () =>
+      api
+        .get(`/reports/pl?startDate=${prevStart}&endDate=${prevEnd}`)
+        .then((r) => r.data),
+    enabled: !!(prevStart && prevEnd),
+  });
+  const comparing = !!(prevStart && prevEnd && prevData);
+  const prevLabel = comparing
+    ? `${dayjs(prevStart).format("MMM D, YYYY")} – ${dayjs(prevEnd).format("MMM D, YYYY")}`
+    : null;
 
   return (
     <div className="max-w-[1100px] mx-auto">
@@ -415,8 +448,8 @@ export default function ProfitLoss() {
         </div>
       </div>
 
-      {/* Period selector */}
-      <div className="mb-5">
+      {/* Period selector + comparison */}
+      <div className="print-hide mb-5 flex flex-wrap items-center gap-x-4 gap-y-2">
         <PeriodSelector
           period={period}
           setPeriod={setPeriod}
@@ -426,6 +459,25 @@ export default function ProfitLoss() {
           setCustomEnd={setCustomEnd}
           t={t}
         />
+        {canCompare && (
+          <div className="flex items-center gap-2">
+            <label htmlFor="pl-compare" className="text-md text-muted">
+              {t("reports.compareLabel")}
+            </label>
+            <Select
+              id="pl-compare"
+              className="w-auto px-2 py-1"
+              value={compare}
+              onChange={(e) => setCompare(e.target.value)}
+            >
+              <option value="none">{t("reports.compare_none")}</option>
+              <option value="prevPeriod">
+                {t("reports.compare_prevPeriod")}
+              </option>
+              <option value="prevYear">{t("reports.compare_prevYear")}</option>
+            </Select>
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -453,6 +505,8 @@ export default function ProfitLoss() {
               <div className="grid grid-cols-1 md:grid-cols-[minmax(280px,1fr)_minmax(280px,1.2fr)] gap-4 items-start">
                 <PLStatement
                   data={data}
+                  prevData={comparing ? prevData : null}
+                  prevLabel={prevLabel}
                   startDate={startDate}
                   endDate={endDate}
                   fmt={fmt}

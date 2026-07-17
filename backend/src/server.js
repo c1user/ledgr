@@ -42,6 +42,10 @@ import { requireFeature } from "./middleware/entitlements.js";
 import chartOfAccountsRoutes from "./routes/chartOfAccounts.js";
 import ledgerRoutes from "./routes/ledger.js";
 import searchRoutes from "./routes/search.js";
+import reconciliationRoutes from "./routes/reconciliations.js";
+import auditLogRoutes from "./routes/auditLog.js";
+import teamRoutes from "./routes/team.js";
+import { auditLogger } from "./middleware/auditLog.js";
 
 dotenv.config();
 
@@ -135,6 +139,10 @@ app.use((req, res, next) => {
 // config/entitlements.js (finer-grained gates live inside reports.js etc.).
 const gate = (feature) => [requireAuth, requireFeature(feature)];
 
+// Audit trail — mounted before the routes so every mutating endpoint
+// (including future ones) is logged by default. See middleware/auditLog.js.
+app.use("/api", auditLogger);
+
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/transactions", transactionRoutes);
 app.use("/api/accounts", accountRoutes);
@@ -159,6 +167,9 @@ app.use("/api/business", businessRoutes);
 app.use("/api/chart-of-accounts", chartOfAccountsRoutes);
 app.use("/api/ledger", ledgerRoutes);
 app.use("/api/search", searchRoutes);
+app.use("/api/reconciliations", ...gate("reconciliation"), reconciliationRoutes);
+app.use("/api/audit-log", ...gate("audit_log"), auditLogRoutes);
+app.use("/api/team", ...gate("multi_user"), teamRoutes);
 
 // ── Health check — no sensitive info ─────────────────────────
 app.get("/health", (req, res) => {

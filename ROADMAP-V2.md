@@ -65,25 +65,72 @@ distinctive, and easier to read and navigate.
 
 ## Phase 3 — Feature development
 
-- [ ] **11. Advanced reports** — cash-flow statement, period-over-period
+- [x] **11. Advanced reports** — cash-flow statement, period-over-period
       comparisons (Premium flag exists with nothing behind it).
-- [ ] **12. Manual bank reconciliation** — CSV-import-based matching against
+      Direct-method cash flow from journal lines (operating/investing/
+      financing; beginning → net change → ending cash) as a Reports tab
+      with PDF export, gated by advanced_reports; P&L gained a Compare
+      select (previous period / same period last year) with per-category
+      previous amounts and ±% delta badges.
+- [x] **12. Manual bank reconciliation** — CSV-import-based matching against
       the ledger + lock reconciled periods. Does NOT need Plaid.
-- [ ] **13. Multi-user invites + user management page** (feature flag
-      exists, no UI).
-- [ ] **14. In-app plan/pricing page + receipts-cap upsell polish** — the
+      Reconcile tab under Transactions (professional+): pick a funding
+      source + statement period/balances, check off cleared transactions
+      (statement-CSV upload auto-matches by amount/sign/±3-day date),
+      complete only when the difference is $0.00 — server re-verifies —
+      then cleared transactions reject edits/deletes. Migration 020.
+- [x] **13. Audit trail (history tables)** — an `audit_log` table recording
+      every mutating action (create / update / delete) with the acting user,
+      entity type + id, and a JSONB snapshot of the changed data — deletes
+      keep the full removed row so nothing vanishes without a trace. Logged
+      from shared backend middleware so new routes are covered by default,
+      plus an Activity page to browse and filter the history. Deliberately
+      sequenced BEFORE multi-user so every action is attributed from the
+      moment additional users arrive.
+      Migration 021; auditLogger middleware on /api hooks res-finish (2xx
+      only) and pre-captures rows before DELETEs; Activity page (sidebar,
+      professional+ via new audit_log flag) with action/type filters and
+      expandable snapshots.
+- [x] **14. Multi-user invites + user management page** (feature flag
+      exists, no UI). Team page (owner/admin invite via emailed link —
+      always copyable too since SMTP is optional; owner manages roles,
+      deactivation is soft so history survives, last-owner guarded);
+      public /join page sets name+password and logs straight in; roles
+      are owner/admin/viewer per the original schema. Migration 022.
+- [x] **15. In-app plan/pricing page + receipts-cap upsell polish** — the
       upgrade cards dead-end today; the Starter scan-limit 403 shows as raw
-      error text.
-- [ ] **15. Hacienda follow-ons** — SURI flat-file e-file (Pub 25-03),
+      error text. /plans page with three tier cards (current highlighted,
+      owner switches freely until billing lands — PUT /api/business/plan);
+      upgrade cards and the header plan badge now link there; the scan-limit
+      403 renders as a friendly banner with usage counts + View plans.
+- [x] **16. Hacienda follow-ons** — SURI flat-file e-file (Pub 25-03),
       quarterly 480.6SP-1, withholding remittance workflow.
-- [ ] **16. Multi-currency: complete or cut** — FX entry works; decide
+      - [x] Withholding remittance workflow — quarterly withheld/remitted
+            table on the Hacienda page (the 480.6SP-1 amounts) + a
+            ledger-posted "Record remittance" (debit liability / credit
+            cash asset; ledger-funded only in v1).
+      - [x] SURI flat file per Pub 25-03 v2.0 — services/suriFile.js
+            builds the fixed-width 2500-char ASCII file (SU + PA +
+            details + 480.6SP.2 + 480.5); export button on Hacienda
+            prompts for the Treasury-assigned control-number range
+            start; 51 byte-position assertions in
+            backend/tests/suriFile.test.mjs. v1 caveat: payees export
+            as corporations/FEIN (the app doesn't distinguish
+            individual payees) — noted in the UI.
+- [x] **17. Multi-currency: complete or cut** — FX entry works; decide
       whether full multi-currency survives.
+      DECIDED (2026-07-17): cut. Full multi-currency (FX gain/loss
+      accounts, revaluation, realized/unrealized gains) is not worth it
+      for a USD/Puerto Rico market. The lightweight FX capture stays:
+      foreign purchases record the original amount + USD conversion at
+      the transaction-date rate; the ledger remains single-currency USD.
+      Revisit only if importer demand shows up.
 
 ## Phase 4 — Code quality
 
-- [ ] **17. Code splitting** — the 1.2 MB bundle is a load-time UX issue.
-- [ ] **18. Backend tests + pre-commit hook** — ledger posting and
+- [ ] **18. Code splitting** — the 1.2 MB bundle is a load-time UX issue.
+- [ ] **19. Backend tests + pre-commit hook** — ledger posting and
       entitlement gates deserve regression coverage.
-- [ ] **19. Small debt** — the two pre-existing lint errors (TimeTracking
+- [ ] **20. Small debt** — the two pre-existing lint errors (TimeTracking
       `Date.now()` in render, Transactions FX effect), adopt-or-delete the
       unused `DataTable` component.

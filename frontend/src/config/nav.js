@@ -81,6 +81,18 @@ export const navGroups = [
   {
     items: [
       { to: "/ai", icon: "ti-sparkles", label: "nav.aiChat", feature: "ai_chat" },
+      {
+        to: "/team",
+        icon: "ti-users-group",
+        label: "nav.team",
+        feature: "multi_user",
+      },
+      {
+        to: "/activity",
+        icon: "ti-history",
+        label: "nav.activity",
+        feature: "audit_log",
+      },
       { to: "/settings", icon: "ti-settings", label: "nav.businessProfile" },
     ],
   },
@@ -114,6 +126,18 @@ export const subPages = [
     feature: "recurring",
   },
   { to: "/transactions/rules", icon: "ti-filter-cog", label: "nav.rules" },
+  {
+    to: "/transactions/reconcile",
+    icon: "ti-checklist",
+    label: "recon.title",
+    feature: "reconciliation",
+  },
+  {
+    to: "/reports/cash-flow",
+    icon: "ti-cash-banknote",
+    label: "cashflow.title",
+    feature: "advanced_reports",
+  },
   { to: "/reports/balance-sheet", icon: "ti-scale", label: "balanceSheet.title" },
   { to: "/reports/tax-summary", icon: "ti-receipt-tax", label: "tax.title" },
   {
@@ -128,4 +152,5 @@ export const subPages = [
     label: "time.title",
     feature: "projects",
   },
+  { to: "/plans", icon: "ti-crown", label: "plans.title" },
 ];

@@ -91,3 +91,46 @@ export async function sendInvoiceEmail({ to, invoice, business, pdfBuffer, lang 
     return { delivered: false, fallback: false, error: err.message };
   }
 }
+
+const INVITE_TEMPLATES = {
+  en: {
+    subject: (biz) => `You've been invited to join ${biz} on Abaco`,
+    body: (biz, link) =>
+      `You've been invited to join ${biz}'s books on Abaco.\n\nAccept the invitation and set your password here:\n${link}\n\nThis link expires in 7 days.`,
+  },
+  es: {
+    subject: (biz) => `Te invitaron a unirte a ${biz} en Abaco`,
+    body: (biz, link) =>
+      `Te invitaron a unirte a los libros de ${biz} en Abaco.\n\nAcepta la invitación y crea tu contraseña aquí:\n${link}\n\nEste enlace expira en 7 días.`,
+  },
+};
+
+/**
+ * Email a team invite link. Same contract as sendInvoiceEmail: returns a
+ * status object, never throws — the invite row is created regardless, and
+ * the caller always gets the link to share manually.
+ */
+export async function sendInviteEmail({ to, businessName, inviteLink, lang = "en" }) {
+  if (!to) return { delivered: false, fallback: false, error: "No recipient" };
+  const tpl = INVITE_TEMPLATES[lang === "es" ? "es" : "en"];
+  const from = process.env.EMAIL_FROM || `Abaco <${NOREPLY_EMAIL}>`;
+
+  try {
+    const { transport, fallback } = getTransport();
+    const info = await transport.sendMail({
+      from,
+      to,
+      subject: tpl.subject(businessName),
+      text: tpl.body(businessName, inviteLink),
+    });
+    if (fallback) {
+      console.log(
+        `[email:dev-capture] team invite → ${to} (no SMTP configured; not actually sent)`,
+      );
+    }
+    return { delivered: true, fallback, messageId: info.messageId };
+  } catch (err) {
+    console.error("Invite email error:", err.message);
+    return { delivered: false, fallback: false, error: err.message };
+  }
+}

@@ -3,10 +3,13 @@ import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireFeature } from "../middleware/entitlements.js";
 import {
+  buildCashFlowPdf,
   buildPlPdf,
   buildTaxPdf,
   fetchBusiness,
 } from "../services/reportPdf.js";
+import { postJournalEntry } from "../services/ledger.js";
+import { buildSuriFile } from "../services/suriFile.js";
 
 const router = express.Router();
 
@@ -165,6 +168,157 @@ router.get("/pl/pdf", requireFeature("pdf_reports"), async (req, res) => {
     return res.status(500).json({ error: "Failed to generate PDF" });
   }
 });
+
+// ── Cash-flow data (direct method; shared by JSON and PDF) ───
+// "Cash" = the system Cash account plus the COA twin of every operational
+// bank account. Double-entry means debits and credits balance per entry, so
+// for entries that touch cash, each NON-cash line's (credit − debit) is
+// exactly its contribution to the cash movement — the counterpart lines
+// explain where cash came from and where it went.
+const CASH_ACCOUNTS_SQL = `
+  SELECT id FROM chart_of_accounts
+  WHERE business_id = $1
+    AND (name_key = 'coa.accounts.cash'
+         OR id IN (SELECT coa_account_id FROM accounts
+                   WHERE business_id = $1 AND coa_account_id IS NOT NULL))
+`;
+
+// Sections: revenue/expense and day-to-day system asset/liability accounts
+// are operating; custom asset accounts (equipment etc.) are investing;
+// equity and custom liabilities (loans) are financing.
+function cashFlowSection(row) {
+  if (row.account_type === "equity") return "financing";
+  if (row.account_type === "asset")
+    return row.is_system ? "operating" : "investing";
+  if (row.account_type === "liability")
+    return row.is_system ? "operating" : "financing";
+  return "operating";
+}
+
+async function getCashFlowData(businessId, startDate, endDate) {
+  const flowsSql = `
+    WITH cash_accounts AS (${CASH_ACCOUNTS_SQL}),
+    cash_entries AS (
+      SELECT DISTINCT jel.journal_entry_id AS id
+      FROM journal_entry_lines jel
+      JOIN journal_entries je ON je.id = jel.journal_entry_id
+      WHERE je.business_id = $1
+        AND je.entry_date >= $2::date
+        AND je.entry_date <= $3::date
+        AND jel.account_id IN (SELECT id FROM cash_accounts)
+    )
+    SELECT
+      coa.id       AS account_id,
+      coa.name_key AS account_name_key,
+      coa.name     AS account_name,
+      coa.color    AS account_color,
+      coa.account_type,
+      coa.is_system,
+      SUM(jel.credit - jel.debit)::NUMERIC(12,2) AS cash_effect
+    FROM journal_entry_lines jel
+    JOIN chart_of_accounts coa ON coa.id = jel.account_id
+    WHERE jel.journal_entry_id IN (SELECT id FROM cash_entries)
+      AND jel.account_id NOT IN (SELECT id FROM cash_accounts)
+    GROUP BY coa.id, coa.name_key, coa.name, coa.color,
+             coa.account_type, coa.is_system
+    HAVING SUM(jel.credit - jel.debit) <> 0
+    ORDER BY SUM(jel.credit - jel.debit) DESC
+  `;
+
+  const beginningSql = `
+    WITH cash_accounts AS (${CASH_ACCOUNTS_SQL})
+    SELECT COALESCE(SUM(jel.debit - jel.credit), 0)::NUMERIC(12,2) AS balance
+    FROM journal_entry_lines jel
+    JOIN journal_entries je ON je.id = jel.journal_entry_id
+    WHERE je.business_id = $1
+      AND je.entry_date < $2::date
+      AND jel.account_id IN (SELECT id FROM cash_accounts)
+  `;
+
+  const [flowsResult, beginningResult] = await Promise.all([
+    pool.query(flowsSql, [businessId, startDate, endDate]),
+    pool.query(beginningSql, [businessId, startDate]),
+  ]);
+
+  const sections = { operating: [], investing: [], financing: [] };
+  for (const row of flowsResult.rows) {
+    sections[cashFlowSection(row)].push(row);
+  }
+  const sum = (rows) =>
+    parseFloat(
+      rows.reduce((s, r) => s + parseFloat(r.cash_effect), 0).toFixed(2),
+    );
+
+  const totals = {
+    operating: sum(sections.operating),
+    investing: sum(sections.investing),
+    financing: sum(sections.financing),
+  };
+  const netChange = parseFloat(
+    (totals.operating + totals.investing + totals.financing).toFixed(2),
+  );
+  const beginningCash = parseFloat(beginningResult.rows[0].balance);
+
+  return {
+    beginning_cash: beginningCash,
+    net_change: netChange,
+    ending_cash: parseFloat((beginningCash + netChange).toFixed(2)),
+    operating: { rows: sections.operating, total: totals.operating },
+    investing: { rows: sections.investing, total: totals.investing },
+    financing: { rows: sections.financing, total: totals.financing },
+  };
+}
+
+// ── GET /api/reports/cash-flow ───────────────────────────────
+router.get(
+  "/cash-flow",
+  requireFeature("advanced_reports"),
+  async (req, res) => {
+    const { businessId } = req.user;
+    const startDate = req.query.startDate || monthStartStr();
+    const endDate = req.query.endDate || todayStr();
+
+    try {
+      return res.json(await getCashFlowData(businessId, startDate, endDate));
+    } catch (err) {
+      console.error("Cash-flow report error:", err);
+      return res.status(500).json({ error: "Failed to generate report" });
+    }
+  },
+);
+
+// ── GET /api/reports/cash-flow/pdf ───────────────────────────
+router.get(
+  "/cash-flow/pdf",
+  requireFeature("advanced_reports"),
+  async (req, res) => {
+    const { businessId } = req.user;
+    const startDate = req.query.startDate || monthStartStr();
+    const endDate = req.query.endDate || todayStr();
+    const lang = req.query.lang === "es" ? "es" : "en";
+
+    try {
+      const [data, business] = await Promise.all([
+        getCashFlowData(businessId, startDate, endDate),
+        fetchBusiness(businessId),
+      ]);
+      const pdf = await buildCashFlowPdf(data, business, {
+        startDate,
+        endDate,
+        lang,
+      });
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="cash-flow-${startDate}-to-${endDate}.pdf"`,
+      );
+      return res.send(pdf);
+    } catch (err) {
+      console.error("Cash-flow PDF error:", err);
+      return res.status(500).json({ error: "Failed to generate PDF" });
+    }
+  },
+);
 
 // ── Tax-summary data (shared by the JSON and PDF endpoints) ──
 async function getTaxData(businessId, year) {
@@ -659,6 +813,142 @@ async function fetchPayer(businessId) {
   return r.rows[0] || null;
 }
 
+// ── Withholding remittance (§1062.03) ────────────────────────
+// The services-withholding liability accrues as credits when expense
+// transactions withhold; remitting to Hacienda posts debit liability /
+// credit cash. Quarterly view = the data for Form 480.6SP-1.
+const WITHHOLDING_KEY = "coa.accounts.services_withholding_payable";
+
+async function withholdingAccountId(businessId) {
+  const r = await pool.query(
+    "SELECT id FROM chart_of_accounts WHERE business_id = $1 AND name_key = $2",
+    [businessId, WITHHOLDING_KEY],
+  );
+  return r.rows[0]?.id || null;
+}
+
+// GET /api/reports/withholding-summary?year=
+router.get(
+  "/withholding-summary",
+  requireFeature("hacienda"),
+  async (req, res) => {
+    const { businessId } = req.user;
+    const year = parseInt(req.query.year, 10) || new Date().getFullYear();
+    try {
+      const accountId = await withholdingAccountId(businessId);
+      if (!accountId) {
+        return res
+          .status(404)
+          .json({ error: "Withholding liability account not found" });
+      }
+
+      const [byQuarter, allTime] = await Promise.all([
+        pool.query(
+          `SELECT EXTRACT(QUARTER FROM je.entry_date)::int AS quarter,
+                  COALESCE(SUM(jel.credit), 0)::NUMERIC(12,2) AS withheld,
+                  COALESCE(SUM(jel.debit), 0)::NUMERIC(12,2) AS remitted
+           FROM journal_entry_lines jel
+           JOIN journal_entries je ON je.id = jel.journal_entry_id
+           WHERE je.business_id = $1 AND jel.account_id = $2
+             AND je.entry_date >= $3::date AND je.entry_date <= $4::date
+           GROUP BY 1 ORDER BY 1`,
+          [businessId, accountId, `${year}-01-01`, `${year}-12-31`],
+        ),
+        pool.query(
+          `SELECT COALESCE(SUM(jel.credit - jel.debit), 0)::NUMERIC(12,2)
+             AS balance
+           FROM journal_entry_lines jel
+           JOIN journal_entries je ON je.id = jel.journal_entry_id
+           WHERE je.business_id = $1 AND jel.account_id = $2`,
+          [businessId, accountId],
+        ),
+      ]);
+
+      const quarters = [1, 2, 3, 4].map((q) => {
+        const row = byQuarter.rows.find((r) => r.quarter === q);
+        return {
+          quarter: q,
+          withheld: parseFloat(row?.withheld || 0),
+          remitted: parseFloat(row?.remitted || 0),
+        };
+      });
+      return res.json({
+        year,
+        quarters,
+        total_withheld: parseFloat(
+          quarters.reduce((s, q) => s + q.withheld, 0).toFixed(2),
+        ),
+        total_remitted: parseFloat(
+          quarters.reduce((s, q) => s + q.remitted, 0).toFixed(2),
+        ),
+        balance_due: parseFloat(allTime.rows[0].balance),
+      });
+    } catch (err) {
+      console.error("Withholding summary error:", err);
+      return res.status(500).json({ error: "Failed to load summary" });
+    }
+  },
+);
+
+// POST /api/reports/withholding-remit { date, amount, fundingCoaId }
+// Ledger-funded only: paying from an operational bank account would need
+// its separately-tracked balance updated too — out of scope for v1.
+router.post(
+  "/withholding-remit",
+  requireFeature("hacienda"),
+  async (req, res) => {
+    const { businessId, userId } = req.user;
+    const { date, amount, fundingCoaId } = req.body;
+    const amt = parseFloat(amount);
+
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: "date (YYYY-MM-DD) is required" });
+    }
+    if (!(amt > 0)) {
+      return res.status(400).json({ error: "amount must be greater than 0" });
+    }
+    if (!fundingCoaId) {
+      return res
+        .status(400)
+        .json({ error: "fundingCoaId (a ledger asset account) is required" });
+    }
+
+    const client = await pool.connect();
+    try {
+      const withholdingId = await withholdingAccountId(businessId);
+      const funding = await client.query(
+        `SELECT id FROM chart_of_accounts
+         WHERE id = $1 AND business_id = $2 AND account_type = 'asset'`,
+        [fundingCoaId, businessId],
+      );
+      if (!withholdingId || funding.rowCount === 0) {
+        return res.status(400).json({ error: "Invalid funding account" });
+      }
+
+      await client.query("BEGIN");
+      const entry = await postJournalEntry(client, {
+        businessId,
+        date,
+        description: "Withholding remittance to Hacienda (§1062.03)",
+        sourceType: "withholding_remittance",
+        createdBy: userId,
+        lines: [
+          { accountId: withholdingId, debit: amt },
+          { accountId: fundingCoaId, credit: amt },
+        ],
+      });
+      await client.query("COMMIT");
+      return res.status(201).json({ ok: true, entryId: entry.id });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      console.error("Withholding remit error:", err);
+      return res.status(500).json({ error: "Failed to record remittance" });
+    } finally {
+      client.release();
+    }
+  },
+);
+
 // ── GET /api/reports/480-6sp?year= ───────────────────────────
 router.get("/480-6sp", requireFeature("hacienda"), async (req, res) => {
   const { businessId } = req.user;
@@ -708,6 +998,77 @@ router.get("/480-6sp", requireFeature("hacienda"), async (req, res) => {
   } catch (err) {
     console.error("480.6SP report error:", err);
     return res.status(500).json({ error: "Failed to generate 480.6SP report" });
+  }
+});
+
+// ── GET /api/reports/480-6sp/suri?year=&controlStart= ────────
+// SURI bulk-filing text file per Pub 25-03 (see services/suriFile.js).
+// Same completeness guards as the CSV export, plus the Treasury-assigned
+// starting control number the filer obtained in SURI.
+router.get("/480-6sp/suri", requireFeature("hacienda"), async (req, res) => {
+  const { businessId } = req.user;
+  const year = parseInt(req.query.year, 10) || new Date().getFullYear();
+  const controlStart = parseInt(req.query.controlStart, 10);
+
+  if (!(controlStart >= 1 && controlStart <= 999999999)) {
+    return res.status(400).json({
+      error:
+        "controlStart is required — the first control number of the range assigned by Hacienda in SURI (up to 9 digits).",
+    });
+  }
+
+  try {
+    const [vendors, payer] = await Promise.all([
+      fetch480spVendors(businessId, year),
+      fetchPayer(businessId),
+    ]);
+    const flagged = vendors.filter((v) => v.flagged);
+
+    if (flagged.length === 0) {
+      return res.status(422).json({
+        error: `No vendors reached the $${THRESHOLD_480SP} threshold in ${year}.`,
+      });
+    }
+    const payerMissing = missingPayerFields(payer);
+    if (payerMissing.length > 0) {
+      return res.status(422).json({
+        error:
+          "Your business (payer) profile is missing required 480.6SP fields. Complete it before exporting.",
+        payer_missing: payerMissing,
+      });
+    }
+    const incomplete = flagged
+      .filter((v) => v.missing_fields.length > 0)
+      .map((v) => ({ id: v.id, name: v.name, missing_fields: v.missing_fields }));
+    if (incomplete.length > 0) {
+      return res.status(422).json({
+        error:
+          "Some vendors over the threshold are missing required 480.6SP fields. Complete them before exporting.",
+        incomplete,
+      });
+    }
+
+    const owner = await pool.query(
+      `SELECT email FROM users
+       WHERE business_id = $1 AND role = 'owner' AND is_active
+       ORDER BY created_at ASC LIMIT 1`,
+      [businessId],
+    );
+
+    const { content, filename } = buildSuriFile({
+      payer,
+      vendors: flagged,
+      year,
+      controlStart,
+      contactEmail: owner.rows[0]?.email || "",
+    });
+
+    res.setHeader("Content-Type", "text/plain; charset=ascii");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    return res.send(content);
+  } catch (err) {
+    console.error("480.6SP SURI export error:", err);
+    return res.status(500).json({ error: "Failed to generate SURI file" });
   }
 });
 

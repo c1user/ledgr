@@ -10,6 +10,10 @@ const useAuthStore = create(
 
       setAuth: (token, user, business) => set({ token, user, business }),
 
+      // Patch business fields in place (e.g. after a plan switch).
+      setBusiness: (patch) =>
+        set((s) => ({ business: { ...s.business, ...patch } })),
+
       logout: () => set({ token: null, user: null, business: null }),
     }),
     {

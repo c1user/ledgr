@@ -10,6 +10,7 @@ const TABS = [
   { to: "/transactions", end: true, labelKey: "transactions.title" },
   { to: "/transactions/recurring", labelKey: "recurring.title" },
   { to: "/transactions/rules", labelKey: "nav.rules" },
+  { to: "/transactions/reconcile", labelKey: "recon.title" },
 ];
 
 export default function TransactionsHub() {

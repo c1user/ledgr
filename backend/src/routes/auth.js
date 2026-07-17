@@ -166,7 +166,8 @@ router.post("/login", async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT u.id, u.business_id, u.name, u.email, u.role, u.password_hash, u.language,
+      `SELECT u.id, u.business_id, u.name, u.email, u.role, u.password_hash,
+              u.language, u.is_active,
               b.name AS business_name, b.plan, b.currency
        FROM users u
        JOIN businesses b ON b.id = u.business_id
@@ -174,15 +175,21 @@ router.post("/login", async (req, res) => {
       [email.toLowerCase().trim()],
     );
 
-    // OWASP A02: Run bcrypt compare even on miss to prevent timing attacks
+    // OWASP A02: Run bcrypt compare even on miss to prevent timing attacks.
+    // Pending invites (NULL password_hash) and deactivated users fall through
+    // to the same generic error — never reveal account state.
     const DUMMY_HASH =
       "$2a$14$dummyhashtopreventtimingattacksonnonexistentusers000000";
     const passwordMatch =
-      result.rows.length > 0
+      result.rows.length > 0 && result.rows[0].password_hash
         ? await bcrypt.compare(password, result.rows[0].password_hash)
         : await bcrypt.compare(password, DUMMY_HASH).then(() => false);
 
-    if (result.rows.length === 0 || !passwordMatch) {
+    if (
+      result.rows.length === 0 ||
+      !passwordMatch ||
+      !result.rows[0].is_active
+    ) {
       // OWASP A07: Generic error — never reveal whether email exists
       return res.status(401).json({ error: "Invalid email or password" });
     }
@@ -214,6 +221,83 @@ router.post("/login", async (req, res) => {
   } catch (err) {
     console.error("Login error:", err.message);
     return res.status(500).json({ error: "Login failed. Please try again." });
+  }
+});
+
+// ── POST /api/auth/accept-invite ──────────────────────────────
+// Public: an invited user (row with NULL password_hash + a valid token)
+// sets their name and password, then gets logged straight in.
+router.post("/accept-invite", async (req, res) => {
+  const { token, name, password } = req.body;
+
+  if (!token || typeof token !== "string" || token.length > 128) {
+    return res.status(400).json({ error: "Invalid invite token" });
+  }
+  if (!name || !String(name).trim()) {
+    return res.status(400).json({ error: "Name is required" });
+  }
+  // Same password policy as register.
+  if (!password || password.length < 12) {
+    return res
+      .status(400)
+      .json({ error: "Password must be at least 12 characters" });
+  }
+  if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password)) {
+    return res.status(400).json({
+      error: "Password must contain uppercase, lowercase, and a number",
+    });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT u.id, u.business_id, u.email, u.role, u.language,
+              b.name AS business_name, b.plan, b.currency
+       FROM users u
+       JOIN businesses b ON b.id = u.business_id
+       WHERE u.invite_token = $1
+         AND u.password_hash IS NULL
+         AND u.is_active
+         AND u.invite_expires_at > NOW()`,
+      [token],
+    );
+    if (result.rows.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "This invite link is invalid or has expired" });
+    }
+    const invited = result.rows[0];
+
+    const safeName = validator.stripLow(String(name)).trim().slice(0, 120);
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    await pool.query(
+      `UPDATE users
+       SET name = $2, password_hash = $3,
+           invite_token = NULL, invite_expires_at = NULL, last_login = NOW()
+       WHERE id = $1`,
+      [invited.id, safeName, passwordHash],
+    );
+
+    const jwtToken = signToken(invited);
+    return res.json({
+      token: jwtToken,
+      user: {
+        id: invited.id,
+        name: safeName,
+        email: invited.email,
+        role: invited.role,
+        language: invited.language,
+      },
+      business: {
+        id: invited.business_id,
+        name: invited.business_name,
+        plan: invited.plan,
+        currency: invited.currency,
+      },
+    });
+  } catch (err) {
+    console.error("Accept invite error:", err.message);
+    return res.status(500).json({ error: "Failed to accept invite" });
   }
 });
 

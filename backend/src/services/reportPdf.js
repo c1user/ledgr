@@ -381,6 +381,79 @@ export function buildPlPdf(
   return done;
 }
 
+// ── Cash Flow (direct method) ────────────────────────────────
+export function buildCashFlowPdf(
+  data,
+  business,
+  { startDate, endDate, lang = "en" },
+) {
+  const money = (v) => fmtMoney(v, business?.currency, lang);
+  const { ctx, done } = startDoc();
+
+  pageHeader(
+    ctx,
+    business,
+    tr("cashflow.title", lang, "Cash Flow"),
+    `${fmtDate(startDate, lang)} – ${fmtDate(endDate, lang)}`,
+  );
+
+  line(
+    ctx,
+    tr("cashflow.beginningCash", lang, "Cash at start of period"),
+    money(data.beginning_cash),
+    { bold: true },
+  );
+  ctx.y += 6;
+
+  const sections = [
+    ["operating", tr("cashflow.operating", lang, "Operating activities")],
+    ["investing", tr("cashflow.investing", lang, "Investing activities")],
+    ["financing", tr("cashflow.financing", lang, "Financing activities")],
+  ];
+  for (const [key, title] of sections) {
+    const sec = data[key];
+    // investing/financing are usually empty for small businesses — skip
+    if (key !== "operating" && sec.rows.length === 0) continue;
+    sectionTitle(ctx, title);
+    if (!sec.rows.length) {
+      line(ctx, "—", "", { muted: true });
+    } else {
+      for (const row of sec.rows) {
+        line(
+          ctx,
+          accountLabel(row.account_name_key, row.account_name, lang),
+          money(row.cash_effect),
+          { rule: true },
+        );
+      }
+    }
+    line(
+      ctx,
+      tr(`cashflow.total_${key}`, lang, `Net cash from ${key}`),
+      money(sec.total),
+      { bold: true },
+    );
+    ctx.y += 8;
+  }
+
+  heavyRule(ctx);
+  line(
+    ctx,
+    tr("cashflow.netChange", lang, "Net change in cash"),
+    money(data.net_change),
+    { bold: true, big: true },
+  );
+  line(
+    ctx,
+    tr("cashflow.endingCash", lang, "Cash at end of period"),
+    money(data.ending_cash),
+    { bold: true, big: true },
+  );
+
+  ctx.doc.end();
+  return done;
+}
+
 // ── Tax Summary ──────────────────────────────────────────────
 export function buildTaxPdf(data, business, { lang = "en" }) {
   const money = (v) => fmtMoney(v, business?.currency, lang);

@@ -581,6 +581,20 @@ router.put("/:id", async (req, res) => {
     }
     const oldTx = existing.rows[0];
 
+    // Reconciled periods are locked — the books must keep matching the bank.
+    if (oldTx.reconciliation_id) {
+      const locked = await client.query(
+        "SELECT 1 FROM reconciliations WHERE id = $1 AND status = 'completed'",
+        [oldTx.reconciliation_id],
+      );
+      if (locked.rowCount > 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          error: "This transaction is locked by a completed reconciliation",
+        });
+      }
+    }
+
     // Merge new values over old.
     const date = req.body.date || oldTx.date;
     const merchant = req.body.merchant ?? oldTx.merchant;
@@ -801,12 +815,26 @@ router.delete("/:id", async (req, res) => {
     await client.query("BEGIN");
 
     const existing = await client.query(
-      "SELECT id FROM transactions WHERE id = $1 AND business_id = $2",
+      "SELECT id, reconciliation_id FROM transactions WHERE id = $1 AND business_id = $2",
       [id, businessId],
     );
     if (existing.rows.length === 0) {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: "Transaction not found" });
+    }
+
+    // Reconciled periods are locked — the books must keep matching the bank.
+    if (existing.rows[0].reconciliation_id) {
+      const locked = await client.query(
+        "SELECT 1 FROM reconciliations WHERE id = $1 AND status = 'completed'",
+        [existing.rows[0].reconciliation_id],
+      );
+      if (locked.rowCount > 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          error: "This transaction is locked by a completed reconciliation",
+        });
+      }
     }
 
     // Remove ledger entry (lines cascade), then the header.

@@ -8,6 +8,7 @@ import { TabNav } from "../components/ui";
 // /reports is a prefix of the others).
 const TABS = [
   { to: "/reports", end: true, labelKey: "reports.profitLoss" },
+  { to: "/reports/cash-flow", labelKey: "cashflow.title" },
   { to: "/reports/balance-sheet", labelKey: "balanceSheet.title" },
   { to: "/reports/tax-summary", labelKey: "tax.title" },
   { to: "/reports/hacienda", labelKey: "hacienda.title" },
