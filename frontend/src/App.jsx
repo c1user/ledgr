@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -9,46 +9,54 @@ import {
 import useAuthStore from "./store/authStore";
 import useThemeStore from "./store/themeStore";
 
-// Pages
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Join from "./pages/Join";
-import Team from "./pages/Team";
-import Dashboard from "./pages/Dashboard";
-import TransactionsHub from "./pages/TransactionsHub";
-import Transactions from "./pages/Transactions";
-import Accounting from "./pages/Accounting";
-import Accounts from "./pages/Accounts";
-import Receipts from "./pages/Receipts";
-import Payroll from "./pages/Payroll";
-import AiChat from "./pages/AiChat";
-import Reports from "./pages/Reports";
-import ProfitLoss from "./pages/ProfitLoss";
-import CashFlow from "./pages/CashFlow";
-import TaxSummary from "./pages/TaxSummary";
-import Rules from "./pages/Rules";
-import Reconcile from "./pages/Reconcile";
-import Vendors from "./pages/Vendors";
-import Clients from "./pages/Clients";
-import Invoices from "./pages/Invoices";
-import Budget from "./pages/Budget";
-import TimeTracking from "./pages/TimeTracking";
-import Inventory from "./pages/Inventory";
-import BalanceSheet from "./pages/BalanceSheet";
-import AccountsReceivable from "./pages/AccountsReceivable";
-import Sales from "./pages/Sales";
-import Recurring from "./pages/Recurring";
-import Hacienda from "./pages/Hacienda";
-import BusinessProfile from "./pages/BusinessProfile";
-import Activity from "./pages/Activity";
-import Plans from "./pages/Plans";
-import ProjectsHub from "./pages/ProjectsHub";
-import Projects from "./pages/Projects";
+// Pages — all lazy-loaded so each route ships as its own chunk and heavy
+// dependencies (recharts, papaparse) stay out of the entry bundle.
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const Join = lazy(() => import("./pages/Join"));
+const Team = lazy(() => import("./pages/Team"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const TransactionsHub = lazy(() => import("./pages/TransactionsHub"));
+const Transactions = lazy(() => import("./pages/Transactions"));
+const Accounting = lazy(() => import("./pages/Accounting"));
+const Accounts = lazy(() => import("./pages/Accounts"));
+const Receipts = lazy(() => import("./pages/Receipts"));
+const Payroll = lazy(() => import("./pages/Payroll"));
+const AiChat = lazy(() => import("./pages/AiChat"));
+const Reports = lazy(() => import("./pages/Reports"));
+const ProfitLoss = lazy(() => import("./pages/ProfitLoss"));
+const CashFlow = lazy(() => import("./pages/CashFlow"));
+const TaxSummary = lazy(() => import("./pages/TaxSummary"));
+const Rules = lazy(() => import("./pages/Rules"));
+const Reconcile = lazy(() => import("./pages/Reconcile"));
+const Vendors = lazy(() => import("./pages/Vendors"));
+const Clients = lazy(() => import("./pages/Clients"));
+const Invoices = lazy(() => import("./pages/Invoices"));
+const Budget = lazy(() => import("./pages/Budget"));
+const TimeTracking = lazy(() => import("./pages/TimeTracking"));
+const Inventory = lazy(() => import("./pages/Inventory"));
+const BalanceSheet = lazy(() => import("./pages/BalanceSheet"));
+const AccountsReceivable = lazy(() => import("./pages/AccountsReceivable"));
+const Sales = lazy(() => import("./pages/Sales"));
+const Recurring = lazy(() => import("./pages/Recurring"));
+const Hacienda = lazy(() => import("./pages/Hacienda"));
+const BusinessProfile = lazy(() => import("./pages/BusinessProfile"));
+const Activity = lazy(() => import("./pages/Activity"));
+const Plans = lazy(() => import("./pages/Plans"));
+const ProjectsHub = lazy(() => import("./pages/ProjectsHub"));
+const Projects = lazy(() => import("./pages/Projects"));
 
-// Layout
+// Layout — eager: the shell renders immediately around lazy pages.
 import AppLayout from "./components/AppLayout";
 import RequireFeature from "./components/RequireFeature";
 import FeedbackHost from "./components/FeedbackHost";
+
+// Shown while a route chunk downloads.
+const PageFallback = () => (
+  <div className="flex items-center justify-center py-24 text-muted">
+    <i className="ti ti-loader-2 animate-spin text-2xl" aria-hidden="true" />
+  </div>
+);
 
 // Protected route wrapper
 const ProtectedRoute = ({ children }) => {
@@ -79,7 +87,8 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
+      <Suspense fallback={<PageFallback />}>
+        <Routes>
         {/* Public routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -282,7 +291,8 @@ export default function App() {
 
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Routes>
+        </Routes>
+      </Suspense>
 
       {/* Toasts + confirm dialog (replaces window.alert / window.confirm) */}
       <FeedbackHost />

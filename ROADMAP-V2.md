@@ -128,7 +128,10 @@ distinctive, and easier to read and navigate.
 
 ## Phase 4 — Code quality
 
-- [ ] **18. Code splitting** — the 1.2 MB bundle is a load-time UX issue.
+- [x] **18. Code splitting** — the 1.2 MB bundle is a load-time UX issue.
+      All routes are React.lazy chunks behind one Suspense boundary:
+      entry bundle 1,200 KB → 486 KB (−60%); recharts (~353 KB) and
+      papaparse now load only on the pages that use them.
 - [ ] **19. Backend tests + pre-commit hook** — ledger posting and
       entitlement gates deserve regression coverage.
 - [ ] **20. Small debt** — the two pre-existing lint errors (TimeTracking
