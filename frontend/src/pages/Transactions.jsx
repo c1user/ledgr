@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -224,7 +224,6 @@ function TransactionModal({
     editTx ? Number(editTx.withholding_amount) > 0 : false,
   );
   const [error, setError] = useState("");
-  const [rateStatus, setRateStatus] = useState("idle"); // "idle" | "loading" | "error"
 
   const isFx = form.currency && form.currency !== baseCurrency;
   const selectedVendor = vendors?.find((v) => v.id === form.vendorId);
@@ -232,25 +231,34 @@ function TransactionModal({
   const grossForWh = parseFloat(form.totalAmount || 0);
   const netToVendor = grossForWh - parseFloat(form.withholdingAmount || 0);
 
-  // Auto-fetch exchange rate when the currency or date changes
-  useEffect(() => {
-    if (!isFx) {
-      setForm((f) => ({ ...f, exchangeRate: "1" }));
-      setRateStatus("idle");
-      return;
-    }
-    setRateStatus("loading");
-    api
-      .get(
-        `/fx-rates?base=${form.currency}&target=${baseCurrency}&date=${form.date}`,
-      )
-      .then((r) => {
-        setForm((f) => ({ ...f, exchangeRate: String(r.data.rate) }));
-        setRateStatus("idle");
-      })
-      .catch(() => setRateStatus("error"));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.currency, form.date, baseCurrency]);
+  // Auto-fetch the exchange rate for foreign-currency transactions. The
+  // fetched rate fills the (still user-editable) exchangeRate field. The
+  // fill and the reset-to-1 are adjusted during render behind prev-value
+  // guards, not in an effect (react.dev/you-might-not-need-an-effect).
+  const fxRate = useQuery({
+    queryKey: ["fx-rate", form.currency, baseCurrency, form.date],
+    queryFn: () =>
+      api
+        .get(
+          `/fx-rates?base=${form.currency}&target=${baseCurrency}&date=${form.date}`,
+        )
+        .then((r) => r.data.rate),
+    enabled: !!isFx && !!form.date,
+    retry: false,
+    staleTime: 60 * 60 * 1000,
+  });
+  const [ratePreset, setRatePreset] = useState(null);
+  if (isFx && fxRate.data != null && ratePreset !== fxRate.data) {
+    // A freshly fetched rate — fill it once, then leave manual edits alone.
+    setRatePreset(fxRate.data);
+    setForm((f) => ({ ...f, exchangeRate: String(fxRate.data) }));
+  }
+  if (!isFx && ratePreset !== null) setRatePreset(null);
+  if (!isFx && form.exchangeRate !== "1") {
+    setForm((f) => ({ ...f, exchangeRate: "1" }));
+  }
+  const fxLoading = isFx && fxRate.isFetching;
+  const fxError = isFx && fxRate.isError;
 
   const mutation = useMutation({
     mutationFn: (data) =>
@@ -434,7 +442,7 @@ function TransactionModal({
                   from: form.currency,
                   to: baseCurrency,
                 })}
-                {rateStatus === "loading" && (
+                {fxLoading && (
                   <span className="ml-1.5 text-[10px] text-muted">
                     {t("fx.autoFetching")}
                   </span>
@@ -451,7 +459,7 @@ function TransactionModal({
                   setForm({ ...form, exchangeRate: e.target.value })
                 }
               />
-              {rateStatus === "error" && (
+              {fxError && (
                 <div className="text-[11px] text-muted mt-1">
                   {t("fx.fetchError")}
                 </div>

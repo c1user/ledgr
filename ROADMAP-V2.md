@@ -132,8 +132,16 @@ distinctive, and easier to read and navigate.
       All routes are React.lazy chunks behind one Suspense boundary:
       entry bundle 1,200 KB → 486 KB (−60%); recharts (~353 KB) and
       papaparse now load only on the pages that use them.
-- [ ] **19. Backend tests + pre-commit hook** — ledger posting and
-      entitlement gates deserve regression coverage.
-- [ ] **20. Small debt** — the two pre-existing lint errors (TimeTracking
+- [x] **19. Backend tests + pre-commit hook** — ledger posting and
+      entitlement gates deserve regression coverage. `node --test` suite
+      (`npm test`, 21 tests): ledger posting validation + a rolled-back DB
+      round-trip, the entitlements/plan matrix, and 480.6SP SURI byte
+      positions. `.githooks/pre-commit` runs the tests + frontend lint
+      (enable with `git config core.hooksPath .githooks`; the DB test
+      self-skips when Postgres is down).
+- [x] **20. Small debt** — the two pre-existing lint errors (TimeTracking
       `Date.now()` in render, Transactions FX effect), adopt-or-delete the
-      unused `DataTable` component.
+      unused `DataTable` component. TimeTracking now ticks a `now` state;
+      the Transactions FX rate is a react-query with render-time fill/reset
+      (no effect); frontend lint is fully clean. `DataTable` was imported
+      nowhere — deleted.

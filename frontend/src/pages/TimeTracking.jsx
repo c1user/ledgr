@@ -230,17 +230,20 @@ export default function TimeTracking() {
   const [timerRunning, setTimerRunning] = useState(false);
   const [timerStart, setTimerStart] = useState(null);
   const [timerProjectId, setTimerProjectId] = useState("");
-  const [, forceRender] = useState(0);
+  // `now` ticks each second while the timer runs; reading it (rather than
+  // Date.now()) keeps the elapsed calc pure during render.
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    if (!timerRunning) return;
-    const id = setInterval(() => forceRender((n) => n + 1), 1000);
+    if (!timerRunning) return undefined;
+    const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, [timerRunning]);
 
-  const timerElapsed = timerRunning && timerStart
-    ? Math.floor((Date.now() - timerStart) / 1000)
-    : 0;
+  const timerElapsed =
+    timerRunning && timerStart
+      ? Math.max(0, Math.floor((now - timerStart) / 1000))
+      : 0;
 
   // Modals
   const [entryModal, setEntryModal] = useState(false);
@@ -285,7 +288,9 @@ export default function TimeTracking() {
 
   // Timer actions
   function startTimer() {
-    setTimerStart(Date.now());
+    const t = Date.now();
+    setTimerStart(t);
+    setNow(t); // elapsed shows 0 immediately, before the first interval tick
     setTimerRunning(true);
   }
 

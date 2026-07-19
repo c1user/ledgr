@@ -26,7 +26,10 @@ router.get("/", async (req, res) => {
         a.id,
         a.name,
         a.type,
-        a.current_balance,
+        -- Live balance from the ledger (opening entry + posted activity),
+        -- not the stored opening amount. Falls back to the stored value for
+        -- accounts with no ledger twin/activity yet.
+        COALESCE(bal.natural_balance, a.current_balance) AS current_balance,
         a.currency,
         a.is_active,
         a.plaid_account_id,
@@ -39,9 +42,10 @@ router.get("/", async (req, res) => {
         -- Transaction count
         COUNT(t.id) AS transaction_count
        FROM accounts a
+       LEFT JOIN account_ledger_balances bal ON bal.account_id = a.coa_account_id
        LEFT JOIN transactions t ON t.account_id = a.id
        WHERE a.business_id = $1
-       GROUP BY a.id
+       GROUP BY a.id, bal.natural_balance
        ORDER BY a.is_active DESC, a.created_at ASC`,
       [businessId],
     );
@@ -60,10 +64,15 @@ router.get("/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Get account
+    // Get account — current_balance reflects the live ledger balance.
     const accountResult = await pool.query(
-      `SELECT * FROM accounts
-       WHERE id = $1 AND business_id = $2`,
+      `SELECT
+        a.id, a.business_id, a.name, a.type, a.plaid_account_id,
+        a.currency, a.is_active, a.created_at, a.coa_account_id,
+        COALESCE(bal.natural_balance, a.current_balance) AS current_balance
+       FROM accounts a
+       LEFT JOIN account_ledger_balances bal ON bal.account_id = a.coa_account_id
+       WHERE a.id = $1 AND a.business_id = $2`,
       [id, businessId],
     );
 
@@ -308,16 +317,22 @@ router.get("/summary/balances", async (req, res) => {
   const { businessId } = req.user;
 
   try {
+    // Sum the live ledger balance per account, grouped by type.
     const result = await pool.query(
       `SELECT
-        SUM(current_balance) AS total_balance,
+        SUM(bal_amt) AS total_balance,
         -- "Bank" groups the savings + current account types (there is no 'bank' type)
-        SUM(CASE WHEN type IN ('savings', 'current') THEN current_balance ELSE 0 END) AS bank_balance,
-        SUM(CASE WHEN type = 'credit' THEN current_balance ELSE 0 END) AS credit_balance,
-        SUM(CASE WHEN type = 'cash' THEN current_balance ELSE 0 END) AS cash_balance,
+        SUM(CASE WHEN type IN ('savings', 'current') THEN bal_amt ELSE 0 END) AS bank_balance,
+        SUM(CASE WHEN type = 'credit' THEN bal_amt ELSE 0 END) AS credit_balance,
+        SUM(CASE WHEN type = 'cash' THEN bal_amt ELSE 0 END) AS cash_balance,
         COUNT(*) AS account_count
-       FROM accounts
-       WHERE business_id = $1 AND is_active = TRUE`,
+       FROM (
+         SELECT a.type,
+                COALESCE(bal.natural_balance, a.current_balance) AS bal_amt
+         FROM accounts a
+         LEFT JOIN account_ledger_balances bal ON bal.account_id = a.coa_account_id
+         WHERE a.business_id = $1 AND a.is_active = TRUE
+       ) s`,
       [businessId],
     );
 
