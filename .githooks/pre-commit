@@ -1,0 +1,17 @@
+#!/bin/sh
+# Pre-commit gate. Enable once per clone:  git config core.hooksPath .githooks
+#
+# Runs the backend regression tests and the frontend lint. The ledger
+# DB round-trip test self-skips when Postgres isn't reachable, so this
+# stays green in environments without a database.
+set -e
+
+repo_root="$(git rev-parse --show-toplevel)"
+
+echo "→ backend tests"
+(cd "$repo_root/backend" && npm test --silent)
+
+echo "→ frontend lint"
+(cd "$repo_root/frontend" && npm run lint --silent)
+
+echo "✓ pre-commit checks passed"
