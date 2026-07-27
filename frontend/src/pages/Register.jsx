@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../lib/api";
+import i18n from "../i18n";
 import useAuthStore from "../store/authStore";
 import useThemeStore from "../store/themeStore";
 import BRAND from "../config/brand";
@@ -49,6 +50,8 @@ export default function Register() {
         password: form.password,
         taxId: form.taxId || undefined,
         currency: form.currency,
+        // Welcome email language
+        lang: i18n.language === "es" ? "es" : "en",
       });
 
       setAuth(data.token, data.user, data.business);

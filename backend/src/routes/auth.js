@@ -15,6 +15,7 @@ import validator from "validator";
 import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { seedChartOfAccounts } from "../services/coaSeed.js";
+import { sendWelcomeEmail } from "../services/email.js";
 
 const router = express.Router();
 
@@ -121,6 +122,14 @@ router.post("/register", async (req, res) => {
     await seedChartOfAccounts(client, business.id);
 
     await client.query("COMMIT");
+
+    // Fire-and-forget — a mail hiccup must never fail a registration.
+    sendWelcomeEmail({
+      to: user.email,
+      name: user.name,
+      businessName: business.name,
+      lang: req.body.lang === "es" ? "es" : "en",
+    }).catch(() => {});
 
     const token = signToken(user);
 
