@@ -298,11 +298,44 @@ router.delete("/:id", async (req, res) => {
       });
     }
 
-    // Hard delete if no transactions
-    await pool.query(
-      "DELETE FROM accounts WHERE id = $1 AND business_id = $2",
-      [id, businessId],
-    );
+    // Hard delete if no transactions. The account's opening-balance journal
+    // entry (source_type 'opening_balance', source_id = account id) and its
+    // dedicated ledger account go with it — otherwise they'd sit orphaned
+    // in the ledger, still counted by the equity side of the balance sheet.
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `DELETE FROM journal_entry_lines l USING journal_entries e
+         WHERE e.id = l.journal_entry_id
+           AND e.business_id = $1
+           AND e.source_type = 'opening_balance' AND e.source_id = $2`,
+        [businessId, id],
+      );
+      await client.query(
+        `DELETE FROM journal_entries
+         WHERE business_id = $1
+           AND source_type = 'opening_balance' AND source_id = $2`,
+        [businessId, id],
+      );
+      const coaId = existing.rows[0].coa_account_id;
+      await client.query(
+        "DELETE FROM accounts WHERE id = $1 AND business_id = $2",
+        [id, businessId],
+      );
+      if (coaId) {
+        await client.query(
+          "DELETE FROM chart_of_accounts WHERE id = $1 AND business_id = $2",
+          [coaId, businessId],
+        );
+      }
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
 
     return res.json({ message: "Account deleted" });
   } catch (err) {

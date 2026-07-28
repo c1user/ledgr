@@ -17,13 +17,17 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401 errors globally — log out if token expired
+// Handle 401s globally — but only when an AUTHENTICATED session died
+// (request carried a token). A failed login attempt is also a 401 and must
+// stay on the page to show its error, not trigger a redirect loop.
+// ?expired=1 lets the login page explain what happened.
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const sentToken = !!error.config?.headers?.Authorization;
+    if (error.response?.status === 401 && sentToken) {
       localStorage.removeItem("ledgr-auth");
-      window.location.href = "/login";
+      window.location.href = "/login?expired=1";
     }
     return Promise.reject(error);
   },

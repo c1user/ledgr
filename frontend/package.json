@@ -20,6 +20,7 @@
     "dayjs": "^1.11.21",
     "i18next": "^26.3.1",
     "papaparse": "^5.5.4",
+    "qrcode": "^1.5.4",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-hook-form": "^7.76.1",

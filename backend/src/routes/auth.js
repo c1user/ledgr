@@ -21,6 +21,13 @@ import {
   sendVerificationEmail,
   sendWelcomeEmail,
 } from "../services/email.js";
+import {
+  generateSecret,
+  verifyTotp,
+  otpauthUrl,
+  generateBackupCodes,
+  hashBackupCode,
+} from "../services/totp.js";
 
 const router = express.Router();
 
@@ -47,12 +54,15 @@ const passwordPolicyError = (password) => {
 };
 
 // ── Helper: generate JWT ──────────────────────────────────────
+// tokenVersion pins the JWT to the user's current session generation —
+// requireAuth rejects tokens whose version no longer matches the DB.
 const signToken = (user) =>
   jwt.sign(
     {
       userId: user.id,
       businessId: user.business_id,
       role: user.role,
+      tokenVersion: user.token_version ?? 0,
     },
     JWT_SECRET,
     {
@@ -60,6 +70,24 @@ const signToken = (user) =>
       algorithm: "HS256", // Explicit algorithm prevents algorithm confusion attacks
     },
   );
+
+// Short-lived intermediate token for the 2FA login step: proves the
+// password check passed without granting any API access.
+const signMfaToken = (userId) =>
+  jwt.sign({ userId, mfa: true }, JWT_SECRET, {
+    expiresIn: "5m",
+    algorithm: "HS256",
+  });
+
+// Consume a backup code: returns the remaining hashes array if it matched,
+// or null. Codes are single-use — the matched hash is removed.
+const consumeBackupCode = (storedHashes, code) => {
+  if (!Array.isArray(storedHashes)) return null;
+  const submitted = hashBackupCode(code);
+  const idx = storedHashes.indexOf(submitted);
+  if (idx === -1) return null;
+  return storedHashes.filter((_, i) => i !== idx);
+};
 
 // ── POST /api/auth/register ───────────────────────────────────
 router.post("/register", async (req, res) => {
@@ -131,7 +159,8 @@ router.post("/register", async (req, res) => {
       `INSERT INTO users (business_id, name, email, role, password_hash,
                           consented_at, verify_token, verify_expires_at)
        VALUES ($1, $2, $3, 'owner', $4, NOW(), $5, NOW() + INTERVAL '24 hours')
-       RETURNING id, business_id, name, email, role, language, email_verified`,
+       RETURNING id, business_id, name, email, role, language, email_verified,
+                 token_version`,
       [business.id, safeName, email.toLowerCase().trim(), passwordHash, verifyToken],
     );
     const user = userResult.rows[0];
@@ -167,6 +196,7 @@ router.post("/register", async (req, res) => {
         role: user.role,
         language: user.language,
         emailVerified: user.email_verified,
+        totpEnabled: false,
       },
       business: {
         id: business.id,
@@ -202,7 +232,8 @@ router.post("/login", async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT u.id, u.business_id, u.name, u.email, u.role, u.password_hash,
-              u.language, u.is_active, u.email_verified,
+              u.language, u.is_active, u.email_verified, u.totp_enabled,
+              u.token_version,
               b.name AS business_name, b.plan, b.currency
        FROM users u
        JOIN businesses b ON b.id = u.business_id
@@ -231,6 +262,12 @@ router.post("/login", async (req, res) => {
 
     const user = result.rows[0];
 
+    // 2FA: the password alone doesn't finish the login — hand back a
+    // short-lived MFA token and wait for the authenticator code.
+    if (user.totp_enabled) {
+      return res.json({ mfaRequired: true, mfaToken: signMfaToken(user.id) });
+    }
+
     await pool.query("UPDATE users SET last_login = NOW() WHERE id = $1", [
       user.id,
     ]);
@@ -246,6 +283,7 @@ router.post("/login", async (req, res) => {
         role: user.role,
         language: user.language,
         emailVerified: user.email_verified,
+        totpEnabled: user.totp_enabled,
       },
       business: {
         id: user.business_id,
@@ -339,16 +377,22 @@ router.post("/reset-password", async (req, res) => {
     const user = result.rows[0];
 
     const passwordHash = await bcrypt.hash(password, 14);
-    await pool.query(
+    // token_version bump signs out every other device along with the reset.
+    const updated = await pool.query(
       `UPDATE users
        SET password_hash = $2, reset_token = NULL, reset_expires_at = NULL,
            email_verified = true, -- following an emailed link proves the inbox
+           token_version = token_version + 1,
            last_login = NOW()
-       WHERE id = $1`,
+       WHERE id = $1
+       RETURNING token_version`,
       [user.id, passwordHash],
     );
 
-    const jwtToken = signToken(user);
+    const jwtToken = signToken({
+      ...user,
+      token_version: updated.rows[0].token_version,
+    });
     return res.json({
       token: jwtToken,
       user: {
@@ -392,6 +436,7 @@ router.post("/accept-invite", async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT u.id, u.business_id, u.email, u.role, u.language,
+              u.token_version,
               b.name AS business_name, b.plan, b.currency
        FROM users u
        JOIN businesses b ON b.id = u.business_id
@@ -541,17 +586,265 @@ router.post("/change-password", requireAuth, async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 14);
-    // A password change also invalidates any outstanding reset link.
-    await pool.query(
+    // A password change invalidates any outstanding reset link AND signs out
+    // every other device (token_version bump). The fresh token keeps THIS
+    // session alive — the frontend swaps it in.
+    const updated = await pool.query(
       `UPDATE users
-       SET password_hash = $2, reset_token = NULL, reset_expires_at = NULL
-       WHERE id = $1`,
+       SET password_hash = $2, reset_token = NULL, reset_expires_at = NULL,
+           token_version = token_version + 1
+       WHERE id = $1
+       RETURNING id, business_id, role, token_version`,
       [req.user.userId, passwordHash],
     );
-    return res.json({ ok: true });
+    return res.json({ ok: true, token: signToken(updated.rows[0]) });
   } catch (err) {
     console.error("Change password error:", err.message);
     return res.status(500).json({ error: "Failed to change password" });
+  }
+});
+
+// ── POST /api/auth/2fa/setup ──────────────────────────────────
+// Step 1 of enabling 2FA: prove the password, get a fresh secret to scan.
+// The secret stays PENDING until a code is verified — abandoning setup
+// changes nothing about how the user logs in.
+router.post("/2fa/setup", requireAuth, async (req, res) => {
+  const { password } = req.body;
+  if (!password) {
+    return res.status(400).json({ error: "Password is required" });
+  }
+
+  try {
+    const r = await pool.query(
+      "SELECT email, password_hash, totp_enabled FROM users WHERE id = $1",
+      [req.user.userId],
+    );
+    if (r.rows.length === 0 || !r.rows[0].password_hash) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    if (r.rows[0].totp_enabled) {
+      return res
+        .status(400)
+        .json({ error: "Two-factor authentication is already enabled" });
+    }
+    const matches = await bcrypt.compare(password, r.rows[0].password_hash);
+    if (!matches) {
+      return res.status(400).json({ error: "Password is incorrect" });
+    }
+
+    const secret = generateSecret();
+    await pool.query(
+      "UPDATE users SET totp_pending_secret = $2 WHERE id = $1",
+      [req.user.userId, secret],
+    );
+    return res.json({
+      secret,
+      otpauthUrl: otpauthUrl(secret, r.rows[0].email),
+    });
+  } catch (err) {
+    console.error("2FA setup error:", err.message);
+    return res.status(500).json({ error: "Failed to start 2FA setup" });
+  }
+});
+
+// ── POST /api/auth/2fa/enable ─────────────────────────────────
+// Step 2: a valid code against the pending secret flips 2FA on and returns
+// the backup codes — shown exactly once, only digests are stored. Other
+// devices are signed out (they authenticated without 2FA).
+router.post("/2fa/enable", requireAuth, async (req, res) => {
+  const { code } = req.body;
+
+  try {
+    const r = await pool.query(
+      "SELECT totp_pending_secret, totp_enabled FROM users WHERE id = $1",
+      [req.user.userId],
+    );
+    if (r.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    if (r.rows[0].totp_enabled) {
+      return res
+        .status(400)
+        .json({ error: "Two-factor authentication is already enabled" });
+    }
+    const pending = r.rows[0].totp_pending_secret;
+    if (!pending) {
+      return res.status(400).json({ error: "Start 2FA setup first" });
+    }
+    if (!verifyTotp(pending, code)) {
+      return res
+        .status(400)
+        .json({ error: "That code didn't match — try again" });
+    }
+
+    const backupCodes = generateBackupCodes();
+    const updated = await pool.query(
+      `UPDATE users
+       SET totp_enabled = true, totp_secret = $2, totp_pending_secret = NULL,
+           backup_codes = $3, token_version = token_version + 1
+       WHERE id = $1
+       RETURNING id, business_id, role, token_version`,
+      [
+        req.user.userId,
+        pending,
+        JSON.stringify(backupCodes.map(hashBackupCode)),
+      ],
+    );
+    return res.json({
+      ok: true,
+      backupCodes,
+      token: signToken(updated.rows[0]),
+    });
+  } catch (err) {
+    console.error("2FA enable error:", err.message);
+    return res.status(500).json({ error: "Failed to enable 2FA" });
+  }
+});
+
+// ── POST /api/auth/2fa/disable ────────────────────────────────
+// Requires the password AND a current code (or a backup code).
+router.post("/2fa/disable", requireAuth, async (req, res) => {
+  const { password, code } = req.body;
+  if (!password || !code) {
+    return res.status(400).json({ error: "Password and code are required" });
+  }
+
+  try {
+    const r = await pool.query(
+      `SELECT password_hash, totp_enabled, totp_secret, backup_codes
+       FROM users WHERE id = $1`,
+      [req.user.userId],
+    );
+    if (r.rows.length === 0 || !r.rows[0].password_hash) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    const user = r.rows[0];
+    if (!user.totp_enabled) {
+      return res
+        .status(400)
+        .json({ error: "Two-factor authentication is not enabled" });
+    }
+    const matches = await bcrypt.compare(password, user.password_hash);
+    if (!matches) {
+      return res.status(400).json({ error: "Password is incorrect" });
+    }
+    const codeOk =
+      verifyTotp(user.totp_secret, code) ||
+      consumeBackupCode(user.backup_codes, code) !== null;
+    if (!codeOk) {
+      return res
+        .status(400)
+        .json({ error: "That code didn't match — try again" });
+    }
+
+    const updated = await pool.query(
+      `UPDATE users
+       SET totp_enabled = false, totp_secret = NULL,
+           totp_pending_secret = NULL, backup_codes = NULL,
+           token_version = token_version + 1
+       WHERE id = $1
+       RETURNING id, business_id, role, token_version`,
+      [req.user.userId],
+    );
+    return res.json({ ok: true, token: signToken(updated.rows[0]) });
+  } catch (err) {
+    console.error("2FA disable error:", err.message);
+    return res.status(500).json({ error: "Failed to disable 2FA" });
+  }
+});
+
+// ── POST /api/auth/2fa/verify-login ───────────────────────────
+// Public second step of a 2FA login: the short-lived MFA token plus an
+// authenticator code (or single-use backup code) completes the sign-in.
+router.post("/2fa/verify-login", async (req, res) => {
+  const { mfaToken, code } = req.body;
+  if (!mfaToken || !code) {
+    return res.status(400).json({ error: "Token and code are required" });
+  }
+
+  let decoded;
+  try {
+    decoded = jwt.verify(mfaToken, JWT_SECRET, { algorithms: ["HS256"] });
+    if (decoded.mfa !== true) throw new Error("not an mfa token");
+  } catch {
+    return res
+      .status(400)
+      .json({ error: "Sign-in step expired — enter your password again" });
+  }
+
+  try {
+    const r = await pool.query(
+      `SELECT u.id, u.business_id, u.name, u.email, u.role, u.language,
+              u.email_verified, u.totp_enabled, u.totp_secret, u.backup_codes,
+              u.token_version,
+              b.name AS business_name, b.plan, b.currency
+       FROM users u
+       JOIN businesses b ON b.id = u.business_id
+       WHERE u.id = $1 AND u.is_active`,
+      [decoded.userId],
+    );
+    if (r.rows.length === 0 || !r.rows[0].totp_enabled) {
+      return res.status(400).json({ error: "Invalid sign-in state" });
+    }
+    const user = r.rows[0];
+
+    let verified = verifyTotp(user.totp_secret, code);
+    if (!verified) {
+      const remaining = consumeBackupCode(user.backup_codes, code);
+      if (remaining !== null) {
+        verified = true;
+        await pool.query("UPDATE users SET backup_codes = $2 WHERE id = $1", [
+          user.id,
+          JSON.stringify(remaining),
+        ]);
+      }
+    }
+    if (!verified) {
+      return res
+        .status(400)
+        .json({ error: "That code didn't match — try again" });
+    }
+
+    await pool.query("UPDATE users SET last_login = NOW() WHERE id = $1", [
+      user.id,
+    ]);
+    const token = signToken(user);
+    return res.json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        language: user.language,
+        emailVerified: user.email_verified,
+        totpEnabled: true,
+      },
+      business: {
+        id: user.business_id,
+        name: user.business_name,
+        plan: user.plan,
+        currency: user.currency,
+      },
+    });
+  } catch (err) {
+    console.error("2FA verify-login error:", err.message);
+    return res.status(500).json({ error: "Failed to verify code" });
+  }
+});
+
+// ── POST /api/auth/logout-all ─────────────────────────────────
+// Bump token_version → every outstanding JWT (including this one) dies.
+router.post("/logout-all", requireAuth, async (req, res) => {
+  try {
+    await pool.query(
+      "UPDATE users SET token_version = token_version + 1 WHERE id = $1",
+      [req.user.userId],
+    );
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Logout-all error:", err.message);
+    return res.status(500).json({ error: "Failed to sign out everywhere" });
   }
 });
 
@@ -560,7 +853,7 @@ router.get("/me", requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT u.id, u.business_id, u.name, u.email, u.role, u.last_login, u.language,
-              u.email_verified,
+              u.email_verified, u.totp_enabled,
               b.name AS business_name, b.plan, b.currency, b.tax_id
        FROM users u
        JOIN businesses b ON b.id = u.business_id
@@ -583,6 +876,7 @@ router.get("/me", requireAuth, async (req, res) => {
         lastLogin: user.last_login,
         language: user.language,
         emailVerified: user.email_verified,
+        totpEnabled: user.totp_enabled,
       },
       business: {
         id: user.business_id,

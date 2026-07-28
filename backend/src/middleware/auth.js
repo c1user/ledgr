@@ -8,6 +8,7 @@
  */
 
 import jwt from "jsonwebtoken";
+import pool from "../config/db.js";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -15,7 +16,7 @@ if (!JWT_SECRET || JWT_SECRET.length < 32) {
   throw new Error("FATAL: JWT_SECRET env var is missing or too short");
 }
 
-export const requireAuth = (req, res, next) => {
+export const requireAuth = async (req, res, next) => {
   const header = req.headers.authorization;
 
   if (!header || !header.startsWith("Bearer ")) {
@@ -29,19 +30,11 @@ export const requireAuth = (req, res, next) => {
     return res.status(401).json({ error: "Invalid token" });
   }
 
+  let decoded;
   try {
-    const decoded = jwt.verify(token, JWT_SECRET, {
+    decoded = jwt.verify(token, JWT_SECRET, {
       algorithms: ["HS256"], // OWASP A02: Pin algorithm — prevents "alg: none" attack
     });
-
-    // Expose only what routes need — never dump the full decoded payload
-    req.user = {
-      userId: decoded.userId,
-      businessId: decoded.businessId,
-      role: decoded.role,
-    };
-
-    next();
   } catch (err) {
     if (err.name === "TokenExpiredError") {
       return res
@@ -50,6 +43,38 @@ export const requireAuth = (req, res, next) => {
     }
     return res.status(401).json({ error: "Invalid token" });
   }
+
+  try {
+    // Session versioning: the JWT carries the token_version it was signed
+    // with; a mismatch means the user signed out everywhere (or changed
+    // their password) since — the token is dead even though it hasn't
+    // expired. Tokens minted before versioning existed count as version 0,
+    // which matches the column default, so old sessions survive the deploy.
+    const r = await pool.query(
+      "SELECT token_version FROM users WHERE id = $1 AND is_active",
+      [decoded.userId],
+    );
+    if (
+      r.rows.length === 0 ||
+      r.rows[0].token_version !== (decoded.tokenVersion ?? 0)
+    ) {
+      return res
+        .status(401)
+        .json({ error: "Session expired. Please log in again." });
+    }
+  } catch (err) {
+    console.error("Auth version check error:", err.message);
+    return res.status(500).json({ error: "Authentication check failed" });
+  }
+
+  // Expose only what routes need — never dump the full decoded payload
+  req.user = {
+    userId: decoded.userId,
+    businessId: decoded.businessId,
+    role: decoded.role,
+  };
+
+  next();
 };
 
 // ── Role-based access control helper ─────────────────────────

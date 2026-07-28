@@ -119,23 +119,50 @@ Phase 4 (pages to consent to).*
 
 ## Phase 6 — Data rights  *(export before delete; delete is destructive → late)*
 
-- [ ] **12. Export all my data** — one download (JSON/zip) of the business's
+- [x] **12. Export all my data** — one download (JSON/zip) of the business's
       records. Non-destructive, and forces a clean enumeration of every table a
       business owns — which #13 then reuses.
-- [ ] **13. Delete account / close business** — self-service erasure with strong
+      ✅ GET /api/business/export (owner-only) → one JSON attachment with the
+      business row + every owned table; user secret columns stripped. The
+      map lives in services/businessData.js and tests/businessData.test.mjs
+      compares it to the live schema — a new table can't be forgotten
+      silently.
+- [x] **13. Delete account / close business** — self-service erasure with strong
       confirmation and complete cascade teardown. Fixes the known
       orphaned-opening-balance-entry class of bug in the process.
+      ✅ DELETE /api/business (owner-only): requires the owner's password AND
+      the exact business name; child-first teardown of all 25 tables in one
+      transaction. Settings page gained an owner-only "Export your data" +
+      "Close this business" danger zone (typed-name + password modal, logout
+      on success). Account hard-delete now also removes the opening-balance
+      journal entry, its lines, and the account's ledger COA row — the
+      orphan bug is fixed.
 
 *Difficulty: medium. Dependencies: do #12 first (it produces the data map #13
 needs); benefits from the auth phase being stable.*
 
 ## Phase 7 — Advanced security & sessions  *(isolated on purpose)*
 
-- [ ] **14. Two-factor authentication** — TOTP + backup codes, opt-in from the
+- [x] **14. Two-factor authentication** — TOTP + backup codes, opt-in from the
       security area. Kept out of Phase 5 because it's markedly more complex and
       higher-risk; worth its own isolated change to the login flow.
-- [ ] **15. Session improvements** — a token version so "sign out of all
+      ✅ RFC 6238 TOTP implemented in services/totp.js (node:crypto only,
+      pinned to the RFC 4226 test vectors in tests). Enable flow on
+      /account: password → QR (qrcode pkg) + manual key → verify code →
+      8 single-use backup codes shown once (SHA-256 digests stored).
+      Login becomes two-step for 2FA accounts via a 5-minute MFA token;
+      backup codes work at login and are consumed. Disable requires
+      password + code. Pending secrets never half-enable 2FA.
+- [x] **15. Session improvements** — a token version so "sign out of all
       devices" works; clearer "session expired / you were logged out" messaging.
+      ✅ users.token_version embedded in every JWT and checked by
+      requireAuth (also kills tokens of deleted users); bumped on
+      password change/reset, 2FA enable/disable, and the new "Sign out of
+      all devices" button on /account. Change-password returns a fresh
+      token so the current session survives. The 401 interceptor now only
+      fires when a token was actually sent (failed logins keep their
+      inline error) and lands on /login?expired=1, which shows "Your
+      session expired — please sign in again."
 
 *Difficulty: 2FA high, sessions medium. Dependency: stable auth from Phase 5.*
 

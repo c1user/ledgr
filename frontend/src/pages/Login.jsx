@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import BRAND from "../config/brand";
@@ -9,6 +9,8 @@ import { Button, Card, Field, Input } from "../components/ui";
 export default function Login() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
+  const [params] = useSearchParams();
+  const expired = params.get("expired") === "1";
 
   const [theme, setTheme] = useState(() => {
     const stored = localStorage.getItem("ledgr-theme");
@@ -29,6 +31,9 @@ export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // 2FA second step: set once the password checks out on a 2FA account.
+  const [mfaToken, setMfaToken] = useState(null);
+  const [mfaCode, setMfaCode] = useState("");
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -41,10 +46,37 @@ export default function Login() {
     setError("");
     try {
       const { data } = await api.post("/auth/login", form);
+      if (data.mfaRequired) {
+        setMfaToken(data.mfaToken);
+        return;
+      }
       setAuth(data.token, data.user, data.business);
       navigate("/dashboard");
     } catch (err) {
       setError(err.response?.data?.error || "Login failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMfaSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    try {
+      const { data } = await api.post("/auth/2fa/verify-login", {
+        mfaToken,
+        code: mfaCode,
+      });
+      setAuth(data.token, data.user, data.business);
+      navigate("/dashboard");
+    } catch (err) {
+      setError(err.response?.data?.error || "Login failed. Please try again.");
+      // The 5-minute step token may have lapsed — send them back to step 1.
+      if (err.response?.status === 400 && /expired/i.test(err.response?.data?.error || "")) {
+        setMfaToken(null);
+        setMfaCode("");
+      }
     } finally {
       setLoading(false);
     }
@@ -68,8 +100,17 @@ export default function Login() {
           <div className="font-display text-brand text-[22px] font-bold tracking-[4px] uppercase mb-1.5">
             {BRAND.name}
           </div>
-          <div className="text-muted text-md">Sign in to your account</div>
+          <div className="text-muted text-md">
+            {mfaToken ? "Two-factor authentication" : "Sign in to your account"}
+          </div>
         </div>
+
+        {expired && !error && !mfaToken && (
+          <div className="bg-brand-light text-brand border border-line rounded-lg px-3.5 py-2.5 text-md mb-4">
+            <i className="ti ti-clock-exclamation mr-1.5" aria-hidden="true" />
+            Your session expired — please sign in again.
+          </div>
+        )}
 
         {error && (
           <div className="bg-danger-bg text-danger border border-danger rounded-lg px-3.5 py-2.5 text-md mb-4">
@@ -78,6 +119,53 @@ export default function Login() {
           </div>
         )}
 
+        {mfaToken ? (
+          <form onSubmit={handleMfaSubmit}>
+            <Field
+              label="Authentication code"
+              htmlFor="mfaCode"
+              hint="From your authenticator app, or a backup code"
+              className="mb-6"
+            >
+              <Input
+                id="mfaCode"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="123456"
+                value={mfaCode}
+                onChange={(e) => {
+                  setMfaCode(e.target.value);
+                  setError("");
+                }}
+                required
+                autoFocus
+              />
+            </Field>
+            <Button
+              type="submit"
+              variant="primary"
+              full
+              loading={loading}
+              icon="ti-shield-check"
+            >
+              {loading ? "Verifying..." : "Verify"}
+            </Button>
+            <div className="text-center mt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setMfaToken(null);
+                  setMfaCode("");
+                  setError("");
+                }}
+                className="text-brand text-xs font-medium cursor-pointer"
+              >
+                Back to password
+              </button>
+            </div>
+          </form>
+        ) : (
         <form onSubmit={handleSubmit}>
           <Field label="Email" htmlFor="email">
             <Input
@@ -122,6 +210,7 @@ export default function Login() {
             {loading ? "Signing in..." : "Sign in"}
           </Button>
         </form>
+        )}
 
         <div className="text-center mt-5 text-md text-muted">
           Don't have an account?{" "}

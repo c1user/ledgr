@@ -8,13 +8,92 @@
  */
 
 import express from "express";
+import bcrypt from "bcryptjs";
 import pool from "../config/db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { getPlan } from "../middleware/entitlements.js";
 import { getEntitlements, PLANS } from "../config/entitlements.js";
+import {
+  exportBusinessData,
+  deleteBusinessData,
+} from "../services/businessData.js";
 
 const router = express.Router();
 router.use(requireAuth);
+
+// ── GET /api/business/export ─────────────────────────────────
+// Owner-only: every record the business owns, as one JSON download.
+router.get("/export", requireRole("owner"), async (req, res) => {
+  try {
+    const data = await exportBusinessData(pool, req.user.businessId);
+    if (!data) return res.status(404).json({ error: "Business not found" });
+
+    const stamp = new Date().toISOString().slice(0, 10);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="abaco-export-${stamp}.json"`,
+    );
+    return res.json(data);
+  } catch (err) {
+    console.error("Export error:", err.message);
+    return res.status(500).json({ error: "Failed to export data" });
+  }
+});
+
+// ── DELETE /api/business ─────────────────────────────────────
+// Owner-only, irreversible: removes every row the business owns.
+// Two-factor confirmation: the owner's current password AND the exact
+// business name must both match.
+router.delete("/", requireRole("owner"), async (req, res) => {
+  const { password, confirmName } = req.body;
+
+  if (!password || !confirmName) {
+    return res
+      .status(400)
+      .json({ error: "Password and business name confirmation are required" });
+  }
+
+  const client = await pool.connect();
+  try {
+    const check = await client.query(
+      `SELECT u.password_hash, b.name AS business_name
+       FROM users u
+       JOIN businesses b ON b.id = u.business_id
+       WHERE u.id = $1`,
+      [req.user.userId],
+    );
+    if (check.rows.length === 0 || !check.rows[0].password_hash) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const matches = await bcrypt.compare(password, check.rows[0].password_hash);
+    if (!matches) {
+      // 400, not 401 — see change-password: 401 would force a logout.
+      return res.status(400).json({ error: "Password is incorrect" });
+    }
+    if (confirmName !== check.rows[0].business_name) {
+      return res
+        .status(400)
+        .json({ error: "The business name does not match" });
+    }
+
+    await client.query("BEGIN");
+    const counts = await deleteBusinessData(client, req.user.businessId);
+    await client.query("COMMIT");
+
+    console.log(
+      `Business ${req.user.businessId} closed by user ${req.user.userId}:`,
+      JSON.stringify(counts),
+    );
+    return res.json({ ok: true });
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("Close business error:", err.message);
+    return res.status(500).json({ error: "Failed to close the business" });
+  } finally {
+    client.release();
+  }
+});
 
 // ── GET /api/business/entitlements ───────────────────────────
 // The frontend mirror of config/entitlements.js: current plan, its feature
