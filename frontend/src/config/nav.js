@@ -101,6 +101,9 @@ export const navGroups = [
 // Tab-level routes that live inside hub pages — reachable from the command
 // palette even though they don't have their own sidebar row.
 export const subPages = [
+  // My Account has no sidebar row (the user block links to it) but should
+  // still be reachable from the command palette.
+  { to: "/account", icon: "ti-user-circle", label: "account.title" },
   {
     to: "/sales/invoices",
     icon: "ti-file-invoice",

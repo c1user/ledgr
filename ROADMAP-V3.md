@@ -43,42 +43,76 @@ personal-account settings alongside.
 
 ## Phase 2 — Support & help  *(fast, high-visibility; owner's example)*
 
-- [ ] **4. Report a problem / Contact support.** In-app form → backend endpoint
+- [x] **4. Report a problem / Contact support.** In-app form → backend endpoint
       → emails support with auto-attached context (user, business, plan, current
       page, app version). Persist rows in a `support_requests` table for a trail.
+      Done: migration 023 + POST /api/support (no plan gate — support works on
+      every tier; row persists even if the email fails) + the user's address
+      as reply-to so support answers land directly. SUPPORT_EMAIL env.
 - [ ] **5. Help / FAQ / feedback / status links** in a small Help menu.
+      Partially done: header "?" menu ships with Contact support / Report a
+      problem / Send feedback (all → the support modal with category preset).
+      FAQ and status-page links intentionally NOT added yet — they need real
+      destinations to exist first (a docs page and a status service are owner
+      decisions); dead links are worse than none.
 
 *Difficulty: low once Phase 1 exists (a `mailto:` stopgap needs nothing).
 Dependency: Phase 1 for the form-to-email version.*
 
 ## Phase 3 — Forgot / reset password  *(owner's example; public flow)*
 
-- [ ] **6. Password reset.** Public "forgot password" page → tokened email link
+- [x] **6. Password reset.** Public "forgot password" page → tokened email link
       → "set new password" page. Reuses the `invite_token` + expiry pattern
       already on `users`, so it's mostly assembly on proven infrastructure.
+      Done: migration 024 (separate reset_token columns so a reset never
+      clobbers a pending invite); anti-enumeration (identical 200 whether
+      the account exists or not); 1-hour single-use tokens; register's
+      password policy enforced; successful reset logs the user straight in.
+      "Forgot password?" link on the login page.
 
 *Difficulty: low–medium. Dependencies: Phase 1 (email). Public flow — needs no
 settings area, so it can ship before the logged-in security work.*
 
 ## Phase 4 — Legal pages  *(static; no backend; needed before public signups)*
 
-- [ ] **7. Terms of Service + Privacy Policy** public pages with footer links.
+- [x] **7. Terms of Service + Privacy Policy** public pages with footer links.
       (An app holding EINs, SSNs for withholding, and balances needs these.)
+      ✅ Bilingual DRAFT templates in `frontend/src/legal/{terms,privacy}.js`,
+      rendered by shared `pages/LegalPage.jsx` at public `/terms` + `/privacy`
+      (lazy routes); "Terms · Privacy" footer links on Login and Register.
+      Visible DRAFT badge until counsel reviews — then flip `DRAFT = false`
+      in LegalPage.jsx. Privacy discloses EIN/SSN data, S3 storage, Anthropic
+      AI processing, email provider, no selling, retention, and user rights.
 
 *Difficulty: trivial. Dependencies: none. Placed just before Phase 5 so the
 signup consent checkbox has pages to link to.*
 
 ## Phase 5 — Account security & signup hardening  *(touch registration once)*
 
-- [ ] **8. My Account / Security area** — hosts the items below, the personal
+- [x] **8. My Account / Security area** — hosts the items below, the personal
       counterpart to the existing business `/settings` and Team pages.
-- [ ] **9. Change password while logged in** — no email needed; verifies the
+      ✅ `pages/Account.jsx` at `/account`: profile summary, verification
+      status badge + resend, change-password card. Reached via the sidebar
+      user block (now a link) and the command palette.
+- [x] **9. Change password while logged in** — no email needed; verifies the
       current password and sets a new hash. Good warm-up; lands the area.
-- [ ] **10. Email verification on signup** — `verified` flag + tokened link,
+      ✅ POST /auth/change-password (bcrypt-verifies current, register's
+      policy, clears any pending reset token). Wrong current password
+      returns 400 — not 401, which the axios interceptor reads as an
+      expired session and would log the user out mid-form.
+- [x] **10. Email verification on signup** — `verified` flag + tokened link,
       reusing Phase 3's token+email infrastructure. Decide soft-nudge vs.
-      hard-gate.
-- [ ] **11. Signup consent** — "I agree to Terms & Privacy" checkbox +
+      hard-gate. ✅ Migration 025: email_verified + verify_token
+      (24h, single-use, separate column from invite/reset tokens) +
+      consented_at; existing users grandfathered verified. Decided
+      SOFT-NUDGE: dismissible banner in AppLayout until verified, resend
+      from /account. Public `/verify-email` page consumes the link;
+      reset-password and accept-invite also mark verified (emailed link
+      proves the inbox).
+- [x] **11. Signup consent** — "I agree to Terms & Privacy" checkbox +
       `consented_at`. Bundled with #10 so registration is edited once.
+      ✅ Register requires consent === true (strict boolean, 400 otherwise);
+      checkbox links to /terms + /privacy; timestamp stored on the user row.
 
 *Difficulty: medium. Dependencies: Phase 1 (email), Phase 3 (token pattern),
 Phase 4 (pages to consent to).*

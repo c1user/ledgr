@@ -10,6 +10,7 @@ import BRAND from "../config/brand";
 import BrandMark from "./BrandMark";
 import CommandPalette from "./CommandPalette";
 import QuickAdd from "./QuickAdd";
+import HelpMenu from "./HelpMenu";
 import { navGroups } from "../config/nav";
 import cx from "../lib/cx";
 import useEntitlements from "../lib/useEntitlements";
@@ -32,6 +33,8 @@ export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(() => !isMobile());
   const [mobile, setMobile] = useState(() => isMobile());
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // "Verify your email" nudge — dismissal lasts for this tab's session only.
+  const [verifyDismissed, setVerifyDismissed] = useState(false);
 
   // Ctrl+K / Cmd+K toggles the command palette
   useEffect(() => {
@@ -259,9 +262,13 @@ export default function AppLayout() {
             </div>
           )}
 
-          {/* User info */}
+          {/* User info → My Account */}
           {sidebarOpen && (
-            <div className="flex items-center gap-2 mb-2">
+            <NavLink
+              to="/account"
+              title={t("account.title")}
+              className="flex items-center gap-2 mb-2 rounded-md px-1 py-1 -mx-1 hover:bg-canvas"
+            >
               <div className="flex items-center justify-center w-[30px] h-[30px] rounded-full bg-brand-light text-brand text-[11px] font-semibold shrink-0">
                 {initials || "??"}
               </div>
@@ -273,7 +280,7 @@ export default function AppLayout() {
                   {user?.role}
                 </div>
               </div>
-            </div>
+            </NavLink>
           )}
 
           {/* Logout */}
@@ -349,6 +356,7 @@ export default function AppLayout() {
                 </kbd>
               )}
             </button>
+            <HelpMenu />
             <LanguageToggle />
             <button
               onClick={() => navigate("/plans")}
@@ -359,6 +367,26 @@ export default function AppLayout() {
             </button>
           </div>
         </header>
+
+        {/* Email verification nudge — soft gate: dismissible per session */}
+        {user && user.emailVerified === false && !verifyDismissed && (
+          <div className="flex items-center justify-between gap-3 px-5 py-2 bg-brand-light text-md border-b border-line print:hidden">
+            <div className="text-secondary min-w-0">
+              <i className="ti ti-mail-exclamation text-brand mr-1.5" aria-hidden="true" />
+              {t("account.verifyNudge")}{" "}
+              <NavLink to="/account" className="text-brand font-medium">
+                {t("account.verifyNudgeLink")}
+              </NavLink>
+            </div>
+            <button
+              onClick={() => setVerifyDismissed(true)}
+              aria-label={t("common.dismiss")}
+              className="text-muted hover:text-ink cursor-pointer shrink-0"
+            >
+              <i className="ti ti-x" aria-hidden="true" />
+            </button>
+          </div>
+        )}
 
         {/* Page content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 print:overflow-visible">

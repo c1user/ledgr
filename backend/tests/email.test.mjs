@@ -5,6 +5,8 @@ import {
   sendInvoiceEmail,
   sendInviteEmail,
   sendWelcomeEmail,
+  sendPasswordResetEmail,
+  sendVerificationEmail,
 } from "../src/services/email.js";
 
 // These tests run without SMTP_* set, so sendMail uses the offline
@@ -52,6 +54,40 @@ test("welcome email — EN and ES compose with the app URL", async () => {
   });
   assert.equal(es.composed.subject, "¡Bienvenido a Abaco, Boricua Books!");
   assert.ok(es.composed.text.includes("Hola Ana"));
+});
+
+test("password-reset email carries the link and the ignore note", async () => {
+  const r = await sendPasswordResetEmail({
+    to: "user@example.test",
+    resetLink: "http://localhost:5173/reset-password?token=tok123",
+    lang: "en",
+  });
+  assert.equal(r.delivered, true);
+  assert.match(r.composed.subject, /Reset your Abaco password/);
+  assert.ok(r.composed.text.includes("/reset-password?token=tok123"));
+  assert.ok(r.composed.text.includes("expires in 1 hour"));
+  assert.ok(r.composed.text.includes("safely ignore"));
+});
+
+test("verification email carries the link, the TTL, and the ignore note", async () => {
+  const r = await sendVerificationEmail({
+    to: "user@example.test",
+    verifyLink: "http://localhost:5173/verify-email?token=tok456",
+    lang: "en",
+  });
+  assert.equal(r.delivered, true);
+  assert.match(r.composed.subject, /Verify your Abaco email/);
+  assert.ok(r.composed.text.includes("/verify-email?token=tok456"));
+  assert.ok(r.composed.text.includes("expires in 24 hours"));
+  assert.ok(r.composed.text.includes("safely ignore"));
+
+  const es = await sendVerificationEmail({
+    to: "user@example.test",
+    verifyLink: "http://localhost:5173/verify-email?token=tok456",
+    lang: "es",
+  });
+  assert.match(es.composed.subject, /Verifica tu correo de Abaco/);
+  assert.ok(es.composed.text.includes("expira en 24 horas"));
 });
 
 test("invite email still composes after the sendMail refactor", async () => {

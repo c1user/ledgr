@@ -21,6 +21,7 @@ export default function Register() {
     taxId: "",
     currency: "USD",
   });
+  const [consent, setConsent] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -50,7 +51,8 @@ export default function Register() {
         password: form.password,
         taxId: form.taxId || undefined,
         currency: form.currency,
-        // Welcome email language
+        consent,
+        // Welcome + verification email language
         lang: i18n.language === "es" ? "es" : "en",
       });
 
@@ -163,7 +165,7 @@ export default function Register() {
             />
           </Field>
 
-          <Field label="Confirm Password" htmlFor="confirmPassword" className="mb-6">
+          <Field label="Confirm Password" htmlFor="confirmPassword" className="mb-5">
             <Input
               id="confirmPassword"
               type="password"
@@ -174,6 +176,27 @@ export default function Register() {
               required
             />
           </Field>
+
+          {/* Signup consent — backend requires consent: true */}
+          <label className="flex items-start gap-2.5 mb-6 text-md text-secondary cursor-pointer">
+            <input
+              type="checkbox"
+              checked={consent}
+              onChange={(e) => setConsent(e.target.checked)}
+              required
+              className="mt-0.5 accent-[var(--brand)]"
+            />
+            <span>
+              I agree to the{" "}
+              <Link to="/terms" className="text-brand font-medium">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link to="/privacy" className="text-brand font-medium">
+                Privacy Policy
+              </Link>
+            </span>
+          </label>
 
           <Button
             type="submit"
@@ -191,6 +214,16 @@ export default function Register() {
           Already have an account?{" "}
           <Link to="/login" className="text-brand font-medium">
             Sign in
+          </Link>
+        </div>
+
+        <div className="text-center mt-4 text-xs text-muted">
+          <Link to="/terms" className="text-muted hover:text-brand mx-1.5">
+            Terms
+          </Link>
+          ·
+          <Link to="/privacy" className="text-muted hover:text-brand mx-1.5">
+            Privacy
           </Link>
         </div>
       </Card>

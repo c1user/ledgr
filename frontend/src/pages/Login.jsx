@@ -92,7 +92,7 @@ export default function Login() {
             />
           </Field>
 
-          <Field label="Password" htmlFor="password" className="mb-6">
+          <Field label="Password" htmlFor="password" className="mb-2">
             <Input
               id="password"
               type="password"
@@ -103,6 +103,14 @@ export default function Login() {
               required
             />
           </Field>
+          <div className="text-right mb-6">
+            <Link
+              to="/forgot-password"
+              className="text-brand text-xs font-medium"
+            >
+              Forgot password?
+            </Link>
+          </div>
 
           <Button
             type="submit"
@@ -119,6 +127,16 @@ export default function Login() {
           Don't have an account?{" "}
           <Link to="/register" className="text-brand font-medium">
             Create one
+          </Link>
+        </div>
+
+        <div className="text-center mt-4 text-xs text-muted">
+          <Link to="/terms" className="text-muted hover:text-brand mx-1.5">
+            Terms
+          </Link>
+          ·
+          <Link to="/privacy" className="text-muted hover:text-brand mx-1.5">
+            Privacy
           </Link>
         </div>
       </Card>

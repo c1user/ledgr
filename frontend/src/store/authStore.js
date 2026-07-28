@@ -14,6 +14,9 @@ const useAuthStore = create(
       setBusiness: (patch) =>
         set((s) => ({ business: { ...s.business, ...patch } })),
 
+      // Patch user fields in place (e.g. after email verification).
+      setUser: (patch) => set((s) => ({ user: { ...s.user, ...patch } })),
+
       logout: () => set({ token: null, user: null, business: null }),
     }),
     {

@@ -14,6 +14,11 @@ import useThemeStore from "./store/themeStore";
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
 const Join = lazy(() => import("./pages/Join"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const LegalPage = lazy(() => import("./pages/LegalPage"));
+const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
+const Account = lazy(() => import("./pages/Account"));
 const Team = lazy(() => import("./pages/Team"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const TransactionsHub = lazy(() => import("./pages/TransactionsHub"));
@@ -93,6 +98,11 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/join" element={<Join />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/terms" element={<LegalPage doc="terms" />} />
+        <Route path="/privacy" element={<LegalPage doc="privacy" />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
 
         {/* Protected routes — all wrapped in AppLayout */}
         <Route
@@ -197,6 +207,7 @@ export default function App() {
           />
 
           <Route path="settings" element={<BusinessProfile />} />
+          <Route path="account" element={<Account />} />
           <Route path="plans" element={<Plans />} />
           <Route
             path="team"

@@ -58,6 +58,7 @@ const appUrl = () => process.env.APP_URL || "http://localhost:5173";
  * @param {string} p.subject
  * @param {string} p.text        plain-text body (footer appended)
  * @param {string} [p.from]      defaults to EMAIL_FROM or the brand no-reply
+ * @param {string} [p.replyTo]   e.g. the reporting user, so support can reply
  * @param {Array}  [p.attachments] nodemailer attachments
  * @param {string} [p.lang]      footer language ("en" | "es")
  * @param {string} [p.tag]       short label for the dev-capture log
@@ -69,6 +70,7 @@ export async function sendMail({
   subject,
   text,
   from,
+  replyTo,
   attachments,
   lang = "en",
   tag = "mail",
@@ -85,6 +87,7 @@ export async function sendMail({
       to,
       subject,
       text: `${text}${footer}`,
+      ...(replyTo ? { replyTo } : {}),
       ...(attachments ? { attachments } : {}),
     });
 
@@ -222,5 +225,84 @@ export async function sendWelcomeEmail({ to, name, businessName, lang = "en" }) 
     text: tpl.body(name, businessName, appUrl()),
     lang,
     tag: "welcome",
+  });
+}
+
+// ── Password reset ───────────────────────────────────────────
+const RESET_TEMPLATES = {
+  en: {
+    subject: () => "Reset your Abaco password",
+    body: (link) =>
+      `Someone asked to reset the password for this Abaco account.\n\nSet a new password here (the link expires in 1 hour):\n${link}\n\nIf this wasn't you, you can safely ignore this email — your password is unchanged.`,
+  },
+  es: {
+    subject: () => "Restablece tu contraseña de Abaco",
+    body: (link) =>
+      `Alguien pidió restablecer la contraseña de esta cuenta de Abaco.\n\nCrea una contraseña nueva aquí (el enlace expira en 1 hora):\n${link}\n\nSi no fuiste tú, puedes ignorar este correo — tu contraseña no ha cambiado.`,
+  },
+};
+
+/** Password-reset link. Same never-throws contract as every sender. */
+export async function sendPasswordResetEmail({ to, resetLink, lang = "en" }) {
+  const tpl = RESET_TEMPLATES[lang === "es" ? "es" : "en"];
+  return sendMail({
+    to,
+    subject: tpl.subject(),
+    text: tpl.body(resetLink),
+    lang,
+    tag: "password reset",
+  });
+}
+
+// ── Email verification ───────────────────────────────────────
+const VERIFY_TEMPLATES = {
+  en: {
+    subject: () => "Verify your Abaco email address",
+    body: (link) =>
+      `Confirm this is your email address to finish setting up your Abaco account.\n\nVerify here (the link expires in 24 hours):\n${link}\n\nIf you didn't create an Abaco account, you can safely ignore this email.`,
+  },
+  es: {
+    subject: () => "Verifica tu correo de Abaco",
+    body: (link) =>
+      `Confirma que esta es tu dirección de correo para terminar de configurar tu cuenta de Abaco.\n\nVerifica aquí (el enlace expira en 24 horas):\n${link}\n\nSi no creaste una cuenta de Abaco, puedes ignorar este correo.`,
+  },
+};
+
+/** Email-verification link. Same never-throws contract as every sender. */
+export async function sendVerificationEmail({ to, verifyLink, lang = "en" }) {
+  const tpl = VERIFY_TEMPLATES[lang === "es" ? "es" : "en"];
+  return sendMail({
+    to,
+    subject: tpl.subject(),
+    text: tpl.body(verifyLink),
+    lang,
+    tag: "email verification",
+  });
+}
+
+// ── Support requests ─────────────────────────────────────────
+/**
+ * Forward a support request to the support inbox, with the reporting user
+ * as reply-to so a human can answer directly from their mail client.
+ */
+export async function sendSupportEmail({ request, user, business }) {
+  const to = process.env.SUPPORT_EMAIL || NOREPLY_EMAIL;
+  const ctx = request.context || {};
+  const lines = [
+    `Category: ${request.category}`,
+    `From: ${user.name} <${user.email}> (${user.role})`,
+    `Business: ${business.name} — plan ${business.plan}`,
+    `Page: ${ctx.page || "—"}`,
+    `App: ${ctx.mode || "—"} · ${ctx.userAgent || "—"}`,
+    `Request #${request.id}`,
+    "",
+    request.message,
+  ];
+  return sendMail({
+    to,
+    replyTo: user.email,
+    subject: `[Abaco support · ${request.category}] ${request.subject}`,
+    text: lines.join("\n"),
+    tag: `support #${request.id}`,
   });
 }
