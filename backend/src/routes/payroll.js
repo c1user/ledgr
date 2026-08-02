@@ -298,15 +298,22 @@ router.get("/summary/ytd", async (req, res) => {
   const { businessId } = req.user;
 
   try {
+    // NOTE: no JOIN against payslips here — joining fans out payroll_runs
+    // rows (one per payslip), multiplying SUM(pr.total_*) by employee count.
     const result = await pool.query(
       `SELECT
         COALESCE(SUM(pr.total_gross), 0) AS ytd_gross,
         COALESCE(SUM(pr.total_taxes), 0) AS ytd_taxes,
         COALESCE(SUM(pr.total_net), 0)   AS ytd_net,
-        COUNT(DISTINCT pr.id)             AS total_runs,
-        COUNT(DISTINCT ps.employee_id)    AS total_employees_paid
+        COUNT(pr.id)                      AS total_runs,
+        (SELECT COUNT(DISTINCT ps.employee_id)
+           FROM payslips ps
+           JOIN payroll_runs pr2 ON pr2.id = ps.payroll_run_id
+          WHERE pr2.business_id = $1
+            AND pr2.status = 'finalized'
+            AND EXTRACT(YEAR FROM pr2.period_end) = EXTRACT(YEAR FROM NOW())
+        )                                 AS total_employees_paid
        FROM payroll_runs pr
-       LEFT JOIN payslips ps ON ps.payroll_run_id = pr.id
        WHERE pr.business_id = $1
          AND pr.status = 'finalized'
          AND EXTRACT(YEAR FROM pr.period_end) = EXTRACT(YEAR FROM NOW())`,

@@ -99,6 +99,15 @@
     "twofaCopy": "Copy codes",
     "twofaCodesCopied": "Backup codes copied",
     "twofaDone": "Done",
+    "prefsTitle": "Email notifications",
+    "prefsHint": "Choose which activity emails you receive. In-app notifications always appear in the bell.",
+    "prefsFailed": "Could not save your preferences",
+    "pref_invoices": "Invoices",
+    "pref_invoices_hint": "When an invoice is paid",
+    "pref_team": "Team",
+    "pref_team_hint": "When someone joins your business",
+    "pref_accounting": "Accounting",
+    "pref_accounting_hint": "When a reconciliation is completed",
     "sessionsTitle": "Sessions",
     "sessionsHint": "Signed in on a shared or lost device? Sign out of every session everywhere, including this one.",
     "logoutAll": "Sign out of all devices",
@@ -118,6 +127,35 @@
     "closePassword": "Your password",
     "closeConfirm": "Permanently delete",
     "closeFailed": "Could not close the business"
+  },
+  "tour": {
+    "welcomeTitle": "Welcome to Abaco!",
+    "welcomeBody": "Your books live here now. Here's a 30-second look around — or skip and explore on your own.",
+    "sidebarTitle": "Everything in one place",
+    "sidebarBody": "Sales, expenses, banking, reports, and payroll all live in the sidebar. Your plan unlocks more sections as you grow.",
+    "actionsTitle": "Add anything, fast",
+    "actionsBody": "The + button records a transaction, invoice, or client from any page. Prefer the keyboard? Ctrl+K searches pages and records.",
+    "bellTitle": "Stay in the loop",
+    "bellBody": "Paid invoices, completed reconciliations, and team changes show up here — and by email, which you can tune in My Account.",
+    "checklistTitle": "Start here",
+    "checklistBody": "The getting-started checklist walks you through your first account, transaction, and invoice. Knock them out one by one!",
+    "next": "Next",
+    "skip": "Skip tour",
+    "done": "Let's go"
+  },
+  "notif": {
+    "title": "Notifications",
+    "markAllRead": "Mark all read",
+    "empty": "Nothing yet — invoice payments, team changes, and completed reconciliations will show up here.",
+    "justNow": "just now",
+    "minutesAgo": "{{n}}m ago",
+    "hoursAgo": "{{n}}h ago"
+  },
+  "unsub": {
+    "noToken": "This unsubscribe link is missing its token.",
+    "failed": "This unsubscribe link is invalid.",
+    "done": "You've been unsubscribed from these emails.",
+    "manageHint": "You can turn them back on anytime from My Account → Email notifications."
   },
   "verify": {
     "noToken": "This verification link is missing its token.",

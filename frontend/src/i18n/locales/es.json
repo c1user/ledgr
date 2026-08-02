@@ -99,6 +99,15 @@
     "twofaCopy": "Copiar códigos",
     "twofaCodesCopied": "Códigos de respaldo copiados",
     "twofaDone": "Listo",
+    "prefsTitle": "Correos de notificación",
+    "prefsHint": "Elige qué correos de actividad recibes. Las notificaciones dentro de la aplicación siempre aparecen en la campana.",
+    "prefsFailed": "No se pudieron guardar tus preferencias",
+    "pref_invoices": "Facturas",
+    "pref_invoices_hint": "Cuando se paga una factura",
+    "pref_team": "Equipo",
+    "pref_team_hint": "Cuando alguien se une a tu negocio",
+    "pref_accounting": "Contabilidad",
+    "pref_accounting_hint": "Cuando se completa una conciliación",
     "sessionsTitle": "Sesiones",
     "sessionsHint": "¿Iniciaste sesión en un dispositivo compartido o perdido? Cierra todas las sesiones en todas partes, incluida esta.",
     "logoutAll": "Cerrar sesión en todos los dispositivos",
@@ -118,6 +127,35 @@
     "closePassword": "Tu contraseña",
     "closeConfirm": "Eliminar permanentemente",
     "closeFailed": "No se pudo cerrar el negocio"
+  },
+  "tour": {
+    "welcomeTitle": "¡Bienvenido a Abaco!",
+    "welcomeBody": "Tus libros ahora viven aquí. Un recorrido de 30 segundos — o sáltalo y explora por tu cuenta.",
+    "sidebarTitle": "Todo en un solo lugar",
+    "sidebarBody": "Ventas, gastos, banca, informes y nómina viven en la barra lateral. Tu plan desbloquea más secciones a medida que creces.",
+    "actionsTitle": "Añade lo que sea, rápido",
+    "actionsBody": "El botón + registra una transacción, factura o cliente desde cualquier página. ¿Prefieres el teclado? Ctrl+K busca páginas y registros.",
+    "bellTitle": "Mantente al tanto",
+    "bellBody": "Facturas pagadas, conciliaciones completadas y cambios de equipo aparecen aquí — y por correo, que puedes ajustar en Mi Cuenta.",
+    "checklistTitle": "Empieza aquí",
+    "checklistBody": "La lista de primeros pasos te guía por tu primera cuenta, transacción y factura. ¡Complétalos uno a uno!",
+    "next": "Siguiente",
+    "skip": "Saltar recorrido",
+    "done": "¡Vamos!"
+  },
+  "notif": {
+    "title": "Notificaciones",
+    "markAllRead": "Marcar todo leído",
+    "empty": "Nada aún — los pagos de facturas, cambios de equipo y conciliaciones completadas aparecerán aquí.",
+    "justNow": "ahora mismo",
+    "minutesAgo": "hace {{n}}m",
+    "hoursAgo": "hace {{n}}h"
+  },
+  "unsub": {
+    "noToken": "A este enlace le falta el token.",
+    "failed": "Este enlace para darse de baja es inválido.",
+    "done": "Te has dado de baja de estos correos.",
+    "manageHint": "Puedes reactivarlos cuando quieras desde Mi Cuenta → Correos de notificación."
   },
   "verify": {
     "noToken": "A este enlace de verificación le falta el token.",

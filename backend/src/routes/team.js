@@ -81,11 +81,19 @@ router.post("/invites", requireRole("owner", "admin"), async (req, res) => {
     const inserted = await pool.query(
       `INSERT INTO users
          (business_id, name, email, role, password_hash,
-          invite_token, invite_expires_at)
-       VALUES ($1, $2, $3, $4, NULL, $5, NOW() + INTERVAL '${INVITE_TTL_DAYS} days')
+          invite_token, invite_expires_at, unsubscribe_token)
+       VALUES ($1, $2, $3, $4, NULL, $5, NOW() + INTERVAL '${INVITE_TTL_DAYS} days',
+               $6)
        RETURNING id, name, email, role, is_active,
                  (password_hash IS NULL) AS pending, created_at`,
-      [businessId, email.split("@")[0], email, role, token],
+      [
+        businessId,
+        email.split("@")[0],
+        email,
+        role,
+        token,
+        crypto.randomBytes(24).toString("hex"),
+      ],
     );
 
     const link = inviteLink(token);

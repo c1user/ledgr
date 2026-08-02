@@ -153,3 +153,20 @@ a:focus-visible,
 .fade-in {
   animation: fadeIn 0.2s ease;
 }
+
+/* ── First-run tour highlight (ProductTour.jsx) ──────────── */
+@keyframes tourPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px var(--brand-light), 0 0 0 5px var(--brand);
+  }
+  50% {
+    box-shadow: 0 0 0 5px var(--brand-light), 0 0 0 7px var(--brand);
+  }
+}
+.tour-highlight {
+  position: relative;
+  z-index: 390;
+  border-radius: 8px;
+  animation: tourPulse 1.6s ease-in-out infinite;
+}

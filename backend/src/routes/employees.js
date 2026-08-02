@@ -134,6 +134,15 @@ router.post("/", async (req, res) => {
     return res.status(400).json({ error: "ssnLast4 must be exactly 4 digits" });
   }
 
+  // Rate is a fraction of gross (0.04 = 4%), not a percentage.
+  const prRate = prStateTaxRate == null ? null : parseFloat(prStateTaxRate);
+  if (prRate !== null && (!Number.isFinite(prRate) || prRate < 0 || prRate > 1)) {
+    return res.status(400).json({
+      error:
+        "prStateTaxRate must be a decimal fraction between 0 and 1 (e.g. 0.04 for 4%)",
+    });
+  }
+
   try {
     const result = await pool.query(
       `INSERT INTO employees (
@@ -153,7 +162,7 @@ router.post("/", async (req, res) => {
         payFrequency,
         federalFilingStatus || "single",
         federalAllowances || 0,
-        prStateTaxRate || 0.07,
+        prRate ?? 0.07,
         startDate,
         federalExempt ?? true,
       ],
@@ -190,6 +199,15 @@ router.put("/:id", async (req, res) => {
     isActive,
   } = req.body;
 
+  // Rate is a fraction of gross (0.04 = 4%), not a percentage.
+  const prRate = prStateTaxRate == null ? null : parseFloat(prStateTaxRate);
+  if (prRate !== null && (!Number.isFinite(prRate) || prRate < 0 || prRate > 1)) {
+    return res.status(400).json({
+      error:
+        "prStateTaxRate must be a decimal fraction between 0 and 1 (e.g. 0.04 for 4%)",
+    });
+  }
+
   try {
     const existing = await pool.query(
       "SELECT * FROM employees WHERE id = $1 AND business_id = $2",
@@ -222,7 +240,7 @@ router.put("/:id", async (req, res) => {
         payFrequency || null,
         federalFilingStatus || null,
         federalAllowances ?? null,
-        prStateTaxRate || null,
+        prRate,
         endDate || null,
         isActive ?? null,
         id,

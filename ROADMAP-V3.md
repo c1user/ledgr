@@ -168,16 +168,48 @@ needs); benefits from the auth phase being stable.*
 
 ## Phase 8 — Notifications depth  *(needs email foundation + real event types)*
 
-- [ ] **16. Notification preferences + unsubscribe** — per-user toggles and
+- [x] **16. Notification preferences + unsubscribe** — per-user toggles and
       unsubscribe tokens (legally paired with any recurring mail).
-- [ ] **17. Broaden transactional emails** (invoice paid, reconciliation locked,
+      ✅ users.notify_prefs JSONB (missing key = on; categories invoices /
+      team / accounting) with toggles on My Account; every preference-gated
+      email carries a one-click /unsubscribe link built from a per-user
+      token (public page + endpoint). Security email is never gated.
+- [x] **17. Broaden transactional emails** (invoice paid, reconciliation locked,
       invite accepted, etc.).
-- [ ] **18. In-app notification center** — bell with read/unread. Biggest of the
+      ✅ services/notifications.js notify() fans events out to all teammates
+      except the actor — in-app rows always, email per prefs. Wired:
+      invoice paid (both pay and send-with-markPaid paths), reconciliation
+      completed, invite accepted.
+- [x] **18. In-app notification center** — bell with read/unread. Biggest of the
       group; last, because it needs the events and prefs to already exist.
+      ✅ notifications table (migration 027 — the Phase 6 data-map test
+      caught it, proving that guard) + NotificationBell in the header:
+      unread badge, 60s poll, dropdown with time-ago, click = mark read +
+      navigate, "Mark all read". Excluded from the audit log as noise.
 
 ## Phase 9 — Onboarding & polish
 
-- [ ] **19. First-run onboarding / product tour** — extends the existing
+- [x] **19. First-run onboarding / product tour** — extends the existing
       dashboard getting-started checklist.
-- [ ] **20. Cookie/consent banner** — only once analytics are added; pairs with
+      ✅ Five-step welcome tour (ProductTour.jsx): sidebar → quick-add/Ctrl+K
+      → notifications bell → getting-started checklist, each with a pulsing
+      highlight ring. Completion is server-side (users.tour_done_at,
+      migration 028) so it shows once per user, not per browser; skippable
+      at any step. Existing users deliberately see it once too — it
+      introduces features added since they signed up.
+- [x] **20. Cookie/consent banner** — only once analytics are added; pairs with
       the privacy policy.
+      ✅ Resolved as NOT NEEDED today: the app sets no cookies and runs no
+      analytics — only localStorage for the session and preferences, which
+      the Privacy Policy already discloses (and consent banners aren't
+      required for strictly-necessary storage). REVISIT if analytics or any
+      third-party scripts are ever added; pair the banner with a Privacy
+      Policy update when that happens.
+
+---
+
+**ROADMAP V3 COMPLETE** (2026-07-28). Remaining owner-external items (no code):
+SMTP provider account + SPF/DKIM DNS records (Phase 1), a real support inbox
+in SUPPORT_EMAIL, counsel review of the Terms/Privacy drafts (then flip
+`DRAFT = false` in LegalPage.jsx), and real FAQ/status-page destinations for
+the Help menu.

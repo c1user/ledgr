@@ -665,7 +665,7 @@ export default function Payroll() {
 
       {/* YTD Summary */}
       {ytd && (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3 mb-6">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3 mb-6">
           {[
             { label: t("payroll.ytdGross"), value: fmt(ytd.ytd_gross), cls: "text-ink" },
             {
@@ -684,11 +684,11 @@ export default function Payroll() {
               cls: "text-payroll",
             },
           ].map((s) => (
-            <Card key={s.label} padding="none" className="px-4 py-3.5">
+            <Card key={s.label} padding="none" className="px-4 py-3.5 min-w-0">
               <div className="text-[11px] text-muted tracking-[1px] uppercase mb-1.5">
                 {s.label}
               </div>
-              <div className={cx("text-xl font-semibold", s.cls)}>
+              <div className={cx("text-lg font-semibold break-words", s.cls)}>
                 {s.value}
               </div>
             </Card>

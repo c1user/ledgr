@@ -2,6 +2,7 @@ import express from "express";
 import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { uuidParam } from "../middleware/validateUuid.js";
+import { notify } from "../services/notifications.js";
 
 const router = express.Router();
 
@@ -252,7 +253,7 @@ router.put("/:id/transactions", async (req, res) => {
 // ── POST /api/reconciliations/:id/complete ────────────────────
 // Server-side check: cleared activity must explain the statement movement.
 router.post("/:id/complete", async (req, res) => {
-  const { businessId } = req.user;
+  const { businessId, userId } = req.user;
   try {
     const recon = await loadRecon(businessId, req.params.id);
     if (!recon)
@@ -279,6 +280,22 @@ router.post("/:id/complete", async (req, res) => {
        WHERE id = $1 AND business_id = $2`,
       [recon.id, businessId],
     );
+
+    const acctName = recon.account_name || recon.coa_name || "account";
+    notify({
+      businessId,
+      type: "recon_locked",
+      category: "accounting",
+      title: `Reconciliation completed for ${acctName}`,
+      body: `Statement through ${recon.end_date} — ${recon.cleared_count} transactions locked`,
+      link: "/transactions/reconcile",
+      excludeUserId: userId,
+      email: {
+        subject: `Reconciliation completed for ${acctName}`,
+        text: `The ${acctName} reconciliation (statement through ${recon.end_date}) was completed and its ${recon.cleared_count} cleared transactions are now locked.`,
+      },
+    });
+
     return res.json(await loadRecon(businessId, recon.id));
   } catch (err) {
     console.error("Complete reconciliation error:", err);

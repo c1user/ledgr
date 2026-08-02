@@ -38,6 +38,23 @@ import {
   round2,
 } from "../services/ledger.js";
 import { buildInvoicePdf } from "../services/invoicePdf.js";
+import { notify } from "../services/notifications.js";
+
+// Fire-and-forget teammate notification when an invoice is collected.
+const notifyInvoicePaid = (businessId, userId, invoice) =>
+  notify({
+    businessId,
+    type: "invoice_paid",
+    category: "invoices",
+    title: `Invoice ${invoice.invoice_number} was paid`,
+    body: `${invoice.client_name || "Client"} · $${Number(invoice.total).toFixed(2)}`,
+    link: "/sales/invoices",
+    excludeUserId: userId,
+    email: {
+      subject: `Invoice ${invoice.invoice_number} was paid`,
+      text: `Invoice ${invoice.invoice_number}${invoice.client_name ? ` for ${invoice.client_name}` : ""} was marked paid: $${Number(invoice.total).toFixed(2)}.`,
+    },
+  });
 import { sendInvoiceEmail } from "../services/email.js";
 
 const router = express.Router();
@@ -816,6 +833,8 @@ router.post("/:id/send", async (req, res) => {
     const full = await loadInvoice(dbClient, businessId, id);
     await dbClient.query("COMMIT");
 
+    if (markPaid) notifyInvoicePaid(businessId, userId, full);
+
     // Generate the PDF + email it AFTER the ledger is committed, so a mail
     // failure can never roll back the posting. Cash sales (markPaid) aren't
     // emailed. Best-effort: the result rides along in the response.
@@ -922,6 +941,7 @@ router.post("/:id/pay", async (req, res) => {
 
     const full = await loadInvoice(dbClient, businessId, id);
     await dbClient.query("COMMIT");
+    notifyInvoicePaid(businessId, userId, full);
     return res.json(full);
   } catch (err) {
     await dbClient.query("ROLLBACK");

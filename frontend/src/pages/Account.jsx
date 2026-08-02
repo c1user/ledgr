@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import QRCode from "qrcode";
 import api from "../lib/api";
@@ -14,6 +14,7 @@ import {
   Input,
   Modal,
   PageHeader,
+  Toggle,
 } from "../components/ui";
 
 // My Account — the personal counterpart to the business /settings page:
@@ -103,6 +104,25 @@ export default function Account() {
       navigate("/login");
     },
     onError: () => toast.error(t("account.logoutAllFailed")),
+  });
+
+  // Email notification preferences (missing key = enabled server-side).
+  const queryClient = useQueryClient();
+  const prefsQuery = useQuery({
+    queryKey: ["notify-prefs"],
+    queryFn: () => api.get("/notifications/prefs").then((r) => r.data),
+  });
+  const savePrefs = useMutation({
+    mutationFn: (patch) =>
+      api.put("/notifications/prefs", patch).then((r) => r.data),
+    onSuccess: (data) => queryClient.setQueryData(["notify-prefs"], (old) => ({
+      ...old,
+      prefs: data.prefs,
+    })),
+    onError: () => {
+      toast.error(t("account.prefsFailed"));
+      queryClient.invalidateQueries({ queryKey: ["notify-prefs"] });
+    },
   });
 
   const resend = useMutation({
@@ -259,6 +279,36 @@ export default function Account() {
             </Button>
           )}
         </div>
+      </Card>
+
+      {/* Email notification preferences */}
+      <Card className="mt-4">
+        <h2 className="text-md font-semibold text-ink mb-1">
+          {t("account.prefsTitle")}
+        </h2>
+        <p className="text-md text-muted mb-3">{t("account.prefsHint")}</p>
+        {(prefsQuery.data?.categories || []).map((cat) => (
+          <div
+            key={cat}
+            className="flex items-center justify-between py-2 border-b border-line last:border-b-0"
+          >
+            <div>
+              <div className="text-md text-ink">
+                {t(`account.pref_${cat}`)}
+              </div>
+              <div className="text-xs text-muted">
+                {t(`account.pref_${cat}_hint`)}
+              </div>
+            </div>
+            <Toggle
+              checked={prefsQuery.data.prefs[cat]}
+              onChange={() =>
+                savePrefs.mutate({ [cat]: !prefsQuery.data.prefs[cat] })
+              }
+              aria-label={t(`account.pref_${cat}`)}
+            />
+          </div>
+        ))}
       </Card>
 
       {/* Sessions */}

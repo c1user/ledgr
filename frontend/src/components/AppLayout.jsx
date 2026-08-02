@@ -11,6 +11,8 @@ import BrandMark from "./BrandMark";
 import CommandPalette from "./CommandPalette";
 import QuickAdd from "./QuickAdd";
 import HelpMenu from "./HelpMenu";
+import NotificationBell from "./NotificationBell";
+import ProductTour from "./ProductTour";
 import { navGroups } from "../config/nav";
 import cx from "../lib/cx";
 import useEntitlements from "../lib/useEntitlements";
@@ -100,6 +102,7 @@ export default function AppLayout() {
 
       {/* ── Sidebar ── */}
       <aside
+        data-tour="sidebar"
         className={cx(
           "flex flex-col shrink-0 overflow-hidden bg-sidebar border-r border-line print:hidden",
           "transition-[width,transform] duration-200 ease-in-out",
@@ -343,7 +346,9 @@ export default function AppLayout() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <QuickAdd />
+            <div data-tour="quickadd">
+              <QuickAdd />
+            </div>
             <button
               onClick={() => setPaletteOpen(true)}
               title={t("palette.placeholder")}
@@ -356,6 +361,9 @@ export default function AppLayout() {
                 </kbd>
               )}
             </button>
+            <div data-tour="bell">
+              <NotificationBell />
+            </div>
             <HelpMenu />
             <LanguageToggle />
             <button
@@ -395,6 +403,10 @@ export default function AppLayout() {
       </div>
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+
+      {/* First-run welcome tour — strict false: older cached sessions
+          (user object without the flag) never see it mid-session. */}
+      {user?.tourDone === false && <ProductTour />}
     </div>
   );
 }

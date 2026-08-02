@@ -272,7 +272,7 @@ function AttentionChips({ items, navigate }) {
 function GettingStarted({ steps, navigate, t }) {
   const done = steps.filter((s) => s.done).length;
   return (
-    <Card padding="none" className="mb-6 overflow-hidden">
+    <Card padding="none" className="mb-6 overflow-hidden" data-tour="checklist">
       <div className="flex items-center justify-between gap-3 px-[18px] py-3 border-b border-line">
         <div className="text-sm font-semibold text-ink">
           <i className="ti ti-flag text-brand mr-1.5" aria-hidden="true" />

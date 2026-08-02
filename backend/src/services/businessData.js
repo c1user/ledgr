@@ -56,6 +56,7 @@ export const TABLES = [
   { table: "audit_log" },
   { table: "ai_conversations" },
   { table: "support_requests" },
+  { table: "notifications" }, // references users
   { table: "users" },
 ];
 

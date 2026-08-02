@@ -18,6 +18,7 @@ const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const LegalPage = lazy(() => import("./pages/LegalPage"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
+const Unsubscribe = lazy(() => import("./pages/Unsubscribe"));
 const Account = lazy(() => import("./pages/Account"));
 const Team = lazy(() => import("./pages/Team"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -103,6 +104,7 @@ export default function App() {
         <Route path="/terms" element={<LegalPage doc="terms" />} />
         <Route path="/privacy" element={<LegalPage doc="privacy" />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/unsubscribe" element={<Unsubscribe />} />
 
         {/* Protected routes — all wrapped in AppLayout */}
         <Route

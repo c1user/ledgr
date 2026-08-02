@@ -28,6 +28,7 @@ import {
   generateBackupCodes,
   hashBackupCode,
 } from "../services/totp.js";
+import { notify } from "../services/notifications.js";
 
 const router = express.Router();
 
@@ -157,11 +158,20 @@ router.post("/register", async (req, res) => {
     const verifyToken = crypto.randomBytes(32).toString("hex");
     const userResult = await client.query(
       `INSERT INTO users (business_id, name, email, role, password_hash,
-                          consented_at, verify_token, verify_expires_at)
-       VALUES ($1, $2, $3, 'owner', $4, NOW(), $5, NOW() + INTERVAL '24 hours')
+                          consented_at, verify_token, verify_expires_at,
+                          unsubscribe_token)
+       VALUES ($1, $2, $3, 'owner', $4, NOW(), $5, NOW() + INTERVAL '24 hours',
+               $6)
        RETURNING id, business_id, name, email, role, language, email_verified,
                  token_version`,
-      [business.id, safeName, email.toLowerCase().trim(), passwordHash, verifyToken],
+      [
+        business.id,
+        safeName,
+        email.toLowerCase().trim(),
+        passwordHash,
+        verifyToken,
+        crypto.randomBytes(24).toString("hex"),
+      ],
     );
     const user = userResult.rows[0];
 
@@ -197,6 +207,7 @@ router.post("/register", async (req, res) => {
         language: user.language,
         emailVerified: user.email_verified,
         totpEnabled: false,
+        tourDone: false,
       },
       business: {
         id: business.id,
@@ -233,7 +244,7 @@ router.post("/login", async (req, res) => {
     const result = await pool.query(
       `SELECT u.id, u.business_id, u.name, u.email, u.role, u.password_hash,
               u.language, u.is_active, u.email_verified, u.totp_enabled,
-              u.token_version,
+              u.token_version, u.tour_done_at,
               b.name AS business_name, b.plan, b.currency
        FROM users u
        JOIN businesses b ON b.id = u.business_id
@@ -284,6 +295,7 @@ router.post("/login", async (req, res) => {
         language: user.language,
         emailVerified: user.email_verified,
         totpEnabled: user.totp_enabled,
+        tourDone: !!user.tour_done_at,
       },
       business: {
         id: user.business_id,
@@ -464,6 +476,21 @@ router.post("/accept-invite", async (req, res) => {
        WHERE id = $1`,
       [invited.id, safeName, passwordHash],
     );
+
+    // Tell the rest of the team their invitee arrived. Fire-and-forget.
+    notify({
+      businessId: invited.business_id,
+      type: "invite_accepted",
+      category: "team",
+      title: `${safeName} joined the team`,
+      body: `${invited.email} accepted their invite (${invited.role})`,
+      link: "/team",
+      excludeUserId: invited.id,
+      email: {
+        subject: `${safeName} joined your Abaco team`,
+        text: `${safeName} (${invited.email}) accepted their invite to ${invited.business_name} as ${invited.role}.`,
+      },
+    });
 
     const jwtToken = signToken(invited);
     return res.json({
@@ -776,7 +803,7 @@ router.post("/2fa/verify-login", async (req, res) => {
     const r = await pool.query(
       `SELECT u.id, u.business_id, u.name, u.email, u.role, u.language,
               u.email_verified, u.totp_enabled, u.totp_secret, u.backup_codes,
-              u.token_version,
+              u.token_version, u.tour_done_at,
               b.name AS business_name, b.plan, b.currency
        FROM users u
        JOIN businesses b ON b.id = u.business_id
@@ -819,6 +846,7 @@ router.post("/2fa/verify-login", async (req, res) => {
         language: user.language,
         emailVerified: user.email_verified,
         totpEnabled: true,
+        tourDone: !!user.tour_done_at,
       },
       business: {
         id: user.business_id,
@@ -853,7 +881,7 @@ router.get("/me", requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT u.id, u.business_id, u.name, u.email, u.role, u.last_login, u.language,
-              u.email_verified, u.totp_enabled,
+              u.email_verified, u.totp_enabled, u.tour_done_at,
               b.name AS business_name, b.plan, b.currency, b.tax_id
        FROM users u
        JOIN businesses b ON b.id = u.business_id
@@ -877,6 +905,7 @@ router.get("/me", requireAuth, async (req, res) => {
         language: user.language,
         emailVerified: user.email_verified,
         totpEnabled: user.totp_enabled,
+        tourDone: !!user.tour_done_at,
       },
       business: {
         id: user.business_id,
@@ -889,6 +918,21 @@ router.get("/me", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("Me error:", err.message);
     return res.status(500).json({ error: "Failed to fetch user" });
+  }
+});
+
+// ── POST /api/auth/tour-done ──────────────────────────────────
+// The user finished (or skipped) the first-run tour — never show it again.
+router.post("/tour-done", requireAuth, async (req, res) => {
+  try {
+    await pool.query(
+      "UPDATE users SET tour_done_at = NOW() WHERE id = $1 AND tour_done_at IS NULL",
+      [req.user.userId],
+    );
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Tour done error:", err.message);
+    return res.status(500).json({ error: "Failed to save tour state" });
   }
 });
 

@@ -40,7 +40,15 @@ const TABLES = {
 };
 
 // Noise / sensitive resources that should not be audited.
-const SKIP_RESOURCES = new Set(["auth", "ai", "search", "fx-rates", "audit-log"]);
+// notifications: mark-read churn would drown real activity.
+const SKIP_RESOURCES = new Set([
+  "auth",
+  "ai",
+  "search",
+  "fx-rates",
+  "audit-log",
+  "notifications",
+]);
 
 const SENSITIVE_KEY = /password|token|secret|authorization/i;
 

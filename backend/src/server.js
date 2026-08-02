@@ -46,6 +46,7 @@ import reconciliationRoutes from "./routes/reconciliations.js";
 import auditLogRoutes from "./routes/auditLog.js";
 import teamRoutes from "./routes/team.js";
 import supportRoutes from "./routes/support.js";
+import notificationRoutes from "./routes/notifications.js";
 import { auditLogger } from "./middleware/auditLog.js";
 
 dotenv.config();
@@ -173,6 +174,8 @@ app.use("/api/audit-log", ...gate("audit_log"), auditLogRoutes);
 app.use("/api/team", ...gate("multi_user"), teamRoutes);
 // No plan gate — support must be reachable on every tier.
 app.use("/api/support", supportRoutes);
+// No plan gate: the bell and email prefs work on every tier.
+app.use("/api/notifications", notificationRoutes);
 
 // ── Health check — no sensitive info ─────────────────────────
 app.get("/health", (req, res) => {

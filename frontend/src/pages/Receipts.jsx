@@ -7,6 +7,7 @@ import dayjs from "dayjs";
 import { coaToCategories } from "../lib/coaCategories";
 import { confirmDialog } from "../store/feedbackStore";
 import cx from "../lib/cx";
+import SplitEditor from "../components/SplitEditor";
 import {
   Badge,
   Button,
@@ -17,6 +18,7 @@ import {
   Modal,
   PageHeader,
   Select,
+  Toggle,
 } from "../components/ui";
 
 const makeFmt =
@@ -390,7 +392,26 @@ function ReceiptModal({ receipt, onClose, transactions, accounts, fmt, t }) {
     categoryId: "",
     notes: "",
   });
+  const [useSplit, setUseSplit] = useState(false);
+  const [splits, setSplits] = useState([]);
   const [error, setError] = useState("");
+
+  // Toggle split mode. On first enable, seed one split line per scanned
+  // line item (amount + description) so only categories need picking.
+  const toggleSplit = () => {
+    if (!useSplit && splits.length === 0 && form.lineItems.length > 0) {
+      setSplits(
+        form.lineItems
+          .filter((li) => parseFloat(li.total) > 0)
+          .map((li) => ({
+            categoryId: "",
+            amount: li.total,
+            notes: li.description || "",
+          })),
+      );
+    }
+    setUseSplit(!useSplit);
+  };
   const confidence = parseFloat(receipt.ai_confidence || 0);
 
   // Categories + ledger funding sources come from the chart of accounts —
@@ -467,7 +488,8 @@ function ReceiptModal({ receipt, onClose, transactions, accounts, fmt, t }) {
         merchant: form.merchant || undefined,
         totalAmount: parseFloat(form.total || 0),
         type: newTx.type,
-        categoryId: newTx.categoryId,
+        categoryId: useSplit ? undefined : newTx.categoryId,
+        splits: useSplit ? splits : [],
         notes: newTx.notes || undefined,
         receiptId: receipt.id,
       });
@@ -515,8 +537,12 @@ function ReceiptModal({ receipt, onClose, transactions, accounts, fmt, t }) {
       linkMutation.mutate();
     } else if (action === "create") {
       if (!newTx.accountId) return setError(t("receipts.errSelectAccount"));
-      if (!newTx.categoryId)
+      if (useSplit) {
+        if (splits.length === 0)
+          return setError(t("transactions.errAddSplit"));
+      } else if (!newTx.categoryId) {
         return setError(t("receipts.errSelectCategory"));
+      }
       if (!form.total || parseFloat(form.total) <= 0)
         return setError(t("receipts.errValidTotal"));
       createTxMutation.mutate();
@@ -906,38 +932,76 @@ function ReceiptModal({ receipt, onClose, transactions, accounts, fmt, t }) {
                   <Select
                     id="new-type"
                     value={newTx.type}
-                    onChange={(e) =>
-                      // category list is type-filtered — reset it on change
-                      setNewTx({ ...newTx, type: e.target.value, categoryId: "" })
-                    }
+                    onChange={(e) => {
+                      // category list is type-filtered — reset picks on change
+                      setNewTx({ ...newTx, type: e.target.value, categoryId: "" });
+                      setSplits((prev) =>
+                        prev.map((s) => ({ ...s, categoryId: "" })),
+                      );
+                    }}
                   >
                     <option value="expense">{t("common.expense")}</option>
                     <option value="income">{t("common.income")}</option>
                   </Select>
                 </Field>
               </div>
-              <Field
-                label={t("common.category")}
-                htmlFor="new-category"
-                className="mb-3"
-              >
-                <Select
-                  id="new-category"
-                  value={newTx.categoryId}
-                  onChange={(e) =>
-                    setNewTx({ ...newTx, categoryId: e.target.value })
-                  }
+              {/* Split toggle — same pattern as the transaction modal */}
+              <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-canvas rounded-lg mb-3">
+                <Toggle
+                  checked={useSplit}
+                  onChange={toggleSplit}
+                  aria-label={t("transactions.toggleSplit")}
+                />
+                <div>
+                  <div className="text-md font-medium text-ink">
+                    {t("transactions.splitTransaction")}
+                  </div>
+                  <div className="text-[11px] text-muted">
+                    {t("transactions.splitDescription")}
+                  </div>
+                </div>
+              </div>
+
+              {useSplit ? (
+                <div className="mb-3 px-3.5 py-3 bg-canvas rounded-lg">
+                  <div className="text-xs font-medium text-secondary mb-2">
+                    {t("transactions.splitBreakdown")}
+                  </div>
+                  <SplitEditor
+                    splits={splits}
+                    setSplits={setSplits}
+                    totalAmount={form.total}
+                    categories={categories.filter(
+                      (c) => c.type === newTx.type,
+                    )}
+                    fmt={fmt}
+                    t={t}
+                  />
+                </div>
+              ) : (
+                <Field
+                  label={t("common.category")}
+                  htmlFor="new-category"
+                  className="mb-3"
                 >
-                  <option value="">{t("transactions.selectACategory")}</option>
-                  {categories
-                    .filter((c) => c.type === newTx.type)
-                    .map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                </Select>
-              </Field>
+                  <Select
+                    id="new-category"
+                    value={newTx.categoryId}
+                    onChange={(e) =>
+                      setNewTx({ ...newTx, categoryId: e.target.value })
+                    }
+                  >
+                    <option value="">{t("transactions.selectACategory")}</option>
+                    {categories
+                      .filter((c) => c.type === newTx.type)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                  </Select>
+                </Field>
+              )}
               <Field
                 label={t("receipts.notesOptional")}
                 htmlFor="new-notes"
