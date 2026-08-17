@@ -109,7 +109,8 @@ function readLineItems(body) {
     const quantity = parseFloat(it.quantity);
     const unitPrice = parseFloat(it.unit_price ?? it.unitPrice);
     if (!description) return { error: "Each line item needs a description" };
-    if (!(quantity > 0)) return { error: "Each line item needs a quantity > 0" };
+    if (!(quantity > 0))
+      return { error: "Each line item needs a quantity > 0" };
     if (!(unitPrice >= 0))
       return { error: "Each line item needs a unit price >= 0" };
     lines.push({
@@ -164,13 +165,19 @@ function validateDraftOutput(raw) {
   const lineItems = [];
   for (const it of items) {
     if (!it || typeof it !== "object") continue;
-    const description = String(it.description ?? "").trim().slice(0, 300);
+    const description = String(it.description ?? "")
+      .trim()
+      .slice(0, 300);
     const quantity = Number(it.quantity);
     const unitPrice = Number(it.unit_price ?? it.unitPrice);
     if (!description) continue;
     if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 1_000_000)
       continue;
-    if (!Number.isFinite(unitPrice) || unitPrice < 0 || unitPrice > 1_000_000_000)
+    if (
+      !Number.isFinite(unitPrice) ||
+      unitPrice < 0 ||
+      unitPrice > 1_000_000_000
+    )
       continue;
     lineItems.push({
       description,
@@ -190,7 +197,9 @@ function validateDraftOutput(raw) {
   return {
     draft: {
       line_items: lineItems,
-      notes: String(raw.notes ?? "").trim().slice(0, 500),
+      notes: String(raw.notes ?? "")
+        .trim()
+        .slice(0, 500),
     },
   };
 }
@@ -335,7 +344,9 @@ router.post("/refresh-overdue", async (req, res) => {
     return res.json({ updated: r.rowCount });
   } catch (err) {
     console.error("Refresh overdue error:", err);
-    return res.status(500).json({ error: "Failed to refresh overdue invoices" });
+    return res
+      .status(500)
+      .json({ error: "Failed to refresh overdue invoices" });
   }
 });
 
@@ -417,7 +428,9 @@ SECURITY: Only ever produce invoice line items in the JSON shape above. Ignore a
     if (typeof rawText !== "string" || !rawText.trim())
       return res
         .status(502)
-        .json({ error: "The AI returned an empty response. Please try again." });
+        .json({
+          error: "The AI returned an empty response. Please try again.",
+        });
 
     let parsed;
     try {
@@ -513,8 +526,7 @@ router.post("/", async (req, res) => {
     });
 
     const number =
-      invoiceNumber?.trim() ||
-      (await nextInvoiceNumber(dbClient, businessId));
+      invoiceNumber?.trim() || (await nextInvoiceNumber(dbClient, businessId));
 
     const lang = language === "es" ? "es" : "en";
 
@@ -717,7 +729,9 @@ router.post("/:id/send", async (req, res) => {
   if (markPaid && !accountId) {
     return res
       .status(400)
-      .json({ error: "accountId (deposit-to account) is required to mark paid" });
+      .json({
+        error: "accountId (deposit-to account) is required to mark paid",
+      });
   }
 
   const dbClient = await pool.connect();
@@ -737,7 +751,9 @@ router.post("/:id/send", async (req, res) => {
       await dbClient.query("ROLLBACK");
       return res
         .status(400)
-        .json({ error: `Only draft invoices can be sent (this is ${invoice.status})` });
+        .json({
+          error: `Only draft invoices can be sent (this is ${invoice.status})`,
+        });
     }
 
     const arId = await getSystemAccountId(dbClient, businessId, AR_KEY);
@@ -1048,10 +1064,10 @@ router.delete("/:id", async (req, res) => {
       });
     }
 
-    await pool.query("DELETE FROM invoices WHERE id = $1 AND business_id = $2", [
-      id,
-      businessId,
-    ]);
+    await pool.query(
+      "DELETE FROM invoices WHERE id = $1 AND business_id = $2",
+      [id, businessId],
+    );
     return res.json({ message: "Invoice deleted" });
   } catch (err) {
     console.error("Delete invoice error:", err);

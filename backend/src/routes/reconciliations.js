@@ -89,7 +89,9 @@ router.post("/", async (req, res) => {
       .json({ error: "startDate and endDate (YYYY-MM-DD) are required" });
   }
   if (endDate < startDate) {
-    return res.status(400).json({ error: "endDate cannot be before startDate" });
+    return res
+      .status(400)
+      .json({ error: "endDate cannot be before startDate" });
   }
   const startBal = parseFloat(statementStartBalance ?? 0);
   const endBal = parseFloat(statementEndBalance);

@@ -2,12 +2,44 @@ import express from "express";
 import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { uuidParam } from "../middleware/validateUuid.js";
+import { encryptField } from "../services/fieldCrypto.js";
 
 const router = express.Router();
 
 // All routes require authentication
 router.use(requireAuth);
 router.param("id", uuidParam("Employee"));
+
+const PAY_FREQUENCIES = ["weekly", "biweekly", "semimonthly", "monthly"];
+const CLASSIFICATIONS = ["nonexempt_hourly", "exempt_salaried"];
+
+// Full SSN handling (ROADMAP-V5 Phase 2.2): the plaintext arrives once,
+// is encrypted immediately (AES-256-GCM), and only the last 4 digits are
+// kept in clear for display. The plaintext is NEVER echoed back, logged
+// (auditLog scrubs /ssn/i keys), or stored anywhere else.
+// Returns { error } | { ssnEncrypted, ssnLast4 } | null when absent.
+function processSsn(ssn) {
+  if (ssn === undefined || ssn === null || ssn === "") return null;
+  const digits = String(ssn).replace(/[\s-]/g, "");
+  if (!/^\d{9}$/.test(digits)) {
+    return { error: "ssn must be 9 digits (dashes optional)" };
+  }
+  try {
+    return { ssnEncrypted: encryptField(digits), ssnLast4: digits.slice(-4) };
+  } catch (err) {
+    // Key misconfiguration — fail closed, never store plaintext instead.
+    console.error("SSN encryption unavailable:", err.message);
+    return { error: "SSN encryption is not configured on this server" };
+  }
+}
+
+// Strip every SSN column and mask the display last-4.
+function presentEmployee(row) {
+  const { ssn_encrypted, ssn_last4, ...emp } = row;
+  emp.ssn_last4 = ssn_last4 ? `***-**-${ssn_last4}` : null;
+  emp.has_ssn = Boolean(ssn_encrypted);
+  return emp;
+}
 
 // ── GET /api/employees ────────────────────────────────────────
 // Get all employees for the business
@@ -16,25 +48,33 @@ router.get("/", async (req, res) => {
   const { active } = req.query; // optional: true | false
 
   try {
+    // v2 figures, matched to the business's current payroll mode and
+    // reversal-aware (a reversed pair nets to zero).
     let query = `
       SELECT
         e.*,
-        -- Most recent payslip net pay
         (
-          SELECT ps.net_pay
-          FROM payslips ps
-          JOIN payroll_runs pr ON pr.id = ps.payroll_run_id
-          WHERE ps.employee_id = e.id
-          ORDER BY pr.period_end DESC
+          SELECT (l.net_cents::NUMERIC / 100)
+          FROM pay_lines l
+          JOIN payroll_runs_v2 r ON r.id = l.payroll_run_id
+          JOIN pay_periods p ON p.id = r.pay_period_id
+          WHERE l.employee_id = e.id
+            AND r.status = 'finalized' AND r.reversal_of IS NULL
+            AND r.run_mode = (SELECT payroll_mode FROM businesses b WHERE b.id = e.business_id)
+          ORDER BY p.period_end DESC
           LIMIT 1
         ) AS last_net_pay,
-        -- Total paid this year
         (
-          SELECT COALESCE(SUM(ps.gross_pay), 0)
-          FROM payslips ps
-          JOIN payroll_runs pr ON pr.id = ps.payroll_run_id
-          WHERE ps.employee_id = e.id
-            AND EXTRACT(YEAR FROM pr.period_end) = EXTRACT(YEAR FROM NOW())
+          SELECT COALESCE(SUM(
+            CASE WHEN r.reversal_of IS NULL THEN l.gross_cents ELSE -l.gross_cents END
+          ), 0)::NUMERIC / 100
+          FROM pay_lines l
+          JOIN payroll_runs_v2 r ON r.id = l.payroll_run_id
+          JOIN pay_periods p ON p.id = r.pay_period_id
+          WHERE l.employee_id = e.id
+            AND r.status IN ('finalized', 'reversed')
+            AND r.run_mode = (SELECT payroll_mode FROM businesses b WHERE b.id = e.business_id)
+            AND EXTRACT(YEAR FROM p.pay_date) = EXTRACT(YEAR FROM NOW())
         ) AS ytd_gross
       FROM employees e
       WHERE e.business_id = $1
@@ -51,8 +91,10 @@ router.get("/", async (req, res) => {
 
     const result = await pool.query(query, params);
 
-    // Never return ssn_last4 in list view
-    const employees = result.rows.map(({ ssn_last4, ...emp }) => emp);
+    // Never return SSN columns in list view
+    const employees = result.rows.map(
+      ({ ssn_last4, ssn_encrypted, ...emp }) => emp,
+    );
 
     return res.json(employees);
   } catch (err) {
@@ -78,13 +120,7 @@ router.get("/:id", async (req, res) => {
       return res.status(404).json({ error: "Employee not found" });
     }
 
-    // Mask SSN — only show last 4
-    const employee = result.rows[0];
-    if (employee.ssn_last4) {
-      employee.ssn_last4 = `***-**-${employee.ssn_last4}`;
-    }
-
-    return res.json(employee);
+    return res.json(presentEmployee(result.rows[0]));
   } catch (err) {
     console.error("Get employee error:", err);
     return res.status(500).json({ error: "Failed to fetch employee" });
@@ -98,15 +134,16 @@ router.post("/", async (req, res) => {
   const {
     name,
     email,
+    ssn,
     ssnLast4,
+    address,
     payType,
     payRate,
     payFrequency,
-    federalFilingStatus,
-    federalAllowances,
-    prStateTaxRate,
+    classification,
+    elections499r4,
+    isChauffeur,
     startDate,
-    federalExempt,
   } = req.body;
 
   // Validation
@@ -120,63 +157,69 @@ router.post("/", async (req, res) => {
     return res.status(400).json({ error: "payType must be salary or hourly" });
   }
 
-  if (!["weekly", "biweekly", "monthly"].includes(payFrequency)) {
+  if (!PAY_FREQUENCIES.includes(payFrequency)) {
     return res.status(400).json({
-      error: "payFrequency must be weekly, biweekly, or monthly",
+      error: `payFrequency must be one of: ${PAY_FREQUENCIES.join(", ")}`,
     });
+  }
+
+  if (classification && !CLASSIFICATIONS.includes(classification)) {
+    return res.status(400).json({
+      error: `classification must be one of: ${CLASSIFICATIONS.join(", ")}`,
+    });
+  }
+
+  if (
+    elections499r4 !== undefined &&
+    (elections499r4 === null ||
+      typeof elections499r4 !== "object" ||
+      Array.isArray(elections499r4))
+  ) {
+    return res.status(400).json({ error: "elections499r4 must be an object" });
   }
 
   if (payRate <= 0) {
     return res.status(400).json({ error: "payRate must be greater than 0" });
   }
 
-  if (ssnLast4 && !/^\d{4}$/.test(ssnLast4)) {
-    return res.status(400).json({ error: "ssnLast4 must be exactly 4 digits" });
+  const ssnResult = processSsn(ssn);
+  if (ssnResult?.error) {
+    return res.status(400).json({ error: ssnResult.error });
   }
-
-  // Rate is a fraction of gross (0.04 = 4%), not a percentage.
-  const prRate = prStateTaxRate == null ? null : parseFloat(prStateTaxRate);
-  if (prRate !== null && (!Number.isFinite(prRate) || prRate < 0 || prRate > 1)) {
-    return res.status(400).json({
-      error:
-        "prStateTaxRate must be a decimal fraction between 0 and 1 (e.g. 0.04 for 4%)",
-    });
+  // Legacy path: last-4 only, no full SSN on file.
+  if (!ssnResult && ssnLast4 && !/^\d{4}$/.test(ssnLast4)) {
+    return res.status(400).json({ error: "ssnLast4 must be exactly 4 digits" });
   }
 
   try {
     const result = await pool.query(
       `INSERT INTO employees (
-        business_id, name, email, ssn_last4,
-        pay_type, pay_rate, pay_frequency,
-        federal_filing_status, federal_allowances,
-        pr_state_tax_rate, start_date, federal_exempt
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        business_id, name, email, ssn_last4, ssn_encrypted, address,
+        pay_type, pay_rate, pay_frequency, classification,
+        elections_499r4, is_chauffeur, start_date
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
       RETURNING *`,
       [
         businessId,
         name,
         email || null,
-        ssnLast4 || null,
+        ssnResult?.ssnLast4 || ssnLast4 || null,
+        ssnResult?.ssnEncrypted || null,
+        address || null,
         payType,
         payRate,
         payFrequency,
-        federalFilingStatus || "single",
-        federalAllowances || 0,
-        prRate ?? 0.07,
+        classification ||
+          (payType === "hourly" ? "nonexempt_hourly" : "exempt_salaried"),
+        JSON.stringify(elections499r4 || {}),
+        isChauffeur === true,
         startDate,
-        federalExempt ?? true,
       ],
     );
 
-    const employee = result.rows[0];
-    // Mask SSN before returning
-    if (employee.ssn_last4) {
-      employee.ssn_last4 = `***-**-${employee.ssn_last4}`;
-    }
-
-    return res.status(201).json(employee);
+    return res.status(201).json(presentEmployee(result.rows[0]));
   } catch (err) {
-    console.error("Create employee error:", err);
+    console.error("Create employee error:", err.message);
     return res.status(500).json({ error: "Failed to create employee" });
   }
 });
@@ -189,23 +232,43 @@ router.put("/:id", async (req, res) => {
   const {
     name,
     email,
+    ssn,
+    address,
     payType,
     payRate,
     payFrequency,
-    federalFilingStatus,
-    federalAllowances,
-    prStateTaxRate,
+    classification,
+    elections499r4,
+    isChauffeur,
     endDate,
     isActive,
   } = req.body;
 
-  // Rate is a fraction of gross (0.04 = 4%), not a percentage.
-  const prRate = prStateTaxRate == null ? null : parseFloat(prStateTaxRate);
-  if (prRate !== null && (!Number.isFinite(prRate) || prRate < 0 || prRate > 1)) {
+  if (payFrequency && !PAY_FREQUENCIES.includes(payFrequency)) {
     return res.status(400).json({
-      error:
-        "prStateTaxRate must be a decimal fraction between 0 and 1 (e.g. 0.04 for 4%)",
+      error: `payFrequency must be one of: ${PAY_FREQUENCIES.join(", ")}`,
     });
+  }
+
+  if (classification && !CLASSIFICATIONS.includes(classification)) {
+    return res.status(400).json({
+      error: `classification must be one of: ${CLASSIFICATIONS.join(", ")}`,
+    });
+  }
+
+  if (
+    elections499r4 !== undefined &&
+    (elections499r4 === null ||
+      typeof elections499r4 !== "object" ||
+      Array.isArray(elections499r4))
+  ) {
+    return res.status(400).json({ error: "elections499r4 must be an object" });
+  }
+
+  // SSN is write-only: sent → replaced (encrypted); absent → unchanged.
+  const ssnResult = processSsn(ssn);
+  if (ssnResult?.error) {
+    return res.status(400).json({ error: ssnResult.error });
   }
 
   try {
@@ -225,12 +288,15 @@ router.put("/:id", async (req, res) => {
         pay_type              = COALESCE($3,  pay_type),
         pay_rate              = COALESCE($4,  pay_rate),
         pay_frequency         = COALESCE($5,  pay_frequency),
-        federal_filing_status = COALESCE($6,  federal_filing_status),
-        federal_allowances    = COALESCE($7,  federal_allowances),
-        pr_state_tax_rate     = COALESCE($8,  pr_state_tax_rate),
-        end_date              = COALESCE($9,  end_date),
-        is_active             = COALESCE($10, is_active)
-       WHERE id = $11 AND business_id = $12
+        end_date              = COALESCE($6,  end_date),
+        is_active             = COALESCE($7,  is_active),
+        ssn_encrypted         = COALESCE($8,  ssn_encrypted),
+        ssn_last4             = COALESCE($9,  ssn_last4),
+        address               = COALESCE($10, address),
+        classification        = COALESCE($11, classification),
+        elections_499r4       = COALESCE($12, elections_499r4),
+        is_chauffeur          = COALESCE($13, is_chauffeur)
+       WHERE id = $14 AND business_id = $15
        RETURNING *`,
       [
         name || null,
@@ -238,24 +304,22 @@ router.put("/:id", async (req, res) => {
         payType || null,
         payRate || null,
         payFrequency || null,
-        federalFilingStatus || null,
-        federalAllowances ?? null,
-        prRate,
         endDate || null,
         isActive ?? null,
+        ssnResult?.ssnEncrypted || null,
+        ssnResult?.ssnLast4 || null,
+        address ?? null,
+        classification || null,
+        elections499r4 !== undefined ? JSON.stringify(elections499r4) : null,
+        typeof isChauffeur === "boolean" ? isChauffeur : null,
         id,
         businessId,
       ],
     );
 
-    const employee = result.rows[0];
-    if (employee.ssn_last4) {
-      employee.ssn_last4 = `***-**-${employee.ssn_last4}`;
-    }
-
-    return res.json(employee);
+    return res.json(presentEmployee(result.rows[0]));
   } catch (err) {
-    console.error("Update employee error:", err);
+    console.error("Update employee error:", err.message);
     return res.status(500).json({ error: "Failed to update employee" });
   }
 });

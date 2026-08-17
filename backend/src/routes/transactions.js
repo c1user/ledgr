@@ -211,10 +211,22 @@ router.get("/export", async (req, res) => {
     const params = [businessId];
     let p = 1;
     let where = "WHERE t.business_id = $1";
-    if (type) { where += ` AND t.type = $${++p}`; params.push(type); }
-    if (startDate) { where += ` AND t.date >= $${++p}`; params.push(startDate); }
-    if (endDate) { where += ` AND t.date <= $${++p}`; params.push(endDate); }
-    if (accountId) { where += ` AND t.account_id = $${++p}`; params.push(accountId); }
+    if (type) {
+      where += ` AND t.type = $${++p}`;
+      params.push(type);
+    }
+    if (startDate) {
+      where += ` AND t.date >= $${++p}`;
+      params.push(startDate);
+    }
+    if (endDate) {
+      where += ` AND t.date <= $${++p}`;
+      params.push(endDate);
+    }
+    if (accountId) {
+      where += ` AND t.account_id = $${++p}`;
+      params.push(accountId);
+    }
     if (categoryId) {
       where += ` AND EXISTS (
         SELECT 1 FROM journal_entries je2
@@ -241,7 +253,15 @@ router.get("/export", async (req, res) => {
       params,
     );
 
-    const header = ["Date", "Merchant", "Category", "Account", "Type", "Amount", "Notes"];
+    const header = [
+      "Date",
+      "Merchant",
+      "Category",
+      "Account",
+      "Type",
+      "Amount",
+      "Notes",
+    ];
     const lines = [header.map(csvCell).join(",")];
     for (const r of result.rows) {
       const signed = (r.type === "expense" ? -1 : 1) * Number(r.total_amount);
@@ -254,7 +274,9 @@ router.get("/export", async (req, res) => {
           r.type,
           signed.toFixed(2),
           r.notes || "",
-        ].map(csvCell).join(","),
+        ]
+          .map(csvCell)
+          .join(","),
       );
     }
 
@@ -304,7 +326,10 @@ router.post("/import", async (req, res) => {
     const merchant = (r.merchant ?? "").toString().trim() || null;
     const notes = (r.notes ?? "").toString().trim() || null;
     if (!IMPORT_DATE_RE.test(date))
-      return errors.push({ row: i + 1, error: "Invalid date (expected YYYY-MM-DD)" });
+      return errors.push({
+        row: i + 1,
+        error: "Invalid date (expected YYYY-MM-DD)",
+      });
     if (!Number.isFinite(amount) || amount === 0)
       return errors.push({ row: i + 1, error: "Invalid or zero amount" });
     norm.push({ date, merchant, notes, amount });
@@ -330,12 +355,21 @@ router.post("/import", async (req, res) => {
     const dupAccountId = funding.accountId;
     const dupFundingCoa = funding.accountId ? null : funding.fundingCoaId;
 
-    const otherIncome = await getSystemAccountId(client, businessId, OTHER_INCOME_KEY);
-    const otherExpense = await getSystemAccountId(client, businessId, OTHER_EXPENSE_KEY);
+    const otherIncome = await getSystemAccountId(
+      client,
+      businessId,
+      OTHER_INCOME_KEY,
+    );
+    const otherExpense = await getSystemAccountId(
+      client,
+      businessId,
+      OTHER_EXPENSE_KEY,
+    );
     if (!otherIncome || !otherExpense) {
       await client.query("ROLLBACK");
       return res.status(400).json({
-        error: "Missing the Other income/expense fallback accounts. Seed the chart of accounts.",
+        error:
+          "Missing the Other income/expense fallback accounts. Seed the chart of accounts.",
       });
     }
 
@@ -355,7 +389,10 @@ router.post("/import", async (req, res) => {
            LIMIT 1`,
           [businessId, r.date, total, r.merchant, dupAccountId, dupFundingCoa],
         );
-        if (dup.rows.length > 0) { skipped++; continue; }
+        if (dup.rows.length > 0) {
+          skipped++;
+          continue;
+        }
       }
 
       const match = await applyRules(
@@ -494,7 +531,11 @@ router.post("/", async (req, res) => {
     const match = await applyRules(pool, { merchant, notes }, businessId, type);
     if (match) {
       allocations = [
-        { accountId: match.category_id, amount: parseFloat(totalAmount), memo: null },
+        {
+          accountId: match.category_id,
+          amount: parseFloat(totalAmount),
+          memo: null,
+        },
       ];
     }
   }
@@ -511,12 +552,9 @@ router.post("/", async (req, res) => {
   }
   for (const a of allocations) {
     if (!a.accountId || !(a.amount > 0)) {
-      return res
-        .status(400)
-        .json({
-          error:
-            "Each split needs a categoryId (account) and a positive amount",
-        });
+      return res.status(400).json({
+        error: "Each split needs a categoryId (account) and a positive amount",
+      });
     }
   }
 
@@ -650,7 +688,9 @@ router.put("/:id", async (req, res) => {
       await client.query("ROLLBACK");
       return res
         .status(400)
-        .json({ error: "withholdingAmount must be between 0 and the total amount" });
+        .json({
+          error: "withholdingAmount must be between 0 and the total amount",
+        });
     }
 
     // Allocations: if the body provides them, use them; else recover the
@@ -669,12 +709,10 @@ router.put("/:id", async (req, res) => {
       );
       if (existingLines.rows.length === 0) {
         await client.query("ROLLBACK");
-        return res
-          .status(400)
-          .json({
-            error:
-              "A categoryId or splits[] is required to re-post this transaction",
-          });
+        return res.status(400).json({
+          error:
+            "A categoryId or splits[] is required to re-post this transaction",
+        });
       }
       if (existingLines.rows.length === 1) {
         // single category: rescale to the (possibly new) total
@@ -701,7 +739,11 @@ router.put("/:id", async (req, res) => {
       });
     }
 
-    const funding = await resolveFundingSource(client, businessId, fundingInput);
+    const funding = await resolveFundingSource(
+      client,
+      businessId,
+      fundingInput,
+    );
     if (funding.error) {
       await client.query("ROLLBACK");
       return res.status(400).json({ error: funding.error });

@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
+import {
+  RunPayrollV2Modal,
+  RunV2DetailModal,
+  BonusEligibilityPanel,
+} from "../components/payroll/RunV2Modals";
 import api from "../lib/api";
 import dayjs from "dayjs";
 import { confirmDialog } from "../store/feedbackStore";
@@ -30,15 +36,17 @@ const makeFmt =
 const emptyEmployee = {
   name: "",
   email: "",
-  ssnLast4: "",
+  ssn: "",
+  address: "",
   payType: "salary",
   payRate: "",
   payFrequency: "biweekly",
-  federalFilingStatus: "single",
-  federalAllowances: 0,
-  prStateTaxRate: 0.07,
+  classification: "exempt_salaried",
+  isChauffeur: false,
+  exemptionStatus: "none",
+  allowances: 0,
+  additionalWithholding: "",
   startDate: dayjs().format("YYYY-MM-DD"),
-  federalExempt: true,
 };
 
 // Uppercase section label inside modals.
@@ -49,19 +57,6 @@ function SectionLabel({ children }) {
     </div>
   );
 }
-
-// Small label+value tile on a muted background.
-function StatTile({ label, value, className }) {
-  return (
-    <div className="bg-canvas rounded-lg px-3.5 py-3">
-      <div className="text-[11px] text-muted mb-1">{label}</div>
-      <div className={cx("text-lg font-semibold", className || "text-ink")}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
 // ── Employee Modal ────────────────────────────────────────────
 function EmployeeModal({ onClose, editEmployee, t }) {
   const queryClient = useQueryClient();
@@ -70,15 +65,28 @@ function EmployeeModal({ onClose, editEmployee, t }) {
       ? {
           name: editEmployee.name,
           email: editEmployee.email || "",
-          ssnLast4: "",
+          ssn: "", // write-only: blank = keep the SSN on file
+          address: editEmployee.address || "",
           payType: editEmployee.pay_type,
           payRate: editEmployee.pay_rate,
           payFrequency: editEmployee.pay_frequency,
-          federalFilingStatus: editEmployee.federal_filing_status,
-          federalAllowances: editEmployee.federal_allowances,
-          prStateTaxRate: editEmployee.pr_state_tax_rate,
+          classification:
+            editEmployee.classification ||
+            (editEmployee.pay_type === "hourly"
+              ? "nonexempt_hourly"
+              : "exempt_salaried"),
+          isChauffeur: editEmployee.is_chauffeur ?? false,
+          exemptionStatus:
+            editEmployee.elections_499r4?.exemption_status || "none",
+          allowances: editEmployee.elections_499r4?.allowances || 0,
+          additionalWithholding:
+            editEmployee.elections_499r4?.additional_withholding_cents != null
+              ? (
+                  editEmployee.elections_499r4.additional_withholding_cents /
+                  100
+                ).toFixed(2)
+              : "",
           startDate: dayjs(editEmployee.start_date).format("YYYY-MM-DD"),
-          federalExempt: editEmployee.federal_exempt ?? true,
         }
       : emptyEmployee,
   );
@@ -103,12 +111,35 @@ function EmployeeModal({ onClose, editEmployee, t }) {
     if (!form.name) return setError(t("payroll.errNameRequired"));
     if (!form.payRate || form.payRate <= 0)
       return setError(t("payroll.errPayRate"));
-    mutation.mutate({
-      ...form,
+    if (form.ssn && !/^\d{3}-?\d{2}-?\d{4}$/.test(form.ssn.trim()))
+      return setError(t("payroll.errSsn"));
+
+    const additionalCents = form.additionalWithholding
+      ? Math.round(parseFloat(form.additionalWithholding) * 100)
+      : 0;
+
+    const payload = {
+      name: form.name,
+      email: form.email,
+      address: form.address,
+      payType: form.payType,
       payRate: parseFloat(form.payRate),
-      federalAllowances: parseInt(form.federalAllowances || 0),
-      prStateTaxRate: parseFloat(form.prStateTaxRate || 0.07),
-    });
+      payFrequency: form.payFrequency,
+      classification: form.classification,
+      isChauffeur: form.isChauffeur,
+      elections499r4: {
+        exemption_status: form.exemptionStatus,
+        allowances: parseInt(form.allowances || 0),
+        additional_withholding_cents: Number.isFinite(additionalCents)
+          ? additionalCents
+          : 0,
+      },
+      startDate: form.startDate,
+    };
+    // SSN is write-only: only send when the user typed one.
+    if (form.ssn) payload.ssn = form.ssn.trim();
+
+    mutation.mutate(payload);
   };
 
   return (
@@ -149,15 +180,24 @@ function EmployeeModal({ onClose, editEmployee, t }) {
             />
           </Field>
         </div>
-        <div className="grid grid-cols-2 gap-3 mb-5">
-          <Field label={t("payroll.ssnLast4")} htmlFor="emp-ssn" className="mb-0">
+        <div className="grid grid-cols-2 gap-3 mb-3.5">
+          <Field label={t("payroll.ssnFull")} htmlFor="emp-ssn" className="mb-0">
             <Input
               id="emp-ssn"
-              value={form.ssnLast4}
-              onChange={(e) => setForm({ ...form, ssnLast4: e.target.value })}
-              placeholder="1234"
-              maxLength={4}
+              type="password"
+              autoComplete="off"
+              value={form.ssn}
+              onChange={(e) => setForm({ ...form, ssn: e.target.value })}
+              placeholder={
+                editEmployee?.ssn_last4 || editEmployee?.has_ssn
+                  ? t("payroll.ssnKeepPlaceholder")
+                  : "***-**-****"
+              }
+              maxLength={11}
             />
+            <div className="text-[11px] text-muted mt-1">
+              {t("payroll.ssnHint")}
+            </div>
           </Field>
           <Field
             label={t("payroll.startDate")}
@@ -173,6 +213,18 @@ function EmployeeModal({ onClose, editEmployee, t }) {
             />
           </Field>
         </div>
+        <Field
+          label={t("payroll.address")}
+          htmlFor="emp-address"
+          className="mb-5"
+        >
+          <Input
+            id="emp-address"
+            value={form.address}
+            onChange={(e) => setForm({ ...form, address: e.target.value })}
+            placeholder={t("payroll.addressPlaceholder")}
+          />
+        </Field>
 
         <SectionLabel>{t("payroll.payInfo")}</SectionLabel>
         <div className="grid grid-cols-2 gap-3 mb-3.5">
@@ -222,63 +274,103 @@ function EmployeeModal({ onClose, editEmployee, t }) {
           >
             <option value="weekly">{t("payroll.freqWeekly")}</option>
             <option value="biweekly">{t("payroll.freqBiweekly")}</option>
+            <option value="semimonthly">{t("payroll.freqSemimonthly")}</option>
             <option value="monthly">{t("payroll.freqMonthly")}</option>
           </Select>
         </Field>
 
-        <SectionLabel>{t("payroll.taxInfo")}</SectionLabel>
-        <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-canvas rounded-lg mb-3.5">
-          <Toggle
-            checked={form.federalExempt}
-            onChange={() =>
-              setForm({ ...form, federalExempt: !form.federalExempt })
-            }
-            aria-label={t("payroll.federalExempt")}
-          />
-          <div>
-            <div className="text-md font-medium text-ink">
-              {t("payroll.federalExempt")}
-            </div>
-            <div className="text-[11px] text-muted">
-              {t("payroll.federalExemptHint")}
-            </div>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-3 mb-6">
+        <SectionLabel>{t("payroll.prSection")}</SectionLabel>
+        <div className="grid grid-cols-2 gap-3 mb-3.5">
           <Field
-            label={t("payroll.prStateTaxRate")}
-            htmlFor="emp-pr-rate"
-            className="mb-0"
-          >
-            <Input
-              id="emp-pr-rate"
-              type="number"
-              step="0.001"
-              min="0"
-              max="1"
-              value={form.prStateTaxRate}
-              onChange={(e) =>
-                setForm({ ...form, prStateTaxRate: e.target.value })
-              }
-            />
-          </Field>
-          <Field
-            label={t("payroll.federalFilingStatus")}
-            htmlFor="emp-filing"
+            label={t("payroll.classification")}
+            htmlFor="emp-class"
             className="mb-0"
           >
             <Select
-              id="emp-filing"
-              value={form.federalFilingStatus}
+              id="emp-class"
+              value={form.classification}
               onChange={(e) =>
-                setForm({ ...form, federalFilingStatus: e.target.value })
+                setForm({ ...form, classification: e.target.value })
               }
-              disabled={form.federalExempt}
             >
-              <option value="single">{t("payroll.filingSingle")}</option>
-              <option value="married">{t("payroll.filingMarried")}</option>
+              <option value="nonexempt_hourly">
+                {t("payroll.classNonexempt")}
+              </option>
+              <option value="exempt_salaried">
+                {t("payroll.classExempt")}
+              </option>
             </Select>
           </Field>
+          <Field
+            label={t("payroll.exemptionStatus")}
+            htmlFor="emp-exemption"
+            className="mb-0"
+          >
+            <Select
+              id="emp-exemption"
+              value={form.exemptionStatus}
+              onChange={(e) =>
+                setForm({ ...form, exemptionStatus: e.target.value })
+              }
+            >
+              <option value="none">{t("payroll.exemptionNone")}</option>
+              <option value="complete">
+                {t("payroll.exemptionComplete")}
+              </option>
+              <option value="half_joint">
+                {t("payroll.exemptionHalfJoint")}
+              </option>
+            </Select>
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3 mb-3.5">
+          <Field
+            label={t("payroll.allowances499")}
+            htmlFor="emp-allowances"
+            className="mb-0"
+          >
+            <Input
+              id="emp-allowances"
+              type="number"
+              min="0"
+              value={form.allowances}
+              onChange={(e) => setForm({ ...form, allowances: e.target.value })}
+            />
+          </Field>
+          <Field
+            label={t("payroll.additionalWithholding")}
+            htmlFor="emp-addl-wh"
+            className="mb-0"
+          >
+            <Input
+              id="emp-addl-wh"
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.additionalWithholding}
+              onChange={(e) =>
+                setForm({ ...form, additionalWithholding: e.target.value })
+              }
+              placeholder="0.00"
+            />
+          </Field>
+        </div>
+        <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-canvas rounded-lg mb-5">
+          <Toggle
+            checked={form.isChauffeur}
+            onChange={() =>
+              setForm({ ...form, isChauffeur: !form.isChauffeur })
+            }
+            aria-label={t("payroll.isChauffeur")}
+          />
+          <div>
+            <div className="text-md font-medium text-ink">
+              {t("payroll.isChauffeur")}
+            </div>
+            <div className="text-[11px] text-muted">
+              {t("payroll.isChauffeurHint")}
+            </div>
+          </div>
         </div>
 
         <div className="flex gap-2 justify-end">
@@ -296,43 +388,52 @@ function EmployeeModal({ onClose, editEmployee, t }) {
   );
 }
 
-// ── Run Payroll Modal ─────────────────────────────────────────
-function RunPayrollModal({ onClose, employees, t }) {
+// ── Employer Profile Modal (ROADMAP-V5 Phase 2.1) ─────────────
+// The employer's compliance identity: agency account numbers used by
+// filings and exports. EIN is read-only here (Business Profile owns it).
+function EmployerProfileModal({ onClose, t }) {
   const queryClient = useQueryClient();
-  const now = dayjs();
-  const [form, setForm] = useState({
-    periodStart: now.startOf("month").format("YYYY-MM-DD"),
-    periodEnd: now.endOf("month").format("YYYY-MM-DD"),
+  const { data: profile } = useQuery({
+    queryKey: ["payroll-profile"],
+    queryFn: () => api.get("/payroll-profile").then((r) => r.data),
   });
-  const [hoursWorked, setHoursWorked] = useState({});
+  const [form, setForm] = useState(null);
   const [error, setError] = useState("");
-  const hourlyEmployees =
-    employees?.filter((e) => e.pay_type === "hourly") || [];
+
+  // Initialize once the profile loads.
+  if (profile && form === null) {
+    setForm({
+      merchantRegNo: profile.merchant_reg_no || "",
+      suriAccountRef: profile.suri_account_ref || "",
+      dtrhEmployerNo: profile.dtrh_employer_no || "",
+      cfsePolicyNo: profile.cfse_policy_no || "",
+      defaultPayFrequency: profile.default_pay_frequency || "biweekly",
+      sizeBand: profile.size_band || "",
+      defaultMunicipality: profile.default_municipality || "",
+      checkOffsetXMm: profile.check_offset_x_mm ?? 0,
+      checkOffsetYMm: profile.check_offset_y_mm ?? 0,
+    });
+  }
 
   const mutation = useMutation({
-    mutationFn: (data) => api.post("/payroll", data),
+    mutationFn: (data) => api.put("/payroll-profile", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["payroll"] });
+      queryClient.invalidateQueries({ queryKey: ["payroll-profile"] });
       onClose();
     },
     onError: (err) =>
-      setError(err.response?.data?.error || t("payroll.runFailed")),
+      setError(err.response?.data?.error || t("payroll.profileSaveFailed")),
   });
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setError("");
-    if (!form.periodStart || !form.periodEnd)
-      return setError(t("payroll.errBothDates"));
-    mutation.mutate({
-      periodStart: form.periodStart,
-      periodEnd: form.periodEnd,
-      hoursWorked,
-    });
-  };
+  const fields = [
+    ["merchantRegNo", "payroll.merchantRegNo"],
+    ["suriAccountRef", "payroll.suriAccountRef"],
+    ["dtrhEmployerNo", "payroll.dtrhEmployerNo"],
+    ["cfsePolicyNo", "payroll.cfsePolicyNo"],
+  ];
 
   return (
-    <Modal open onClose={onClose} title={t("payroll.runPayroll")}>
+    <Modal open onClose={onClose} title={t("payroll.employerProfile")}>
       {error && (
         <div className="bg-danger-bg text-danger border border-danger rounded-lg px-3.5 py-2.5 text-md mb-4">
           <i className="ti ti-alert-circle mr-1.5" aria-hidden="true" />
@@ -340,242 +441,132 @@ function RunPayrollModal({ onClose, employees, t }) {
         </div>
       )}
 
-      <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <Field
-            label={t("payroll.periodStart")}
-            htmlFor="period-start"
-            className="mb-0"
-          >
-            <Input
-              id="period-start"
-              type="date"
-              value={form.periodStart}
-              onChange={(e) =>
-                setForm({ ...form, periodStart: e.target.value })
-              }
-              required
-            />
-          </Field>
-          <Field
-            label={t("payroll.periodEnd")}
-            htmlFor="period-end"
-            className="mb-0"
-          >
-            <Input
-              id="period-end"
-              type="date"
-              value={form.periodEnd}
-              onChange={(e) => setForm({ ...form, periodEnd: e.target.value })}
-              required
-            />
-          </Field>
-        </div>
+      {!form ? (
+        <div className="p-6 text-center text-muted">{t("common.loading")}</div>
+      ) : (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            setError("");
+            mutation.mutate({
+              ...form,
+              sizeBand: form.sizeBand || null,
+              defaultMunicipality: form.defaultMunicipality || null,
+              checkOffsetXMm: Number(form.checkOffsetXMm) || 0,
+              checkOffsetYMm: Number(form.checkOffsetYMm) || 0,
+            });
+          }}
+        >
+          <div className="bg-canvas rounded-lg px-3.5 py-2.5 mb-4 text-md text-secondary">
+            <span className="text-[11px] text-muted mr-2 uppercase tracking-[0.5px]">
+              {t("payroll.ein")}
+            </span>
+            <strong className="text-ink">{profile?.ein || "—"}</strong>
+          </div>
 
-        {hourlyEmployees.length > 0 && (
-          <div className="mb-4">
-            <div className="text-xs font-medium text-secondary mb-2">
-              {t("payroll.hoursWorkedHourly")}
-            </div>
-            {hourlyEmployees.map((emp) => (
-              <div key={emp.id} className="flex items-center gap-2.5 mb-2">
-                <span className="text-md text-ink flex-1">{emp.name}</span>
+          <div className="grid grid-cols-2 gap-3 mb-3.5">
+            {fields.map(([key, labelKey]) => (
+              <Field
+                key={key}
+                label={t(labelKey)}
+                htmlFor={`prof-${key}`}
+                className="mb-0"
+              >
                 <Input
-                  type="number"
-                  className="w-[100px]"
-                  placeholder="0"
-                  value={hoursWorked[emp.id] || ""}
-                  onChange={(e) =>
-                    setHoursWorked({
-                      ...hoursWorked,
-                      [emp.id]: parseFloat(e.target.value),
-                    })
-                  }
+                  id={`prof-${key}`}
+                  value={form[key]}
+                  onChange={(e) => setForm({ ...form, [key]: e.target.value })}
                 />
-                <span className="text-xs text-muted">{t("payroll.hrs")}</span>
-              </div>
+              </Field>
             ))}
           </div>
-        )}
 
-        <div className="bg-canvas rounded-lg px-3.5 py-2.5 mb-4 text-md text-secondary">
-          <i className="ti ti-users mr-1.5" aria-hidden="true" />
-          {t("payroll.willProcess")}{" "}
-          <strong className="text-ink">{employees?.length || 0}</strong>{" "}
-          {t("payroll.activeEmployeesLower")}
-        </div>
-
-        <div className="flex gap-2 justify-end">
-          <Button onClick={onClose}>{t("common.cancel")}</Button>
-          <Button type="submit" variant="primary" disabled={mutation.isPending}>
-            {mutation.isPending
-              ? t("payroll.processing")
-              : t("payroll.runPayroll")}
-          </Button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-// ── Payroll Run Detail Modal ──────────────────────────────────
-function PayrollRunModal({ run, onClose, fmt, t }) {
-  const queryClient = useQueryClient();
-
-  const { data, isLoading } = useQuery({
-    queryKey: ["payroll-run", run.id],
-    queryFn: () => api.get(`/payroll/${run.id}`).then((r) => r.data),
-  });
-
-  const finalizeMutation = useMutation({
-    mutationFn: () => api.put(`/payroll/${run.id}/finalize`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["payroll"] });
-      queryClient.invalidateQueries({ queryKey: ["payroll-run", run.id] });
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: () => api.delete(`/payroll/${run.id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["payroll"] });
-      onClose();
-    },
-  });
-
-  // status label: "finalized" | "draft" → localized
-  const statusLabel = t(`payroll.status.${run.status}`, run.status);
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      size="lg"
-      title={
-        <span className="flex items-center gap-2">
-          {t("payroll.payrollRun")}
-          <Badge tone={run.status === "finalized" ? "income" : "payroll"}>
-            {statusLabel}
-          </Badge>
-        </span>
-      }
-    >
-      <div className="text-xs text-muted mb-4">
-        {dayjs(run.period_start).format("MMM D")} —{" "}
-        {dayjs(run.period_end).format("MMM D, YYYY")}
-      </div>
-
-      <div className="grid grid-cols-3 gap-2.5 mb-5">
-        <StatTile label={t("payroll.totalGross")} value={fmt(run.total_gross)} />
-        <StatTile
-          label={t("payroll.totalTaxes")}
-          value={fmt(run.total_taxes)}
-          className="text-expense"
-        />
-        <StatTile
-          label={t("payroll.totalNet")}
-          value={fmt(run.total_net)}
-          className="text-income"
-        />
-      </div>
-
-      {isLoading ? (
-        <div className="p-5 text-center text-muted">
-          {t("payroll.loadingPayslips")}
-        </div>
-      ) : (
-        <div>
-          <div className="text-xs font-medium text-secondary mb-2.5">
-            {t("payroll.employeePayslips")}
-          </div>
-          {data?.payslips?.map((ps, i) => (
-            <div key={i} className="bg-canvas rounded-lg p-3.5 mb-2">
-              <div className="flex justify-between mb-2.5">
-                <div className="text-sm font-medium text-ink">
-                  {ps.employee_name}
-                </div>
-                <div className="text-sm font-semibold text-income">
-                  {t("payroll.netSuffix", { amount: fmt(ps.net_pay) })}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                {[
-                  { label: t("payroll.gross"), value: ps.gross_pay, cls: "text-ink" },
-                  {
-                    label: t("payroll.federal"),
-                    value: ps.federal_tax,
-                    cls: "text-expense",
-                  },
-                  {
-                    label: t("payroll.socSec"),
-                    value: ps.social_security,
-                    cls: "text-expense",
-                  },
-                  {
-                    label: t("payroll.medicare"),
-                    value: ps.medicare,
-                    cls: "text-expense",
-                  },
-                  {
-                    label: t("payroll.prTax"),
-                    value: ps.pr_state_tax,
-                    cls: "text-expense",
-                  },
-                ].map((d) => (
-                  <div key={d.label}>
-                    <div className="text-[10px] text-muted mb-0.5">
-                      {d.label}
-                    </div>
-                    <div className={cx("text-xs font-medium", d.cls)}>
-                      {fmt(d.value)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {ps.hours_worked && (
-                <div className="text-[11px] text-muted mt-2">
-                  {t("payroll.hoursWorkedLabel", { hours: ps.hours_worked })}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="flex gap-2 justify-between mt-4">
-        {run.status === "draft" && (
-          <Button
-            variant="danger"
-            icon="ti-trash"
-            disabled={deleteMutation.isPending}
-            onClick={async () => {
-              if (
-                await confirmDialog({
-                  message: t("payroll.confirmDeleteRun"),
-                  danger: true,
-                })
-              )
-                deleteMutation.mutate();
-            }}
-          >
-            {t("common.delete")}
-          </Button>
-        )}
-        <div className="ml-auto flex gap-2">
-          <Button onClick={onClose}>{t("common.close")}</Button>
-          {run.status === "draft" && (
-            <Button
-              variant="primary"
-              disabled={finalizeMutation.isPending}
-              onClick={() => finalizeMutation.mutate()}
+          <div className="grid grid-cols-2 gap-3 mb-3.5">
+            <Field
+              label={t("payroll.checkOffsetX")}
+              htmlFor="prof-offx"
+              className="mb-0"
             >
-              {finalizeMutation.isPending
-                ? t("payroll.finalizing")
-                : t("payroll.finalizePayroll")}
+              <Input
+                id="prof-offx"
+                type="number"
+                step="0.5"
+                min="-50"
+                max="50"
+                value={form.checkOffsetXMm}
+                onChange={(e) =>
+                  setForm({ ...form, checkOffsetXMm: e.target.value })
+                }
+              />
+            </Field>
+            <Field
+              label={t("payroll.checkOffsetY")}
+              htmlFor="prof-offy"
+              className="mb-0"
+            >
+              <Input
+                id="prof-offy"
+                type="number"
+                step="0.5"
+                min="-50"
+                max="50"
+                value={form.checkOffsetYMm}
+                onChange={(e) =>
+                  setForm({ ...form, checkOffsetYMm: e.target.value })
+                }
+              />
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <Field
+              label={t("payroll.defaultPayFrequency")}
+              htmlFor="prof-freq"
+              className="mb-0"
+            >
+              <Select
+                id="prof-freq"
+                value={form.defaultPayFrequency}
+                onChange={(e) =>
+                  setForm({ ...form, defaultPayFrequency: e.target.value })
+                }
+              >
+                <option value="weekly">{t("payroll.freqWeekly")}</option>
+                <option value="biweekly">{t("payroll.freqBiweekly")}</option>
+                <option value="semimonthly">
+                  {t("payroll.freqSemimonthly")}
+                </option>
+                <option value="monthly">{t("payroll.freqMonthly")}</option>
+              </Select>
+            </Field>
+            <Field
+              label={t("payroll.defaultMunicipality")}
+              htmlFor="prof-muni"
+              className="mb-0"
+            >
+              <Input
+                id="prof-muni"
+                value={form.defaultMunicipality}
+                onChange={(e) =>
+                  setForm({ ...form, defaultMunicipality: e.target.value })
+                }
+                placeholder="San Juan"
+              />
+            </Field>
+          </div>
+
+          <div className="flex gap-2 justify-end">
+            <Button onClick={onClose}>{t("common.cancel")}</Button>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={mutation.isPending}
+            >
+              {t("common.save")}
             </Button>
-          )}
-        </div>
-      </div>
+          </div>
+        </form>
+      )}
     </Modal>
   );
 }
@@ -588,23 +579,45 @@ export default function Payroll() {
   const [tab, setTab] = useState("employees");
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [showRunModal, setShowRunModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [selectedV2RunId, setSelectedV2RunId] = useState(null);
   const [editEmployee, setEditEmployee] = useState(null);
-  const [selectedRun, setSelectedRun] = useState(null);
 
   const { data: employees, isLoading: empLoading } = useQuery({
     queryKey: ["employees"],
     queryFn: () => api.get("/employees").then((r) => r.data),
   });
 
-  const { data: payrollRuns, isLoading: runsLoading } = useQuery({
-    queryKey: ["payroll"],
-    queryFn: () => api.get("/payroll").then((r) => r.data),
+  const { data: v2Runs } = useQuery({
+    queryKey: ["payroll-v2"],
+    queryFn: () => api.get("/payroll-v2").then((r) => r.data),
   });
 
-  const { data: ytd } = useQuery({
-    queryKey: ["payroll-ytd"],
-    queryFn: () => api.get("/payroll/summary/ytd").then((r) => r.data),
+  // YTD tiles from v2 runs: reversal-aware (a reversed pair nets to 0),
+  // current calendar year by pay date.
+  const thisYear = String(new Date().getFullYear());
+  const ytd = (v2Runs || []).reduce(
+    (acc, run) => {
+      if (!["finalized", "reversed"].includes(run.status)) return acc;
+      if (String(run.pay_date).slice(0, 4) !== thisYear) return acc;
+      const sign = run.reversal_of ? -1 : 1;
+      acc.gross += (sign * Number(run.gross_cents)) / 100;
+      acc.taxes += (sign * Number(run.employee_deductions_cents)) / 100;
+      acc.net += (sign * Number(run.net_cents)) / 100;
+      if (run.status === "finalized" && !run.reversal_of) acc.runs += 1;
+      return acc;
+    },
+    { gross: 0, taxes: 0, net: 0, runs: 0 },
+  );
+
+  // Sandbox/production mode (ROADMAP-V5 Phase 1.6): sandbox output must
+  // always carry the watermark banner. Text mirrors SANDBOX_WATERMARK in
+  // backend/src/services/payrollRules.js.
+  const { data: modeData } = useQuery({
+    queryKey: ["payroll-mode"],
+    queryFn: () => api.get("/payroll-rules/mode").then((r) => r.data),
   });
+  const sandboxMode = (modeData?.payroll_mode || "sandbox") === "sandbox";
 
   const deactivateMutation = useMutation({
     mutationFn: (id) => api.delete(`/employees/${id}`),
@@ -624,12 +637,6 @@ export default function Payroll() {
     </Badge>
   );
 
-  const runStatusBadge = (run) => (
-    <Badge tone={run.status === "finalized" ? "income" : "payroll"}>
-      {t(`payroll.status.${run.status}`, run.status)}
-    </Badge>
-  );
-
   return (
     <div className="fade-in">
       <PageHeader
@@ -639,6 +646,22 @@ export default function Payroll() {
         })}
         actions={
           <>
+            <Link to="/payroll/compliance">
+              <Button icon="ti-calendar-due" title={t("payrollFilings.title")}>
+                <span className="hidden lg:inline">
+                  {t("payrollFilings.titleShort")}
+                </span>
+              </Button>
+            </Link>
+            <Button
+              icon="ti-id-badge-2"
+              title={t("payroll.employerProfile")}
+              onClick={() => setShowProfileModal(true)}
+            >
+              <span className="hidden sm:inline">
+                {t("payroll.employerProfile")}
+              </span>
+            </Button>
             <Button
               icon="ti-user-plus"
               title={t("payroll.addEmployee")}
@@ -663,24 +686,57 @@ export default function Payroll() {
         }
       />
 
+      {/* October–December: the Law 148 bonus window approaches — surface
+          the eligibility report prominently (ROADMAP-V5 4.3). */}
+      {dayjs().month() >= 9 && tab !== "bonus" && (
+        <Card
+          padding="none"
+          className="p-3.5 mb-4 border border-line bg-canvas cursor-pointer hover:bg-sunken"
+          onClick={() => setTab("bonus")}
+        >
+          <div className="text-md text-secondary">
+            <i className="ti ti-gift mr-1.5" aria-hidden="true" />
+            {t("payrollV2.bonusSeasonBanner")}
+          </div>
+        </Card>
+      )}
+
+      {/* Sandbox watermark banner — links to the rules admin */}
+      {sandboxMode && (
+        <Link to="/payroll/rules" className="block mb-4">
+          <Card
+            padding="none"
+            className="p-3.5 border border-danger bg-danger-bg hover:opacity-90"
+          >
+            <div className="font-bold text-danger text-[13px] tracking-wide">
+              <i className="ti ti-flask mr-1.5" aria-hidden="true" />
+              CÁLCULO NO VERIFICADO — SOLO PRUEBAS
+            </div>
+            <div className="text-[12px] text-secondary mt-0.5">
+              {t("payrollRules.sandboxExplain")}
+            </div>
+          </Card>
+        </Link>
+      )}
+
       {/* YTD Summary */}
-      {ytd && (
+      {v2Runs && (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3 mb-6">
           {[
-            { label: t("payroll.ytdGross"), value: fmt(ytd.ytd_gross), cls: "text-ink" },
+            { label: t("payroll.ytdGross"), value: fmt(ytd.gross), cls: "text-ink" },
             {
               label: t("payroll.ytdTaxes"),
-              value: fmt(ytd.ytd_taxes),
+              value: fmt(ytd.taxes),
               cls: "text-expense",
             },
             {
               label: t("payroll.ytdNetPaid"),
-              value: fmt(ytd.ytd_net),
+              value: fmt(ytd.net),
               cls: "text-income",
             },
             {
               label: t("payroll.payrollRuns"),
-              value: ytd.total_runs,
+              value: ytd.runs,
               cls: "text-payroll",
             },
           ].map((s) => (
@@ -702,6 +758,7 @@ export default function Payroll() {
         tabs={[
           { id: "employees", label: t("payroll.tabEmployees") },
           { id: "runs", label: t("payroll.tabRuns") },
+          { id: "bonus", label: t("payrollV2.tabBonus") },
         ]}
         active={tab}
         onChange={setTab}
@@ -895,133 +952,85 @@ export default function Payroll() {
       {/* ── PAYROLL RUNS TAB ── */}
       {tab === "runs" && (
         <div>
-          {runsLoading ? (
-            loadingState
-          ) : payrollRuns?.length === 0 ? (
-            <Card>
-              <EmptyState
-                icon="ti-report-money"
-                message={t("payroll.noRuns")}
-                action={
-                  <Button variant="primary" onClick={() => setShowRunModal(true)}>
-                    {t("payroll.runFirst")}
-                  </Button>
-                }
-              />
+          {/* PR payroll runs (v2 engine) */}
+          <div className="text-[11px] text-muted tracking-[1px] uppercase mb-2">
+            {t("payrollV2.runsTitle")}
+          </div>
+          {!v2Runs?.length ? (
+            <Card padding="none" className="p-3.5 mb-5 text-md text-secondary">
+              {t("payrollV2.noRuns")}
             </Card>
           ) : (
-            <>
-              {/* Mobile card layout */}
-              <div className="md:hidden flex flex-col gap-2.5">
-                {payrollRuns.map((run) => (
-                  <Card
-                    key={run.id}
-                    padding="none"
-                    className="px-4 py-3.5 cursor-pointer"
-                    onClick={() => setSelectedRun(run)}
-                  >
-                    <div className="flex justify-between items-start mb-2.5">
-                      <div>
-                        <div className="text-md font-medium text-ink">
-                          {dayjs(run.period_start).format("MMM D")} —{" "}
-                          {dayjs(run.period_end).format("MMM D, YYYY")}
-                        </div>
-                        <div className="text-[11px] text-muted mt-0.5">
-                          {t("payroll.runOn", {
-                            date: dayjs(run.run_date).format("MMM D, YYYY"),
-                          })}{" "}
-                          ·{" "}
-                          {t("payroll.empCount", {
-                            count: run.employee_count,
-                          })}
-                        </div>
-                      </div>
-                      {runStatusBadge(run)}
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        {
-                          label: t("payroll.gross"),
-                          value: run.total_gross,
-                          cls: "text-ink",
-                        },
-                        {
-                          label: t("payroll.taxes"),
-                          value: run.total_taxes,
-                          cls: "text-expense",
-                        },
-                        {
-                          label: t("payroll.net"),
-                          value: run.total_net,
-                          cls: "text-income",
-                        },
-                      ].map((s) => (
-                        <div
-                          key={s.label}
-                          className="bg-canvas rounded-md px-2.5 py-2"
-                        >
-                          <div className="text-[10px] text-muted mb-0.5">
-                            {s.label}
-                          </div>
-                          <div className={cx("text-md font-semibold", s.cls)}>
-                            {fmt(s.value)}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </Card>
-                ))}
-              </div>
-
-              {/* Desktop table layout */}
-              <Card padding="none" className="hidden md:block overflow-hidden">
-                <div className="grid grid-cols-[1fr_1fr_110px_110px_90px_70px] px-[18px] py-2.5 border-b border-line bg-canvas">
-                  {[
-                    t("payroll.colPeriod"),
-                    t("payroll.colRunDate"),
-                    t("payroll.gross"),
-                    t("payroll.net"),
-                    t("common.status"),
-                    "",
-                  ].map((h, idx) => (
-                    <div
-                      key={idx}
-                      className="text-[11px] text-muted font-medium tracking-[0.5px]"
+            <Card padding="none" className="mb-5 overflow-x-auto">
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr className="text-left text-[11px] text-muted uppercase tracking-[0.5px] border-b border-line">
+                    <th className="px-4 py-2.5">{t("payroll.tablePeriod", "Period")}</th>
+                    <th className="px-4 py-2.5">{t("payrollV2.payDate")}</th>
+                    <th className="px-4 py-2.5">{t("payrollV2.mode")}</th>
+                    <th className="px-4 py-2.5">{t("payroll.tableStatus", "Status")}</th>
+                    <th className="px-4 py-2.5 text-right">{t("payrollV2.net")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {v2Runs.map((run) => (
+                    <tr
+                      key={run.id}
+                      className="border-b border-line last:border-0 hover:bg-canvas cursor-pointer"
+                      onClick={() => setSelectedV2RunId(run.id)}
                     >
-                      {h}
-                    </div>
+                      <td className="px-4 py-3 whitespace-nowrap text-ink">
+                        {dayjs(run.period_start).format("MMM D")} —{" "}
+                        {dayjs(run.period_end).format("MMM D, YYYY")}
+                        {run.reversal_of && (
+                          <Badge tone="neutral" className="ml-2">
+                            {t("payrollV2.isReversal")}
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-secondary">
+                        {dayjs(run.pay_date).format("MMM D, YYYY")}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          tone={run.run_mode === "sandbox" ? "danger" : "income"}
+                        >
+                          {run.run_mode === "sandbox"
+                            ? t("payrollV2.modeSandbox")
+                            : t("payrollV2.modeProduction")}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          tone={
+                            { draft: "payroll", finalized: "income", reversed: "expense" }[
+                              run.status
+                            ]
+                          }
+                        >
+                          {t(`payrollV2.status_${run.status}`, run.status)}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium text-ink whitespace-nowrap">
+                        {fmt(Number(run.net_cents) / 100)}
+                      </td>
+                    </tr>
                   ))}
-                </div>
-                {payrollRuns.map((run) => (
-                  <div
-                    key={run.id}
-                    className="grid grid-cols-[1fr_1fr_110px_110px_90px_70px] px-[18px] py-[var(--row-y)] border-b border-line items-center cursor-pointer transition-colors hover:bg-canvas"
-                    onClick={() => setSelectedRun(run)}
-                  >
-                    <div className="text-md text-ink">
-                      {dayjs(run.period_start).format("MMM D")} —{" "}
-                      {dayjs(run.period_end).format("MMM D, YYYY")}
-                    </div>
-                    <div className="text-xs text-muted">
-                      {dayjs(run.run_date).format("MMM D, YYYY")}
-                    </div>
-                    <div className="text-md font-medium text-ink">
-                      {fmt(run.total_gross)}
-                    </div>
-                    <div className="text-md font-medium text-income">
-                      {fmt(run.total_net)}
-                    </div>
-                    <div>{runStatusBadge(run)}</div>
-                    <div className="text-xs text-muted">
-                      {t("payroll.empShort", { count: run.employee_count })}
-                    </div>
-                  </div>
-                ))}
-              </Card>
-            </>
+                </tbody>
+              </table>
+            </Card>
           )}
+
         </div>
       )}
+
+      {/* ── BONUS TAB (Law 148 eligibility, Phase 4.3) ── */}
+      {tab === "bonus" && <BonusEligibilityPanel t={t} lang={i18n.language} />}
+
+      <div className="text-[12px] text-muted mt-6 mb-8">
+        <i className="ti ti-info-circle mr-1" aria-hidden="true" />
+        {t("payroll.pageDisclaimer")}
+      </div>
 
       {showEmployeeModal && (
         <EmployeeModal
@@ -1034,17 +1043,26 @@ export default function Payroll() {
         />
       )}
       {showRunModal && (
-        <RunPayrollModal
-          onClose={() => setShowRunModal(false)}
+        <RunPayrollV2Modal
+          onClose={(createdRunId) => {
+            setShowRunModal(false);
+            if (createdRunId) setSelectedV2RunId(createdRunId);
+          }}
           employees={employees}
           t={t}
         />
       )}
-      {selectedRun && (
-        <PayrollRunModal
-          run={selectedRun}
-          onClose={() => setSelectedRun(null)}
-          fmt={fmt}
+      {selectedV2RunId && (
+        <RunV2DetailModal
+          runId={selectedV2RunId}
+          onClose={() => setSelectedV2RunId(null)}
+          t={t}
+          lang={i18n.language}
+        />
+      )}
+      {showProfileModal && (
+        <EmployerProfileModal
+          onClose={() => setShowProfileModal(false)}
           t={t}
         />
       )}

@@ -69,7 +69,9 @@ router.post("/test", async (req, res) => {
   const { match_type, pattern } = req.body;
 
   if (!match_type || !pattern) {
-    return res.status(400).json({ error: "match_type and pattern are required" });
+    return res
+      .status(400)
+      .json({ error: "match_type and pattern are required" });
   }
 
   try {
@@ -125,13 +127,19 @@ router.post("/", async (req, res) => {
 
   if (!name?.trim()) return res.status(400).json({ error: "name is required" });
   if (!["contains", "equals", "regex"].includes(match_type)) {
-    return res.status(400).json({ error: "match_type must be contains, equals, or regex" });
+    return res
+      .status(400)
+      .json({ error: "match_type must be contains, equals, or regex" });
   }
-  if (!pattern?.trim()) return res.status(400).json({ error: "pattern is required" });
-  if (!category_id) return res.status(400).json({ error: "category_id is required" });
+  if (!pattern?.trim())
+    return res.status(400).json({ error: "pattern is required" });
+  if (!category_id)
+    return res.status(400).json({ error: "category_id is required" });
 
   if (match_type === "regex") {
-    try { new RegExp(pattern); } catch {
+    try {
+      new RegExp(pattern);
+    } catch {
       return res.status(400).json({ error: "Invalid regex pattern" });
     }
   }
@@ -158,7 +166,15 @@ router.post("/", async (req, res) => {
       `INSERT INTO categorization_rules (business_id, priority, name, match_type, pattern, category_id, is_active)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [businessId, priority, name.trim(), match_type, pattern.trim(), category_id, is_active],
+      [
+        businessId,
+        priority,
+        name.trim(),
+        match_type,
+        pattern.trim(),
+        category_id,
+        is_active,
+      ],
     );
     return res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -177,7 +193,9 @@ router.put("/:id", async (req, res) => {
     return res.status(400).json({ error: "Invalid match_type" });
   }
   if (match_type === "regex" && pattern) {
-    try { new RegExp(pattern); } catch {
+    try {
+      new RegExp(pattern);
+    } catch {
       return res.status(400).json({ error: "Invalid regex pattern" });
     }
   }
@@ -213,7 +231,15 @@ router.put("/:id", async (req, res) => {
          is_active   = COALESCE($5, is_active)
        WHERE id = $6 AND business_id = $7
        RETURNING *`,
-      [name?.trim() || null, match_type || null, pattern?.trim() || null, category_id || null, is_active ?? null, id, businessId],
+      [
+        name?.trim() || null,
+        match_type || null,
+        pattern?.trim() || null,
+        category_id || null,
+        is_active ?? null,
+        id,
+        businessId,
+      ],
     );
     return res.json(result.rows[0]);
   } catch (err) {

@@ -351,22 +351,43 @@ async function getTaxData(businessId, year) {
     ORDER BY total DESC
   `;
 
+  // Payroll v2 (ROADMAP-V5): reversal-aware sums matched to the
+  // business's current payroll mode. federal_tax is structurally 0 —
+  // the PR engine has no federal income tax path.
   const payrollTaxSql = `
+    WITH signed AS (
+      SELECT l.id, l.employee_id, r.id AS run_id, r.reversal_of,
+             CASE WHEN r.reversal_of IS NULL THEN 1 ELSE -1 END AS sign,
+             l.gross_cents, l.net_cents
+      FROM pay_lines l
+      JOIN payroll_runs_v2 r ON r.id = l.payroll_run_id
+      JOIN pay_periods p ON p.id = r.pay_period_id
+      WHERE r.business_id = $1
+        AND r.status IN ('finalized', 'reversed')
+        AND r.run_mode = (SELECT payroll_mode FROM businesses b WHERE b.id = $1)
+        AND EXTRACT(YEAR FROM p.pay_date) = $2
+    ),
+    item_sums AS (
+      SELECT
+        COALESCE(SUM(CASE WHEN i.code = 'social_security' THEN s.sign * i.amount_cents END), 0) AS ss,
+        COALESCE(SUM(CASE WHEN i.code IN ('medicare', 'medicare_additional') THEN s.sign * i.amount_cents END), 0) AS medicare,
+        COALESCE(SUM(CASE WHEN i.code = 'pr_income_tax' THEN s.sign * i.amount_cents END), 0) AS pr_tax,
+        COALESCE(SUM(CASE WHEN i.item_type = 'employee_deduction'
+                          AND i.code NOT IN ('social_security', 'medicare', 'medicare_additional', 'pr_income_tax')
+                          THEN s.sign * i.amount_cents END), 0) AS other_ded
+      FROM pay_items i JOIN signed s ON s.id = i.pay_line_id
+    )
     SELECT
-      COALESCE(SUM(ps.gross_pay), 0)::NUMERIC(12,2)        AS total_gross,
-      COALESCE(SUM(ps.federal_tax), 0)::NUMERIC(12,2)       AS total_federal_tax,
-      COALESCE(SUM(ps.social_security), 0)::NUMERIC(12,2)   AS total_social_security,
-      COALESCE(SUM(ps.medicare), 0)::NUMERIC(12,2)           AS total_medicare,
-      COALESCE(SUM(ps.pr_state_tax), 0)::NUMERIC(12,2)       AS total_pr_state_tax,
-      COALESCE(SUM(ps.other_deductions), 0)::NUMERIC(12,2)   AS total_other_deductions,
-      COALESCE(SUM(ps.net_pay), 0)::NUMERIC(12,2)            AS total_net_pay,
-      COUNT(DISTINCT ps.employee_id)                          AS employee_count,
-      COUNT(DISTINCT pr.id)                                   AS run_count
-    FROM payslips ps
-    JOIN payroll_runs pr ON pr.id = ps.payroll_run_id
-    WHERE pr.business_id = $1
-      AND EXTRACT(YEAR FROM pr.period_start) = $2
-      AND pr.status = 'finalized'
+      (COALESCE(SUM(s.sign * s.gross_cents), 0)::NUMERIC / 100)::NUMERIC(12,2) AS total_gross,
+      0::NUMERIC(12,2)                                                          AS total_federal_tax,
+      ((SELECT ss FROM item_sums)::NUMERIC / 100)::NUMERIC(12,2)                AS total_social_security,
+      ((SELECT medicare FROM item_sums)::NUMERIC / 100)::NUMERIC(12,2)          AS total_medicare,
+      ((SELECT pr_tax FROM item_sums)::NUMERIC / 100)::NUMERIC(12,2)            AS total_pr_state_tax,
+      ((SELECT other_ded FROM item_sums)::NUMERIC / 100)::NUMERIC(12,2)         AS total_other_deductions,
+      (COALESCE(SUM(s.sign * s.net_cents), 0)::NUMERIC / 100)::NUMERIC(12,2)    AS total_net_pay,
+      COUNT(DISTINCT s.employee_id)                                             AS employee_count,
+      COUNT(DISTINCT CASE WHEN s.reversal_of IS NULL THEN s.run_id END)         AS run_count
+    FROM signed s
   `;
 
   const quarterSql = `
@@ -1039,7 +1060,11 @@ router.get("/480-6sp/suri", requireFeature("hacienda"), async (req, res) => {
     }
     const incomplete = flagged
       .filter((v) => v.missing_fields.length > 0)
-      .map((v) => ({ id: v.id, name: v.name, missing_fields: v.missing_fields }));
+      .map((v) => ({
+        id: v.id,
+        name: v.name,
+        missing_fields: v.missing_fields,
+      }));
     if (incomplete.length > 0) {
       return res.status(422).json({
         error:

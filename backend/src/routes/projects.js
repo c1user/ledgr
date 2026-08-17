@@ -190,7 +190,8 @@ router.get("/:id/summary", async (req, res) => {
       hours: hoursRes.rows[0],
       // Budget tracks cost: actual = tagged expenses.
       actual_cost: parseFloat(expense.toFixed(2)),
-      budget_remaining: budget != null ? parseFloat((budget - expense).toFixed(2)) : null,
+      budget_remaining:
+        budget != null ? parseFloat((budget - expense).toFixed(2)) : null,
     });
   } catch (err) {
     console.error("Get project summary error:", err);
@@ -236,8 +237,16 @@ router.post("/", async (req, res) => {
          (business_id, name, description, color, client_id, status, budget, start_date, end_date, is_active)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
       [
-        businessId, p.name, p.description, p.color, p.clientId, p.status,
-        p.budget, p.startDate, p.endDate, p.isActive,
+        businessId,
+        p.name,
+        p.description,
+        p.color,
+        p.clientId,
+        p.status,
+        p.budget,
+        p.startDate,
+        p.endDate,
+        p.isActive,
       ],
     );
     return res.status(201).json(result.rows[0]);
@@ -266,8 +275,17 @@ router.put("/:id", async (req, res) => {
          budget = $6, start_date = $7, end_date = $8, is_active = $9
        WHERE id = $10 AND business_id = $11 RETURNING *`,
       [
-        p.name, p.description, p.color, p.clientId, p.status,
-        p.budget, p.startDate, p.endDate, p.isActive, id, businessId,
+        p.name,
+        p.description,
+        p.color,
+        p.clientId,
+        p.status,
+        p.budget,
+        p.startDate,
+        p.endDate,
+        p.isActive,
+        id,
+        businessId,
       ],
     );
     if (result.rows.length === 0)

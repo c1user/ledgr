@@ -119,13 +119,17 @@ const getBusinessContext = async (businessId) => {
     ),
     pool.query(
       `SELECT
-        COALESCE(SUM(gross_pay), 0) AS ytd_gross,
-        COALESCE(SUM(total_taxes), 0) AS ytd_taxes,
-        COALESCE(SUM(net_pay), 0) AS ytd_net,
-        COUNT(DISTINCT payroll_run_id) AS total_runs
-       FROM payslips ps
-       JOIN payroll_runs pr ON pr.id = ps.payroll_run_id
-       WHERE pr.business_id = $1 AND EXTRACT(YEAR FROM pr.period_end) = $2`,
+        COALESCE(SUM(CASE WHEN r.reversal_of IS NULL THEN l.gross_cents ELSE -l.gross_cents END), 0)::NUMERIC / 100 AS ytd_gross,
+        COALESCE(SUM(CASE WHEN r.reversal_of IS NULL THEN l.employee_deductions_cents ELSE -l.employee_deductions_cents END), 0)::NUMERIC / 100 AS ytd_taxes,
+        COALESCE(SUM(CASE WHEN r.reversal_of IS NULL THEN l.net_cents ELSE -l.net_cents END), 0)::NUMERIC / 100 AS ytd_net,
+        COUNT(DISTINCT CASE WHEN r.reversal_of IS NULL THEN r.id END) AS total_runs
+       FROM pay_lines l
+       JOIN payroll_runs_v2 r ON r.id = l.payroll_run_id
+       JOIN pay_periods p ON p.id = r.pay_period_id
+       WHERE r.business_id = $1
+         AND r.status IN ('finalized', 'reversed')
+         AND r.run_mode = (SELECT payroll_mode FROM businesses b WHERE b.id = $1)
+         AND EXTRACT(YEAR FROM p.pay_date) = $2`,
       [businessId, thisYear],
     ),
     pool.query(
@@ -288,11 +292,9 @@ router.post("/chat", requireAuth, aiChatLimiter, async (req, res) => {
     const rawReply = response.content?.[0]?.text;
     if (typeof rawReply !== "string" || rawReply.trim().length === 0) {
       console.error("Unexpected AI response structure:", response.content);
-      return res
-        .status(500)
-        .json({
-          error: "Received an invalid response from AI. Please try again.",
-        });
+      return res.status(500).json({
+        error: "Received an invalid response from AI. Please try again.",
+      });
     }
 
     // LLM02: Strip any accidental code blocks from AI output

@@ -215,7 +215,13 @@ function build4805(payer, vendors, year, totals) {
  * @param {string} [p.contactEmail]
  * @returns {{ content: string, filename: string }}
  */
-export function buildSuriFile({ payer, vendors, year, controlStart, contactEmail }) {
+export function buildSuriFile({
+  payer,
+  vendors,
+  year,
+  controlStart,
+  contactEmail,
+}) {
   const totals = vendors.reduce(
     (acc, v) => ({
       gross: acc.gross + v.gross_paid,

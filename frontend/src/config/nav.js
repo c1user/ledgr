@@ -150,6 +150,18 @@ export const subPages = [
     feature: "hacienda",
   },
   {
+    to: "/payroll/rules",
+    icon: "ti-scale",
+    label: "payrollRules.title",
+    feature: "payroll",
+  },
+  {
+    to: "/payroll/compliance",
+    icon: "ti-calendar-due",
+    label: "payrollFilings.title",
+    feature: "payroll",
+  },
+  {
     to: "/projects/time",
     icon: "ti-clock",
     label: "time.title",

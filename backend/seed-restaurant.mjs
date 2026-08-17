@@ -42,7 +42,9 @@ async function api(method, path, body) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(`${method} ${path} → ${res.status}: ${data.error || JSON.stringify(data)}`);
+    throw new Error(
+      `${method} ${path} → ${res.status}: ${data.error || JSON.stringify(data)}`,
+    );
   }
   return data;
 }
@@ -50,7 +52,8 @@ async function api(method, path, body) {
 // Deterministic PRNG so reruns produce the same books.
 function mulberry32(a) {
   return function () {
-    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
     let t = Math.imul(a ^ (a >>> 15), 1 | a);
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
@@ -64,7 +67,8 @@ const round2 = (n) => Math.round(n * 100) / 100;
 const iso = (d) => d.toISOString().slice(0, 10);
 const day = (y, m, dd) => new Date(Date.UTC(y, m - 1, dd));
 const addDays = (d, n) => new Date(d.getTime() + n * 86400000);
-const lastOfMonth = (y, m) => iso(addDays(day(m === 12 ? y + 1 : y, (m % 12) + 1, 1), -1));
+const lastOfMonth = (y, m) =>
+  iso(addDays(day(m === 12 ? y + 1 : y, (m % 12) + 1, 1), -1));
 
 const START = day(2024, 8, 1);
 const END = day(2026, 7, 27);
@@ -151,21 +155,85 @@ async function main() {
 
   const CAT = {
     foodSales: await ensureCoa("revenue", "4110", "Food Sales", "food sales"),
-    bevSales: await ensureCoa("revenue", "4120", "Beverage Sales", "beverage sales"),
+    bevSales: await ensureCoa(
+      "revenue",
+      "4120",
+      "Beverage Sales",
+      "beverage sales",
+    ),
     catering: await ensureCoa("revenue", "4130", "Catering Income", "catering"),
-    food: await ensureCoa("expense", "5110", "Food & Ingredients", "food & ingredients", "cost_of_goods", "cost of goods"),
-    beverages: await ensureCoa("expense", "5120", "Beverage Purchases", "beverage purchases"),
-    supplies: await ensureCoa("expense", "5210", "Restaurant Supplies", "supplies"),
-    wages: await ensureCoa("expense", "5310", "Wages & Payroll", "payroll", "salaries", "wages"),
+    food: await ensureCoa(
+      "expense",
+      "5110",
+      "Food & Ingredients",
+      "food & ingredients",
+      "cost_of_goods",
+      "cost of goods",
+    ),
+    beverages: await ensureCoa(
+      "expense",
+      "5120",
+      "Beverage Purchases",
+      "beverage purchases",
+    ),
+    supplies: await ensureCoa(
+      "expense",
+      "5210",
+      "Restaurant Supplies",
+      "supplies",
+    ),
+    wages: await ensureCoa(
+      "expense",
+      "5310",
+      "Wages & Payroll",
+      "payroll",
+      "salaries",
+      "wages",
+    ),
     rent: await ensureCoa("expense", "5410", "Rent", "rent"),
     utilities: await ensureCoa("expense", "5420", "Utilities", "utilities"),
     insurance: await ensureCoa("expense", "5430", "Insurance", "insurance"),
-    marketing: await ensureCoa("expense", "5440", "Marketing", "marketing", "advertising"),
-    repairs: await ensureCoa("expense", "5450", "Repairs & Maintenance", "repairs", "maintenance"),
-    cardFees: await ensureCoa("expense", "5460", "Bank & Card Fees", "bank & card", "card fees", "bank fees"),
-    delivery: await ensureCoa("expense", "5470", "Delivery Platform Fees", "delivery platform"),
-    cleaning: await ensureCoa("expense", "5480", "Cleaning & Sanitation", "cleaning", "sanitation"),
-    professional: await ensureCoa("expense", "5490", "Professional Services", "professional"),
+    marketing: await ensureCoa(
+      "expense",
+      "5440",
+      "Marketing",
+      "marketing",
+      "advertising",
+    ),
+    repairs: await ensureCoa(
+      "expense",
+      "5450",
+      "Repairs & Maintenance",
+      "repairs",
+      "maintenance",
+    ),
+    cardFees: await ensureCoa(
+      "expense",
+      "5460",
+      "Bank & Card Fees",
+      "bank & card",
+      "card fees",
+      "bank fees",
+    ),
+    delivery: await ensureCoa(
+      "expense",
+      "5470",
+      "Delivery Platform Fees",
+      "delivery platform",
+    ),
+    cleaning: await ensureCoa(
+      "expense",
+      "5480",
+      "Cleaning & Sanitation",
+      "cleaning",
+      "sanitation",
+    ),
+    professional: await ensureCoa(
+      "expense",
+      "5490",
+      "Professional Services",
+      "professional",
+    ),
   };
 
   // ── Vendors ───────────────────────────────────────────────
@@ -205,28 +273,97 @@ async function main() {
   // ── Clients (catering) ────────────────────────────────────
   const clientIds = [];
   for (const c of [
-    { name: "Oficina Legal Rivera & Asoc.", billing_email: "admin@riveralegal.test", payment_terms_days: 30 },
-    { name: "Colegio San Ignacio", billing_email: "eventos@csi.test", payment_terms_days: 30 },
-    { name: "Bodas y Eventos Karla", billing_email: "karla@bodaskarla.test", payment_terms_days: 15 },
-    { name: "Laboratorios Coquí Inc.", billing_email: "compras@labcoqui.test", payment_terms_days: 45 },
-    { name: "Cooperativa de Ahorro Santurce", billing_email: "actividades@coopsanturce.test", payment_terms_days: 30 },
+    {
+      name: "Oficina Legal Rivera & Asoc.",
+      billing_email: "admin@riveralegal.test",
+      payment_terms_days: 30,
+    },
+    {
+      name: "Colegio San Ignacio",
+      billing_email: "eventos@csi.test",
+      payment_terms_days: 30,
+    },
+    {
+      name: "Bodas y Eventos Karla",
+      billing_email: "karla@bodaskarla.test",
+      payment_terms_days: 15,
+    },
+    {
+      name: "Laboratorios Coquí Inc.",
+      billing_email: "compras@labcoqui.test",
+      payment_terms_days: 45,
+    },
+    {
+      name: "Cooperativa de Ahorro Santurce",
+      billing_email: "actividades@coopsanturce.test",
+      payment_terms_days: 30,
+    },
   ]) {
-    const made = await api("POST", "/clients", { city: "San Juan", state: "PR", ...c });
+    const made = await api("POST", "/clients", {
+      city: "San Juan",
+      state: "PR",
+      ...c,
+    });
     clientIds.push(made.id || made.client?.id);
   }
 
   // ── Employees (all hourly — typical for a small restaurant) ─
   const employees = [];
   for (const e of [
-    { name: "Carmen Delgado", payRate: 18.5, ssnLast4: "4821", startDate: "2023-03-01" }, // head cook
-    { name: "Luis Ortiz", payRate: 14.0, ssnLast4: "9034", startDate: "2023-11-15" }, // cook
-    { name: "Wanda Cruz", payRate: 12.0, ssnLast4: "5518", startDate: "2024-02-01" }, // prep cook
-    { name: "María Fernández", payRate: 10.5, ssnLast4: "2277", startDate: "2024-01-10" }, // server
-    { name: "Pedro Colón", payRate: 10.5, ssnLast4: "6612", startDate: "2024-05-20" }, // server
-    { name: "Yolanda Nieves", payRate: 10.5, ssnLast4: "8103", startDate: "2024-06-15" }, // server
-    { name: "Ana Vázquez", payRate: 11.25, ssnLast4: "3390", startDate: "2024-06-01" }, // cashier
-    { name: "Jorge Meléndez", payRate: 10.5, ssnLast4: "7845", startDate: "2024-07-01" }, // dishwasher
-    { name: "Ramón Soto", payRate: 10.5, ssnLast4: "1264", startDate: "2024-07-15" }, // porter
+    {
+      name: "Carmen Delgado",
+      payRate: 18.5,
+      ssnLast4: "4821",
+      startDate: "2023-03-01",
+    }, // head cook
+    {
+      name: "Luis Ortiz",
+      payRate: 14.0,
+      ssnLast4: "9034",
+      startDate: "2023-11-15",
+    }, // cook
+    {
+      name: "Wanda Cruz",
+      payRate: 12.0,
+      ssnLast4: "5518",
+      startDate: "2024-02-01",
+    }, // prep cook
+    {
+      name: "María Fernández",
+      payRate: 10.5,
+      ssnLast4: "2277",
+      startDate: "2024-01-10",
+    }, // server
+    {
+      name: "Pedro Colón",
+      payRate: 10.5,
+      ssnLast4: "6612",
+      startDate: "2024-05-20",
+    }, // server
+    {
+      name: "Yolanda Nieves",
+      payRate: 10.5,
+      ssnLast4: "8103",
+      startDate: "2024-06-15",
+    }, // server
+    {
+      name: "Ana Vázquez",
+      payRate: 11.25,
+      ssnLast4: "3390",
+      startDate: "2024-06-01",
+    }, // cashier
+    {
+      name: "Jorge Meléndez",
+      payRate: 10.5,
+      ssnLast4: "7845",
+      startDate: "2024-07-01",
+    }, // dishwasher
+    {
+      name: "Ramón Soto",
+      payRate: 10.5,
+      ssnLast4: "1264",
+      startDate: "2024-07-15",
+    }, // porter
   ]) {
     const made = await api("POST", "/employees", {
       name: e.name,
@@ -259,8 +396,12 @@ async function main() {
 
     // Daily sales — closed Mondays.
     if (dow !== 1) {
-      const base = { 0: 1750, 2: 1200, 3: 1250, 4: 1350, 5: 2100, 6: 2350 }[dow];
-      const total = round2(base * season * between(0.82, 1.18) + between(0, 0.99));
+      const base = { 0: 1750, 2: 1200, 3: 1250, 4: 1350, 5: 2100, 6: 2350 }[
+        dow
+      ];
+      const total = round2(
+        base * season * between(0.82, 1.18) + between(0, 0.99),
+      );
       const foodPct = between(0.76, 0.82);
       const food = round2(total * foodPct);
       const bev = round2(total - food);
@@ -300,25 +441,37 @@ async function main() {
     // Suppliers: food distributor Tue & Fri, produce Wed, beverages Thu.
     if (dow === 2 || dow === 5) {
       await txn({
-        accountId: checkingId, date, merchant: "Distribuidora Borinquen",
-        totalAmount: round2(between(1000, 2100) * year2), type: "expense",
-        categoryId: CAT.food, vendorId: vendors.borinquen,
+        accountId: checkingId,
+        date,
+        merchant: "Distribuidora Borinquen",
+        totalAmount: round2(between(1000, 2100) * year2),
+        type: "expense",
+        categoryId: CAT.food,
+        vendorId: vendors.borinquen,
       });
       expenseCount++;
     }
     if (dow === 3) {
       await txn({
-        accountId: checkingId, date, merchant: "Productos del País",
-        totalAmount: round2(between(320, 680) * year2), type: "expense",
-        categoryId: CAT.food, vendorId: vendors.produce,
+        accountId: checkingId,
+        date,
+        merchant: "Productos del País",
+        totalAmount: round2(between(320, 680) * year2),
+        type: "expense",
+        categoryId: CAT.food,
+        vendorId: vendors.produce,
       });
       expenseCount++;
     }
     if (dow === 4) {
       await txn({
-        accountId: checkingId, date, merchant: "Cervecera del Caribe",
-        totalAmount: round2(between(420, 780) * year2), type: "expense",
-        categoryId: CAT.beverages, vendorId: vendors.cerveza,
+        accountId: checkingId,
+        date,
+        merchant: "Cervecera del Caribe",
+        totalAmount: round2(between(420, 780) * year2),
+        type: "expense",
+        categoryId: CAT.beverages,
+        vendorId: vendors.cerveza,
       });
       expenseCount++;
     }
@@ -327,17 +480,25 @@ async function main() {
     // Monthly bills.
     if (dd === 1) {
       await txn({
-        accountId: checkingId, date, merchant: "Renta local — Calle Loíza",
-        totalAmount: 3400, type: "expense",
-        categoryId: CAT.rent, vendorId: vendors.landlord,
+        accountId: checkingId,
+        date,
+        merchant: "Renta local — Calle Loíza",
+        totalAmount: 3400,
+        type: "expense",
+        categoryId: CAT.rent,
+        vendorId: vendors.landlord,
       });
       expenseCount++;
     }
     if (dd === 3) {
       await txn({
-        accountId: checkingId, date, merchant: "Servicios Ambientales — recogido y fumigación",
-        totalAmount: round2(between(580, 720)), type: "expense",
-        categoryId: CAT.cleaning, vendorId: vendors.ambientales,
+        accountId: checkingId,
+        date,
+        merchant: "Servicios Ambientales — recogido y fumigación",
+        totalAmount: round2(between(580, 720)),
+        type: "expense",
+        categoryId: CAT.cleaning,
+        vendorId: vendors.ambientales,
       });
       expenseCount++;
     }
@@ -345,53 +506,81 @@ async function main() {
       // Electricity: heavier Jun–Sep (air conditioning season).
       const ac = m >= 6 && m <= 9 ? 1.25 : 1;
       await txn({
-        accountId: checkingId, date, merchant: "LUMA Energy",
-        totalAmount: round2(between(780, 1150) * ac), type: "expense",
-        categoryId: CAT.utilities, vendorId: vendors.luma,
+        accountId: checkingId,
+        date,
+        merchant: "LUMA Energy",
+        totalAmount: round2(between(780, 1150) * ac),
+        type: "expense",
+        categoryId: CAT.utilities,
+        vendorId: vendors.luma,
       });
       await txn({
-        accountId: checkingId, date, merchant: "AAA Acueductos",
-        totalAmount: round2(between(210, 320)), type: "expense",
-        categoryId: CAT.utilities, vendorId: vendors.aaa,
+        accountId: checkingId,
+        date,
+        merchant: "AAA Acueductos",
+        totalAmount: round2(between(210, 320)),
+        type: "expense",
+        categoryId: CAT.utilities,
+        vendorId: vendors.aaa,
       });
       expenseCount += 2;
     }
     if (dd === 8) {
       await txn({
-        accountId: checkingId, date, merchant: "Liberty Business",
-        totalAmount: 109.99, type: "expense",
-        categoryId: CAT.utilities, vendorId: vendors.internet,
+        accountId: checkingId,
+        date,
+        merchant: "Liberty Business",
+        totalAmount: 109.99,
+        type: "expense",
+        categoryId: CAT.utilities,
+        vendorId: vendors.internet,
       });
       await txn({
-        accountId: checkingId, date, merchant: "Empire Gas — propano",
-        totalAmount: round2(between(260, 450)), type: "expense",
-        categoryId: CAT.utilities, vendorId: vendors.gas,
+        accountId: checkingId,
+        date,
+        merchant: "Empire Gas — propano",
+        totalAmount: round2(between(260, 450)),
+        type: "expense",
+        categoryId: CAT.utilities,
+        vendorId: vendors.gas,
       });
       expenseCount += 2;
     }
     if (dd === 12) {
       await txn({
-        accountId: checkingId, date, merchant: "Restaurant Depot",
-        totalAmount: round2(between(180, 520)), type: "expense",
-        categoryId: CAT.supplies, vendorId: vendors.depot,
+        accountId: checkingId,
+        date,
+        merchant: "Restaurant Depot",
+        totalAmount: round2(between(180, 520)),
+        type: "expense",
+        categoryId: CAT.supplies,
+        vendorId: vendors.depot,
       });
       expenseCount++;
     }
     // Quarterly insurance (Feb/May/Aug/Nov on the 15th).
     if (dd === 15 && [2, 5, 8, 11].includes(m)) {
       await txn({
-        accountId: checkingId, date, merchant: "MAPFRE — póliza comercial",
-        totalAmount: 1950, type: "expense",
-        categoryId: CAT.insurance, vendorId: vendors.seguro,
+        accountId: checkingId,
+        date,
+        merchant: "MAPFRE — póliza comercial",
+        totalAmount: 1950,
+        type: "expense",
+        categoryId: CAT.insurance,
+        vendorId: vendors.seguro,
       });
       expenseCount++;
     }
     // Monthly CPA retainer — professional services, 10% withholding.
     if (dd === 28) {
       await txn({
-        accountId: checkingId, date, merchant: "Contabilidad Méndez CPA",
-        totalAmount: 400, type: "expense",
-        categoryId: CAT.professional, vendorId: vendors.cpa,
+        accountId: checkingId,
+        date,
+        merchant: "Contabilidad Méndez CPA",
+        totalAmount: 400,
+        type: "expense",
+        categoryId: CAT.professional,
+        vendorId: vendors.cpa,
         withholdingAmount: 40,
       });
       expenseCount++;
@@ -399,9 +588,13 @@ async function main() {
     // Marketing every ~6 weeks (on the 20th of even months).
     if (dd === 20 && m % 2 === 0) {
       await txn({
-        accountId: checkingId, date, merchant: "Publicidad Isla Media",
-        totalAmount: round2(between(150, 800)), type: "expense",
-        categoryId: CAT.marketing, vendorId: vendors.publicidad,
+        accountId: checkingId,
+        date,
+        merchant: "Publicidad Isla Media",
+        totalAmount: round2(between(150, 800)),
+        type: "expense",
+        categoryId: CAT.marketing,
+        vendorId: vendors.publicidad,
       });
       expenseCount++;
     }
@@ -413,21 +606,30 @@ async function main() {
     const date = lastOfMonth(y, m);
     if (new Date(date) > END) continue;
     await txn({
-      accountId: checkingId, date, merchant: "Isla Card Processing — cargos del mes",
-      totalAmount: round2(sales * between(0.024, 0.028)), type: "expense",
-      categoryId: CAT.cardFees, vendorId: vendors.procesadora,
+      accountId: checkingId,
+      date,
+      merchant: "Isla Card Processing — cargos del mes",
+      totalAmount: round2(sales * between(0.024, 0.028)),
+      type: "expense",
+      categoryId: CAT.cardFees,
+      vendorId: vendors.procesadora,
     });
     await txn({
-      accountId: checkingId, date, merchant: "PideYa — comisiones plataforma",
-      totalAmount: round2(sales * between(0.028, 0.038)), type: "expense",
-      categoryId: CAT.delivery, vendorId: vendors.pideya,
+      accountId: checkingId,
+      date,
+      merchant: "PideYa — comisiones plataforma",
+      totalAmount: round2(sales * between(0.028, 0.038)),
+      type: "expense",
+      categoryId: CAT.delivery,
+      vendorId: vendors.pideya,
     });
     expenseCount += 2;
   }
 
   // Payroll expense hits the books every other Friday (gross + employer burden).
   const paydays = [];
-  for (let d = day(2024, 8, 9); d <= END; d = addDays(d, 14)) paydays.push(new Date(d));
+  for (let d = day(2024, 8, 9); d <= END; d = addDays(d, 14))
+    paydays.push(new Date(d));
   for (const d of paydays) {
     const year2 = d >= day(2025, 8, 1) ? 1.05 : 1;
     await txn({
@@ -444,8 +646,12 @@ async function main() {
   // Refrigeration/AC service visits with 10% professional-services
   // withholding — feeds the Hacienda 480.6SP screen.
   for (const [y, m, dd, amt] of [
-    [2024, 9, 18, 850], [2025, 1, 22, 480], [2025, 6, 10, 1900],
-    [2025, 11, 4, 620], [2026, 3, 17, 540], [2026, 6, 25, 1150],
+    [2024, 9, 18, 850],
+    [2025, 1, 22, 480],
+    [2025, 6, 10, 1900],
+    [2025, 11, 4, 620],
+    [2026, 3, 17, 540],
+    [2026, 6, 25, 1150],
   ]) {
     await txn({
       accountId: checkingId,
@@ -465,20 +671,44 @@ async function main() {
   console.log("Seeding catering invoices …");
   const menus = [
     (n) => [
-      { description: `Catering — almuerzo corporativo (${n} personas)`, quantity: n, unitPrice: round2(between(14, 22)) },
-      { description: "Estación de café y postres", quantity: 1, unitPrice: round2(between(120, 260)) },
+      {
+        description: `Catering — almuerzo corporativo (${n} personas)`,
+        quantity: n,
+        unitPrice: round2(between(14, 22)),
+      },
+      {
+        description: "Estación de café y postres",
+        quantity: 1,
+        unitPrice: round2(between(120, 260)),
+      },
     ],
     (n) => [
-      { description: `Buffet criollo — evento (${n} personas)`, quantity: n, unitPrice: round2(between(18, 28)) },
-      { description: "Personal de servicio (4 hrs)", quantity: 2, unitPrice: 140 },
+      {
+        description: `Buffet criollo — evento (${n} personas)`,
+        quantity: n,
+        unitPrice: round2(between(18, 28)),
+      },
+      {
+        description: "Personal de servicio (4 hrs)",
+        quantity: 2,
+        unitPrice: 140,
+      },
     ],
     (n) => [
-      { description: `Bandejas familiares — actividad (${n} personas)`, quantity: n, unitPrice: round2(between(11, 16)) },
+      {
+        description: `Bandejas familiares — actividad (${n} personas)`,
+        quantity: n,
+        unitPrice: round2(between(11, 16)),
+      },
     ],
   ];
   let invoiceCount = 0;
   let paidCount = 0;
-  for (let d = day(2024, 8, 21); d <= END; d = addDays(d, Math.round(between(19, 32)))) {
+  for (
+    let d = day(2024, 8, 21);
+    d <= END;
+    d = addDays(d, Math.round(between(19, 32)))
+  ) {
     const issueDate = iso(d);
     const dueDate = iso(addDays(d, 30));
     const people = Math.round(between(20, 90));
@@ -506,25 +736,45 @@ async function main() {
   }
   console.log(`  invoices: ${invoiceCount} (${paidCount} paid)`);
 
-  // ── Payroll runs (biweekly, finalized) ────────────────────
+  // ── Payroll runs (PR v2 engine, biweekly, sandbox-finalized) ──
+  // Daily time entries (PR overtime is daily), then a v2 run per payday.
+  // Sandbox runs deliberately touch neither ledger nor accumulators.
   // Fenced: a late shape surprise must not abort the seeded books.
-  console.log("Seeding payroll runs …");
+  console.log("Seeding payroll runs (v2) …");
   try {
     let runCount = 0;
     for (const payday of paydays) {
       const periodEnd = iso(addDays(payday, -1));
       const periodStart = iso(addDays(payday, -14));
-      const hoursWorked = {};
+      const entries = [];
       for (const e of employees) {
-        const fullTime = e.payRate >= 12 ? between(72, 80) : between(38, 62);
-        hoursWorked[e.id] = Math.round(fullTime);
+        const fullTime = e.payRate >= 12;
+        // 5 workdays per week; occasional 9–10h day exercises daily OT.
+        for (let d = 0; d < 14; d++) {
+          const dow = (d + 1) % 7;
+          if (dow === 0 || dow === 6) continue; // weekends off
+          const hours = fullTime
+            ? Math.round(between(7, 10))
+            : Math.round(between(3, 6));
+          entries.push({
+            employeeId: e.id,
+            date: iso(addDays(payday, d - 14)),
+            hours,
+          });
+        }
       }
-      const run = await api("POST", "/payroll", { periodStart, periodEnd, hoursWorked });
-      const runId = run.id || run.run?.id;
-      await api("PUT", `/payroll/${runId}/finalize`, {});
+      await api("PUT", "/payroll-time", { entries });
+      const run = await api("POST", "/payroll-v2", {
+        periodStart,
+        periodEnd,
+        payDate: iso(payday),
+        frequency: "biweekly",
+      });
+      const runId = run.run?.id || run.id;
+      await api("POST", `/payroll-v2/${runId}/finalize`, {});
       runCount++;
     }
-    console.log(`  payroll runs: ${runCount}`);
+    console.log(`  payroll v2 runs: ${runCount}`);
   } catch (e) {
     console.log("  (payroll seeding stopped:", e.message + ")");
   }
@@ -553,11 +803,33 @@ async function main() {
   // ── Recurring templates (next occurrences are upcoming) ───
   try {
     for (const r of [
-      { merchant: "Renta local — Calle Loíza", amount: 3400, frequency: "monthly", startDate: "2026-08-01", categoryId: CAT.rent },
-      { merchant: "Liberty Business", amount: 109.99, frequency: "monthly", startDate: "2026-08-08", categoryId: CAT.utilities },
-      { merchant: "MAPFRE — póliza comercial", amount: 1950, frequency: "quarterly", startDate: "2026-08-15", categoryId: CAT.insurance },
+      {
+        merchant: "Renta local — Calle Loíza",
+        amount: 3400,
+        frequency: "monthly",
+        startDate: "2026-08-01",
+        categoryId: CAT.rent,
+      },
+      {
+        merchant: "Liberty Business",
+        amount: 109.99,
+        frequency: "monthly",
+        startDate: "2026-08-08",
+        categoryId: CAT.utilities,
+      },
+      {
+        merchant: "MAPFRE — póliza comercial",
+        amount: 1950,
+        frequency: "quarterly",
+        startDate: "2026-08-15",
+        categoryId: CAT.insurance,
+      },
     ]) {
-      await api("POST", "/recurring", { type: "expense", accountId: checkingId, ...r });
+      await api("POST", "/recurring", {
+        type: "expense",
+        accountId: checkingId,
+        ...r,
+      });
     }
   } catch (e) {
     console.log("  (recurring skipped:", e.message + ")");
@@ -566,8 +838,12 @@ async function main() {
   // ── One completed bank reconciliation (June 2026) ─────────
   console.log("Reconciling June 2026 …");
   try {
-    const startBal = round2(12000 + (await signedSum(checkingId, "2000-01-01", "2026-05-31")));
-    const juneDelta = round2(await signedSum(checkingId, "2026-06-01", "2026-06-30"));
+    const startBal = round2(
+      12000 + (await signedSum(checkingId, "2000-01-01", "2026-05-31")),
+    );
+    const juneDelta = round2(
+      await signedSum(checkingId, "2026-06-01", "2026-06-30"),
+    );
     const juneIds = (
       await pool.query(
         "SELECT id FROM transactions WHERE account_id = $1 AND date >= '2026-06-01' AND date <= '2026-06-30'",
@@ -583,7 +859,9 @@ async function main() {
       statementEndBalance: round2(startBal + juneDelta),
     });
     const reconId = recon.id || recon.reconciliation?.id;
-    await api("PUT", `/reconciliations/${reconId}/transactions`, { add: juneIds });
+    await api("PUT", `/reconciliations/${reconId}/transactions`, {
+      add: juneIds,
+    });
     await api("POST", `/reconciliations/${reconId}/complete`, {});
     console.log(`  June reconciled: ${juneIds.length} transactions locked`);
   } catch (e) {

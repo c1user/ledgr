@@ -67,10 +67,9 @@ router.post("/invites", requireRole("owner", "admin"), async (req, res) => {
 
   try {
     // Emails are globally unique (login has no business scope).
-    const existing = await pool.query(
-      "SELECT 1 FROM users WHERE email = $1",
-      [email],
-    );
+    const existing = await pool.query("SELECT 1 FROM users WHERE email = $1", [
+      email,
+    ]);
     if (existing.rowCount > 0) {
       return res
         .status(400)
@@ -155,7 +154,9 @@ router.put("/:id", requireRole("owner"), async (req, res) => {
   const { role, isActive } = req.body;
 
   if (req.params.id === userId) {
-    return res.status(400).json({ error: "You can't change your own account here" });
+    return res
+      .status(400)
+      .json({ error: "You can't change your own account here" });
   }
   if (role !== undefined && !["owner", "admin", "viewer"].includes(role)) {
     return res.status(400).json({ error: "Invalid role" });
@@ -224,10 +225,10 @@ router.delete("/:id", requireRole("owner"), async (req, res) => {
     }
 
     if (target.rows[0].pending) {
-      await pool.query(
-        "DELETE FROM users WHERE id = $1 AND business_id = $2",
-        [req.params.id, businessId],
-      );
+      await pool.query("DELETE FROM users WHERE id = $1 AND business_id = $2", [
+        req.params.id,
+        businessId,
+      ]);
       return res.json({ ok: true, removed: true });
     }
 

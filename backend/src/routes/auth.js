@@ -15,6 +15,7 @@ import validator from "validator";
 import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { seedChartOfAccounts } from "../services/coaSeed.js";
+import { seedPayrollRules } from "../services/payrollRulesSeed.js";
 import crypto from "crypto";
 import {
   sendPasswordResetEmail,
@@ -48,7 +49,11 @@ const passwordPolicyError = (password) => {
   if (!password || password.length < 12) {
     return "Password must be at least 12 characters";
   }
-  if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password)) {
+  if (
+    !/[A-Z]/.test(password) ||
+    !/[a-z]/.test(password) ||
+    !/\d/.test(password)
+  ) {
     return "Password must contain uppercase, lowercase, and a number";
   }
   return null;
@@ -177,6 +182,9 @@ router.post("/register", async (req, res) => {
 
     // Seed the standard chart of accounts (i18n keys, not English strings)
     await seedChartOfAccounts(client, business.id);
+
+    // Seed the UNVERIFIED payroll rule placeholders (ROADMAP-V5 Phase 1)
+    await seedPayrollRules(client, business.id);
 
     await client.query("COMMIT");
 

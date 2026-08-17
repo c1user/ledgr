@@ -144,7 +144,9 @@ function readTemplateInput(body) {
     return { error: "type must be income or expense" };
   if (!(amount > 0)) return { error: "amount must be greater than 0" };
   if (!FREQUENCIES.has(frequency))
-    return { error: "frequency must be daily, weekly, monthly, quarterly or yearly" };
+    return {
+      error: "frequency must be daily, weekly, monthly, quarterly or yearly",
+    };
   if (!startDate || !DATE_RE.test(startDate))
     return { error: "startDate (YYYY-MM-DD) is required" };
   if (endDate && !DATE_RE.test(endDate))
@@ -203,7 +205,14 @@ async function validateTemplateAccounts(runner, businessId, input) {
 // single-template generate so a paused template can still be run on demand).
 //
 // Returns the array of created transaction rows.
-async function generateDue(client, businessId, userId, tmpl, today, respectActive) {
+async function generateDue(
+  client,
+  businessId,
+  userId,
+  tmpl,
+  today,
+  respectActive,
+) {
   const created = [];
   let nextDue = tmpl.next_due;
   let lastGenerated = tmpl.last_generated;
@@ -225,7 +234,11 @@ async function generateDue(client, businessId, userId, tmpl, today, respectActiv
       accountId: tmpl.account_id,
       fundingCoaId: tmpl.funding_coa_id,
       allocations: [
-        { accountId: tmpl.category_account_id, amount: Number(tmpl.amount), memo: null },
+        {
+          accountId: tmpl.category_account_id,
+          amount: Number(tmpl.amount),
+          memo: null,
+        },
       ],
       recurringId: tmpl.id,
     });
@@ -270,7 +283,9 @@ router.get("/", async (req, res) => {
     return res.json(result.rows);
   } catch (err) {
     console.error("Get recurring error:", err);
-    return res.status(500).json({ error: "Failed to fetch recurring transactions" });
+    return res
+      .status(500)
+      .json({ error: "Failed to fetch recurring transactions" });
   }
 });
 
@@ -279,11 +294,14 @@ router.get("/:id", async (req, res) => {
   const { businessId } = req.user;
   try {
     const tmpl = await loadTemplate(pool, businessId, req.params.id);
-    if (!tmpl) return res.status(404).json({ error: "Recurring transaction not found" });
+    if (!tmpl)
+      return res.status(404).json({ error: "Recurring transaction not found" });
     return res.json(tmpl);
   } catch (err) {
     console.error("Get recurring error:", err);
-    return res.status(500).json({ error: "Failed to fetch recurring transaction" });
+    return res
+      .status(500)
+      .json({ error: "Failed to fetch recurring transaction" });
   }
 });
 
@@ -310,7 +328,9 @@ router.get("/:id/transactions", async (req, res) => {
     return res.json(result.rows);
   } catch (err) {
     console.error("Get recurring transactions error:", err);
-    return res.status(500).json({ error: "Failed to fetch generated transactions" });
+    return res
+      .status(500)
+      .json({ error: "Failed to fetch generated transactions" });
   }
 });
 
@@ -326,7 +346,8 @@ router.post("/", async (req, res) => {
 
   try {
     const acctCheck = await validateTemplateAccounts(pool, businessId, input);
-    if (acctCheck.error) return res.status(400).json({ error: acctCheck.error });
+    if (acctCheck.error)
+      return res.status(400).json({ error: acctCheck.error });
 
     const inserted = await pool.query(
       `INSERT INTO recurring_transactions
@@ -379,10 +400,15 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json({ error: "Recurring transaction not found" });
 
     const acctCheck = await validateTemplateAccounts(pool, businessId, input);
-    if (acctCheck.error) return res.status(400).json({ error: acctCheck.error });
+    if (acctCheck.error)
+      return res.status(400).json({ error: acctCheck.error });
 
     const nextDue = existing.last_generated
-      ? computeNextDue(existing.last_generated, input.frequency, input.startDate)
+      ? computeNextDue(
+          existing.last_generated,
+          input.frequency,
+          input.startDate,
+        )
       : input.startDate;
 
     await pool.query(
@@ -440,7 +466,9 @@ router.patch("/:id/active", async (req, res) => {
     return res.json(tmpl);
   } catch (err) {
     console.error("Toggle recurring error:", err);
-    return res.status(500).json({ error: "Failed to update recurring transaction" });
+    return res
+      .status(500)
+      .json({ error: "Failed to update recurring transaction" });
   }
 });
 
@@ -455,7 +483,11 @@ router.post("/:id/skip", async (req, res) => {
     if (!tmpl)
       return res.status(404).json({ error: "Recurring transaction not found" });
 
-    let nextDue = computeNextDue(tmpl.next_due, tmpl.frequency, tmpl.start_date);
+    let nextDue = computeNextDue(
+      tmpl.next_due,
+      tmpl.frequency,
+      tmpl.start_date,
+    );
     let isActive = tmpl.is_active;
     if (tmpl.end_date && nextDue > tmpl.end_date) isActive = false;
 
@@ -499,7 +531,11 @@ router.post("/:id/generate", async (req, res) => {
 
     await client.query("COMMIT");
     const updated = await loadTemplate(pool, businessId, id);
-    return res.json({ generated: created, generated_count: created.length, recurring: updated });
+    return res.json({
+      generated: created,
+      generated_count: created.length,
+      recurring: updated,
+    });
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("Generate recurring error:", err);
@@ -534,7 +570,14 @@ router.post("/generate-due", async (req, res) => {
     let totalGenerated = 0;
     const perTemplate = [];
     for (const tmpl of dueTemplates.rows) {
-      const created = await generateDue(client, businessId, userId, tmpl, today, true);
+      const created = await generateDue(
+        client,
+        businessId,
+        userId,
+        tmpl,
+        today,
+        true,
+      );
       totalGenerated += created.length;
       perTemplate.push({ id: tmpl.id, generated_count: created.length });
     }
@@ -573,7 +616,9 @@ router.delete("/:id", async (req, res) => {
     return res.json({ message: "Recurring transaction deleted" });
   } catch (err) {
     console.error("Delete recurring error:", err);
-    return res.status(500).json({ error: "Failed to delete recurring transaction" });
+    return res
+      .status(500)
+      .json({ error: "Failed to delete recurring transaction" });
   }
 });
 

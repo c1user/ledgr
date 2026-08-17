@@ -1,0 +1,671 @@
+{
+  "_comment": "GOLDEN-FILE FIXTURE (ROADMAP-V5 6.1). Expectations computed from the PLACEHOLDER rule payloads in payrollRulesSeed.js — they are structurally correct, not tax-correct. When the human verifies real rule values, update the rule payloads below and the expected numbers to human-verified figures: a data-only change, no test code moves.",
+  "rules": {
+    "pr_income_tax_withholding": {
+      "id": "seed-pr_income_tax_withholding",
+      "payload": {
+        "method": "annualized_brackets",
+        "brackets": [
+          {
+            "over_cents": 0,
+            "up_to_cents": 900000,
+            "rate": 0
+          },
+          {
+            "over_cents": 900000,
+            "up_to_cents": 2500000,
+            "rate": 0.07
+          },
+          {
+            "over_cents": 2500000,
+            "up_to_cents": 4150000,
+            "rate": 0.14
+          },
+          {
+            "over_cents": 4150000,
+            "up_to_cents": 6150000,
+            "rate": 0.25
+          },
+          {
+            "over_cents": 6150000,
+            "up_to_cents": null,
+            "rate": 0.33
+          }
+        ],
+        "personal_exemption_cents": {
+          "complete": 350000,
+          "half_joint": 175000,
+          "none": 0
+        },
+        "allowance_cents": 50000
+      }
+    },
+    "pr_499r4_fields": {
+      "id": "seed-pr_499r4_fields",
+      "payload": {
+        "fields": [
+          {
+            "key": "exemption_status",
+            "kind": "enum",
+            "options": ["complete", "half_joint", "none"]
+          },
+          {
+            "key": "allowances",
+            "kind": "integer",
+            "min": 0
+          },
+          {
+            "key": "additional_withholding_cents",
+            "kind": "money",
+            "min": 0
+          },
+          {
+            "key": "veteran_exemption",
+            "kind": "boolean"
+          },
+          {
+            "key": "youth_exemption",
+            "kind": "boolean"
+          }
+        ]
+      }
+    },
+    "social_security": {
+      "id": "seed-social_security",
+      "payload": {
+        "employee_rate": 0.062,
+        "employer_rate": 0.062,
+        "wage_base_cents": 17610000
+      }
+    },
+    "medicare": {
+      "id": "seed-medicare",
+      "payload": {
+        "employee_rate": 0.0145,
+        "employer_rate": 0.0145,
+        "additional_employee_rate": 0.009,
+        "additional_threshold_cents": 20000000
+      }
+    },
+    "federal_employment_return": {
+      "id": "seed-federal_employment_return",
+      "payload": {
+        "form": "941",
+        "filing_frequency": "quarterly",
+        "due_days_after_quarter_end": 31,
+        "deposit_schedule": {
+          "default": "monthly",
+          "monthly_due_day": 15
+        }
+      }
+    },
+    "sinot": {
+      "id": "seed-sinot",
+      "payload": {
+        "employee_rate": 0.003,
+        "employer_rate": 0.003,
+        "wage_base_cents": 900000
+      }
+    },
+    "suta": {
+      "id": "seed-suta",
+      "payload": {
+        "wage_base_cents": 1050000,
+        "new_employer_rate": 0.028,
+        "experience_rate": null,
+        "special_assessment_rate": 0.01
+      }
+    },
+    "seguro_choferil": {
+      "id": "seed-seguro_choferil",
+      "payload": {
+        "employee_weekly_cents": 50,
+        "employer_weekly_cents": 30
+      }
+    },
+    "christmas_bonus": {
+      "id": "seed-christmas_bonus",
+      "payload": {
+        "regimes": [
+          {
+            "hired_before": "2017-01-26",
+            "qualifying_hours": 700,
+            "bands": [
+              {
+                "size_band": "gt_15",
+                "percentage": 0.06,
+                "cap_cents": 60000
+              },
+              {
+                "size_band": "le_15",
+                "percentage": 0.03,
+                "cap_cents": 30000
+              }
+            ]
+          },
+          {
+            "hired_on_or_after": "2017-01-26",
+            "qualifying_hours": 1350,
+            "bands": [
+              {
+                "size_band": "gt_20",
+                "percentage": 0.02,
+                "cap_cents": 60000
+              },
+              {
+                "size_band": "le_20",
+                "percentage": 0.02,
+                "cap_cents": 30000
+              }
+            ]
+          }
+        ],
+        "accrual_window": {
+          "start": "10-01",
+          "end": "09-30"
+        },
+        "payment_window": {
+          "start": "11-15",
+          "end": "12-15"
+        }
+      }
+    },
+    "overtime": {
+      "id": "seed-overtime",
+      "payload": {
+        "daily_threshold_hours": 8,
+        "daily_multiplier": 1.5,
+        "weekly_threshold_hours": 40,
+        "weekly_multiplier": 1.5,
+        "meal_period": {
+          "penalty_multiplier": 1.5,
+          "window_rules": "Meal period timing/duration rules — VERIFY exact current text."
+        }
+      }
+    },
+    "vacation_sick_accrual": {
+      "id": "seed-vacation_sick_accrual",
+      "payload": {
+        "regimes": [
+          {
+            "applies_to": "default",
+            "min_hours_per_month": 115,
+            "vacation_days_per_month": 1.25,
+            "sick_days_per_month": 1
+          }
+        ]
+      }
+    },
+    "employer_size_bands": {
+      "id": "seed-employer_size_bands",
+      "payload": {
+        "bands": [
+          {
+            "key": "le_15",
+            "max_employees": 15
+          },
+          {
+            "key": "gt_15",
+            "min_employees": 16
+          },
+          {
+            "key": "le_20",
+            "max_employees": 20
+          },
+          {
+            "key": "gt_20",
+            "min_employees": 21
+          }
+        ]
+      }
+    },
+    "pay_frequencies_allowed": {
+      "id": "seed-pay_frequencies_allowed",
+      "payload": {
+        "frequencies": ["weekly", "biweekly", "semimonthly"]
+      }
+    },
+    "paystub_fields_9017": {
+      "id": "seed-paystub_fields_9017",
+      "payload": {
+        "required_fields": [
+          "employer_name",
+          "employer_address",
+          "employer_ein",
+          "employee_name",
+          "period_start",
+          "period_end",
+          "payment_date",
+          "hours_regular",
+          "hours_overtime",
+          "rates_by_type",
+          "gross_pay",
+          "itemized_deductions",
+          "net_pay"
+        ]
+      }
+    },
+    "hacienda_deposit_schedule": {
+      "id": "seed-hacienda_deposit_schedule",
+      "payload": {
+        "default_frequency": "monthly",
+        "monthly_due_day": 15,
+        "thresholds": []
+      }
+    },
+    "quarterly_filing_schedule": {
+      "id": "seed-quarterly_filing_schedule",
+      "payload": {
+        "filings": [
+          {
+            "key": "hacienda_withholding_reconciliation",
+            "due_days_after_quarter_end": 31
+          },
+          {
+            "key": "dtrh_unemployment_sinot",
+            "due_days_after_quarter_end": 31
+          }
+        ]
+      }
+    },
+    "w2pr_file_spec": {
+      "id": "seed-w2pr_file_spec",
+      "payload": {
+        "spec_version": "TY2025-PLACEHOLDER",
+        "publication": "Hacienda annual W-2PR (499R-2) electronic filing specification",
+        "generation_window": {
+          "start": "01-01",
+          "end": "01-31"
+        }
+      }
+    },
+    "cfse_declaration": {
+      "id": "seed-cfse_declaration",
+      "payload": {
+        "annual_due": "07-20",
+        "period": {
+          "start": "07-01",
+          "end": "06-30"
+        },
+        "premium_rate": null
+      }
+    }
+  },
+  "cases": [
+    {
+      "name": "hourly_regular_week_biweekly",
+      "input": {
+        "employee": {
+          "id": "g1",
+          "payType": "hourly",
+          "payRateCents": 1850,
+          "isChauffeur": false,
+          "hireDate": "2023-03-01",
+          "elections": {
+            "exemption_status": "none",
+            "allowances": 0
+          }
+        },
+        "period": {
+          "frequency": "biweekly"
+        },
+        "dailyHours": [
+          {
+            "date": "2026-08-03",
+            "hours": 8
+          },
+          {
+            "date": "2026-08-04",
+            "hours": 8
+          },
+          {
+            "date": "2026-08-05",
+            "hours": 8
+          },
+          {
+            "date": "2026-08-06",
+            "hours": 8
+          },
+          {
+            "date": "2026-08-07",
+            "hours": 8
+          },
+          {
+            "date": "2026-08-10",
+            "hours": 8
+          },
+          {
+            "date": "2026-08-11",
+            "hours": 8
+          },
+          {
+            "date": "2026-08-12",
+            "hours": 8
+          },
+          {
+            "date": "2026-08-13",
+            "hours": 8
+          },
+          {
+            "date": "2026-08-14",
+            "hours": 8
+          }
+        ],
+        "ytd": {
+          "grossCents": 0,
+          "ssWagesCents": 0,
+          "medicareWagesCents": 0,
+          "sinotWagesCents": 0,
+          "sutaWagesCents": 0
+        },
+        "employerProfile": {
+          "sizeBand": "le_20"
+        }
+      },
+      "expected": {
+        "grossCents": 148000,
+        "employeeDeductionsCents": 23332,
+        "employerContributionsCents": 20350,
+        "netCents": 124668,
+        "deltas": {
+          "hoursWorked": 80,
+          "ssTaxableCents": 148000,
+          "medicareTaxableCents": 148000,
+          "sinotTaxableCents": 148000,
+          "sutaTaxableCents": 148000
+        },
+        "items": {
+          "regular": 148000,
+          "pr_income_tax": 11566,
+          "social_security": 9176,
+          "medicare": 2146,
+          "sinot": 444,
+          "social_security_employer": 9176,
+          "medicare_employer": 2146,
+          "sinot_employer": 444,
+          "suta": 5624,
+          "christmas_bonus": 2960
+        },
+        "warnings": ["cfse_premium_rate_not_set"]
+      }
+    },
+    {
+      "name": "hourly_daily_and_weekly_ot_with_meal_penalty",
+      "input": {
+        "employee": {
+          "id": "g2",
+          "payType": "hourly",
+          "payRateCents": 1200,
+          "isChauffeur": false,
+          "hireDate": "2015-06-01",
+          "elections": {
+            "exemption_status": "half_joint",
+            "allowances": 1
+          }
+        },
+        "period": {
+          "frequency": "weekly"
+        },
+        "dailyHours": [
+          {
+            "date": "2026-08-03",
+            "hours": 10,
+            "mealBreakMissed": true
+          },
+          {
+            "date": "2026-08-04",
+            "hours": 8
+          },
+          {
+            "date": "2026-08-05",
+            "hours": 8
+          },
+          {
+            "date": "2026-08-06",
+            "hours": 8
+          },
+          {
+            "date": "2026-08-07",
+            "hours": 8
+          },
+          {
+            "date": "2026-08-08",
+            "hours": 6
+          }
+        ],
+        "ytd": {
+          "grossCents": 0,
+          "ssWagesCents": 0,
+          "medicareWagesCents": 0,
+          "sinotWagesCents": 0,
+          "sutaWagesCents": 0
+        },
+        "employerProfile": {
+          "sizeBand": "gt_15"
+        }
+      },
+      "expected": {
+        "grossCents": 64200,
+        "employeeDeductionsCents": 8909,
+        "employerContributionsCents": 11396,
+        "netCents": 55291,
+        "deltas": {
+          "hoursWorked": 48,
+          "ssTaxableCents": 64200,
+          "medicareTaxableCents": 64200,
+          "sinotTaxableCents": 64200,
+          "sutaTaxableCents": 64200
+        },
+        "items": {
+          "regular": 48000,
+          "overtime_daily": 3600,
+          "overtime_weekly": 10800,
+          "meal_period_penalty": 1800,
+          "pr_income_tax": 3805,
+          "social_security": 3980,
+          "medicare": 931,
+          "sinot": 193,
+          "social_security_employer": 3980,
+          "medicare_employer": 931,
+          "sinot_employer": 193,
+          "suta": 2440,
+          "christmas_bonus": 3852
+        },
+        "warnings": ["cfse_premium_rate_not_set"]
+      }
+    },
+    {
+      "name": "salaried_complete_exemption_semimonthly",
+      "input": {
+        "employee": {
+          "id": "g3",
+          "payType": "salary",
+          "payRateCents": 5200000,
+          "isChauffeur": false,
+          "hireDate": "2019-01-15",
+          "elections": {
+            "exemption_status": "complete",
+            "allowances": 2,
+            "additional_withholding_cents": 2500
+          }
+        },
+        "period": {
+          "frequency": "semimonthly"
+        },
+        "dailyHours": [],
+        "ytd": {
+          "grossCents": 0,
+          "ssWagesCents": 0,
+          "medicareWagesCents": 0,
+          "sinotWagesCents": 0,
+          "sutaWagesCents": 0
+        },
+        "employerProfile": {
+          "sizeBand": "le_20"
+        }
+      },
+      "expected": {
+        "grossCents": 216667,
+        "employeeDeductionsCents": 40267,
+        "employerContributionsCents": 29791,
+        "netCents": 176400,
+        "deltas": {
+          "hoursWorked": 83.33,
+          "ssTaxableCents": 216667,
+          "medicareTaxableCents": 216667,
+          "sinotTaxableCents": 216667,
+          "sutaTaxableCents": 216667
+        },
+        "items": {
+          "salary": 216667,
+          "pr_income_tax": 23042,
+          "social_security": 13433,
+          "medicare": 3142,
+          "sinot": 650,
+          "social_security_employer": 13433,
+          "medicare_employer": 3142,
+          "sinot_employer": 650,
+          "suta": 8233,
+          "christmas_bonus": 4333
+        },
+        "warnings": ["cfse_premium_rate_not_set"]
+      }
+    },
+    {
+      "name": "chauffeur_with_manual_deduction",
+      "input": {
+        "employee": {
+          "id": "g4",
+          "payType": "hourly",
+          "payRateCents": 1400,
+          "isChauffeur": true,
+          "hireDate": "2021-09-01",
+          "elections": {
+            "exemption_status": "none",
+            "allowances": 0
+          }
+        },
+        "period": {
+          "frequency": "biweekly"
+        },
+        "dailyHours": [
+          {
+            "date": "2026-08-03",
+            "hours": 8
+          },
+          {
+            "date": "2026-08-04",
+            "hours": 8
+          },
+          {
+            "date": "2026-08-05",
+            "hours": 8
+          },
+          {
+            "date": "2026-08-06",
+            "hours": 8
+          },
+          {
+            "date": "2026-08-07",
+            "hours": 8
+          }
+        ],
+        "manualDeductionCents": 5000,
+        "ytd": {
+          "grossCents": 0,
+          "ssWagesCents": 0,
+          "medicareWagesCents": 0,
+          "sinotWagesCents": 0,
+          "sutaWagesCents": 0
+        },
+        "employerProfile": {
+          "sizeBand": "le_20"
+        }
+      },
+      "expected": {
+        "grossCents": 56000,
+        "employeeDeductionsCents": 11049,
+        "employerContributionsCents": 7760,
+        "netCents": 44951,
+        "deltas": {
+          "hoursWorked": 40,
+          "ssTaxableCents": 56000,
+          "medicareTaxableCents": 56000,
+          "sinotTaxableCents": 56000,
+          "sutaTaxableCents": 56000
+        },
+        "items": {
+          "regular": 56000,
+          "pr_income_tax": 1497,
+          "social_security": 3472,
+          "medicare": 812,
+          "sinot": 168,
+          "seguro_choferil": 100,
+          "seguro_choferil_employer": 60,
+          "manual": 5000,
+          "social_security_employer": 3472,
+          "medicare_employer": 812,
+          "sinot_employer": 168,
+          "suta": 2128,
+          "christmas_bonus": 1120
+        },
+        "warnings": ["cfse_premium_rate_not_set"]
+      }
+    },
+    {
+      "name": "ss_wage_base_crossing_period",
+      "input": {
+        "employee": {
+          "id": "g5",
+          "payType": "salary",
+          "payRateCents": 20000000,
+          "isChauffeur": false,
+          "hireDate": "2010-01-01",
+          "elections": {
+            "exemption_status": "none",
+            "allowances": 0
+          }
+        },
+        "period": {
+          "frequency": "monthly"
+        },
+        "dailyHours": [],
+        "ytd": {
+          "grossCents": 17000000,
+          "ssWagesCents": 17000000,
+          "medicareWagesCents": 17000000,
+          "sinotWagesCents": 900000,
+          "sutaWagesCents": 1050000
+        },
+        "employerProfile": {
+          "sizeBand": "gt_20"
+        }
+      },
+      "expected": {
+        "grossCents": 1666667,
+        "employeeDeductionsCents": 513112,
+        "employerContributionsCents": 61987,
+        "netCents": 1153555,
+        "deltas": {
+          "hoursWorked": 166.67,
+          "ssTaxableCents": 610000,
+          "medicareTaxableCents": 1666667,
+          "sinotTaxableCents": 0,
+          "sutaTaxableCents": 0
+        },
+        "items": {
+          "salary": 1666667,
+          "pr_income_tax": 451125,
+          "social_security": 37820,
+          "medicare": 24167,
+          "social_security_employer": 37820,
+          "medicare_employer": 24167
+        },
+        "warnings": [
+          "cfse_premium_rate_not_set",
+          "christmas_bonus_no_band_match"
+        ]
+      }
+    }
+  ]
+}

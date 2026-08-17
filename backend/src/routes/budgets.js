@@ -170,7 +170,9 @@ router.post("/copy-previous", async (req, res) => {
     );
 
     if (srcResult.rows.length === 0) {
-      return res.status(404).json({ error: "No budget found for previous month" });
+      return res
+        .status(404)
+        .json({ error: "No budget found for previous month" });
     }
 
     const client = await pool.connect();

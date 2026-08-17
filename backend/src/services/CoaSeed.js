@@ -87,6 +87,52 @@ const COA_TEMPLATE = [
     color: "#8A4A2A",
   }, // §1062.03 service withholding owed to Hacienda
 
+  // ── PR payroll agency liabilities (ROADMAP-V5 Phase 3.7) ──
+  // The engine's default account mapping — also backfilled for existing
+  // businesses by migration 031.
+  {
+    code: "2310",
+    key: "coa.accounts.payroll_wh_hacienda",
+    type: "liability",
+    color: "#D85A30",
+  },
+  {
+    code: "2320",
+    key: "coa.accounts.payroll_fica_payable",
+    type: "liability",
+    color: "#C9542E",
+  },
+  {
+    code: "2330",
+    key: "coa.accounts.payroll_dtrh_payable",
+    type: "liability",
+    color: "#BA4E2C",
+  }, // SINOT + SUTA + choferil
+  {
+    code: "2340",
+    key: "coa.accounts.payroll_cfse_accrued",
+    type: "liability",
+    color: "#AB482A",
+  },
+  {
+    code: "2350",
+    key: "coa.accounts.payroll_bonus_accrued",
+    type: "liability",
+    color: "#9C4228",
+  }, // Law 148 Christmas bonus accrual
+  {
+    code: "2360",
+    key: "coa.accounts.wages_payable",
+    type: "liability",
+    color: "#8D3C26",
+  }, // net pay owed until checks clear
+  {
+    code: "2370",
+    key: "coa.accounts.payroll_other_wh",
+    type: "liability",
+    color: "#7E3624",
+  }, // manual fixed-amount deductions
+
   // ── Equity (3000s) ──
   {
     code: "3000",
@@ -128,6 +174,12 @@ const COA_TEMPLATE = [
     type: "expense",
     color: "#2F6BC6",
   },
+  {
+    code: "5010",
+    key: "coa.accounts.payroll_taxes_expense",
+    type: "expense",
+    color: "#C24E24",
+  }, // employer-side payroll taxes + accruals
   { code: "5100", key: "coa.accounts.rent", type: "expense", color: "#C24E24" },
   {
     code: "5200",

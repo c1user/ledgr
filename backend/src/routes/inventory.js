@@ -11,13 +11,21 @@ router.use(requireAuth);
 router.post("/receive", async (req, res) => {
   const { businessId, userId } = req.user;
   const {
-    productId, quantity, unitCost, notes,
-    createTransaction, accountId, date, categoryId,
+    productId,
+    quantity,
+    unitCost,
+    notes,
+    createTransaction,
+    accountId,
+    date,
+    categoryId,
   } = req.body;
 
-  if (!productId) return res.status(400).json({ error: "productId is required" });
+  if (!productId)
+    return res.status(400).json({ error: "productId is required" });
   const qty = parseFloat(quantity);
-  if (!qty || qty <= 0) return res.status(400).json({ error: "quantity must be greater than 0" });
+  if (!qty || qty <= 0)
+    return res.status(400).json({ error: "quantity must be greater than 0" });
   const cost = parseFloat(unitCost) || 0;
 
   const client = await pool.connect();
@@ -78,7 +86,17 @@ router.post("/receive", async (req, res) => {
         `INSERT INTO transactions
            (business_id, account_id, created_by, date, merchant, total_amount, type, is_split, notes, product_id, qty)
          VALUES ($1, $2, $3, $4, $5, $6, 'expense', false, $7, $8, $9) RETURNING id`,
-        [businessId, accountId, userId, date, product.name, totalAmount, notes || null, productId, qty],
+        [
+          businessId,
+          accountId,
+          userId,
+          date,
+          product.name,
+          totalAmount,
+          notes || null,
+          productId,
+          qty,
+        ],
       );
       transactionId = txRes.rows[0].id;
 
@@ -109,7 +127,8 @@ router.post("/receive", async (req, res) => {
     let newUnitCost = oldCost;
     if (product.valuation_method === "avg") {
       const newQty = oldQty + qty;
-      newUnitCost = newQty > 0 ? (oldQty * oldCost + qty * cost) / newQty : cost;
+      newUnitCost =
+        newQty > 0 ? (oldQty * oldCost + qty * cost) / newQty : cost;
     } else if (cost > 0) {
       newUnitCost = cost;
     }
@@ -120,7 +139,9 @@ router.post("/receive", async (req, res) => {
     );
 
     await client.query("COMMIT");
-    return res.status(201).json({ product: updatedProduct.rows[0], transactionId });
+    return res
+      .status(201)
+      .json({ product: updatedProduct.rows[0], transactionId });
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("Receive inventory error:", err);
@@ -136,9 +157,11 @@ router.post("/adjust", async (req, res) => {
   const { businessId } = req.user;
   const { productId, quantity, notes } = req.body;
 
-  if (!productId) return res.status(400).json({ error: "productId is required" });
+  if (!productId)
+    return res.status(400).json({ error: "productId is required" });
   const delta = parseFloat(quantity);
-  if (!delta || isNaN(delta)) return res.status(400).json({ error: "quantity must be non-zero" });
+  if (!delta || isNaN(delta))
+    return res.status(400).json({ error: "quantity must be non-zero" });
 
   const client = await pool.connect();
   try {
@@ -156,7 +179,9 @@ router.post("/adjust", async (req, res) => {
 
     if (parseFloat(product.qty_on_hand) + delta < 0) {
       await client.query("ROLLBACK");
-      return res.status(400).json({ error: "Adjustment would result in negative stock" });
+      return res
+        .status(400)
+        .json({ error: "Adjustment would result in negative stock" });
     }
 
     await client.query(
@@ -211,7 +236,8 @@ router.get("/valuation", async (req, res) => {
         [fifoIds, businessId],
       );
       for (const m of movRes.rows) {
-        if (!movementsByProduct[m.product_id]) movementsByProduct[m.product_id] = [];
+        if (!movementsByProduct[m.product_id])
+          movementsByProduct[m.product_id] = [];
         movementsByProduct[m.product_id].push(m);
       }
     }

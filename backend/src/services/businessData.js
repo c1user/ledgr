@@ -32,8 +32,6 @@ export const TABLES = [
     parent: "journal_entries",
     parentKey: "journal_entry_id",
   },
-  { table: "payslips", parent: "payroll_runs", parentKey: "payroll_run_id" },
-
   // business_id tables, ordered so referencing rows go before referenced ones.
   { table: "inventory_movements" }, // references products + transactions
   { table: "transactions" }, // references most operational tables
@@ -48,8 +46,18 @@ export const TABLES = [
   { table: "receipts" },
   { table: "vendors" },
   { table: "clients" },
+  // Payroll v2 (ROADMAP-V5) — items → lines → runs → periods, then the
+  // per-employee tables, all before employees/payroll_rules/users.
+  { table: "pay_items" }, // references pay_lines, payroll_rules
+  { table: "pay_lines" }, // references payroll_runs_v2, employees
+  { table: "payroll_runs_v2" }, // references pay_periods, users
+  { table: "pay_periods" },
+  { table: "payroll_time_entries" }, // references employees
+  { table: "employee_year_accumulators" }, // references employees
+  { table: "compliance_obligations" }, // references payroll_rules
+  { table: "payroll_employer_profiles" },
   { table: "employees" },
-  { table: "payroll_runs" },
+  { table: "payroll_rules" }, // references users (verified_by, SET NULL)
   { table: "journal_entries" },
   { table: "accounts" }, // references chart_of_accounts
   { table: "chart_of_accounts" }, // self-referencing parent_id
@@ -66,10 +74,9 @@ export const TABLES = [
  * but the route restricts it to owners.
  */
 export async function exportBusinessData(pool, businessId) {
-  const bizResult = await pool.query(
-    "SELECT * FROM businesses WHERE id = $1",
-    [businessId],
-  );
+  const bizResult = await pool.query("SELECT * FROM businesses WHERE id = $1", [
+    businessId,
+  ]);
   if (bizResult.rows.length === 0) return null;
 
   const tables = {};
@@ -105,6 +112,12 @@ export async function exportBusinessData(pool, businessId) {
  * owns BEGIN/COMMIT/ROLLBACK.
  */
 export async function deleteBusinessData(client, businessId) {
+  // Transaction-local hatch for the payroll immutability triggers
+  // (migration 032): finalized runs and verified rules refuse DELETE in
+  // normal operation, but a full business purge must remove everything.
+  // SET LOCAL dies with this transaction — it cannot leak.
+  await client.query("SET LOCAL app.allow_payroll_purge = 'on'");
+
   const counts = {};
   for (const t of TABLES) {
     const sql = t.parent

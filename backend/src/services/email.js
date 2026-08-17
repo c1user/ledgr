@@ -217,7 +217,12 @@ const WELCOME_TEMPLATES = {
 };
 
 /** Welcome email after registration. Fire-and-forget from the route. */
-export async function sendWelcomeEmail({ to, name, businessName, lang = "en" }) {
+export async function sendWelcomeEmail({
+  to,
+  name,
+  businessName,
+  lang = "en",
+}) {
   const tpl = WELCOME_TEMPLATES[lang === "es" ? "es" : "en"];
   return sendMail({
     to,

@@ -26,7 +26,12 @@ router.get("/", async (req, res) => {
 
   // Same currency — rate is always exactly 1
   if (baseCur === targetCur) {
-    return res.json({ base: baseCur, target: targetCur, date: date || null, rate: 1 });
+    return res.json({
+      base: baseCur,
+      target: targetCur,
+      date: date || null,
+      rate: 1,
+    });
   }
 
   const rateDate = date || new Date().toISOString().slice(0, 10);
@@ -66,7 +71,9 @@ router.get("/", async (req, res) => {
       }
       return res
         .status(502)
-        .json({ error: "Exchange rate provider unavailable — enter rate manually" });
+        .json({
+          error: "Exchange rate provider unavailable — enter rate manually",
+        });
     }
 
     const data = await response.json();
@@ -89,10 +96,17 @@ router.get("/", async (req, res) => {
     `;
     pool.query(insertSql, [baseCur, targetCur, rateDate, rate]).catch(() => {});
     if (actualDate !== rateDate) {
-      pool.query(insertSql, [baseCur, targetCur, actualDate, rate]).catch(() => {});
+      pool
+        .query(insertSql, [baseCur, targetCur, actualDate, rate])
+        .catch(() => {});
     }
 
-    return res.json({ base: baseCur, target: targetCur, date: actualDate, rate });
+    return res.json({
+      base: baseCur,
+      target: targetCur,
+      date: actualDate,
+      rate,
+    });
   } catch (err) {
     console.error("[fx] Rate fetch error:", err.message);
     return res

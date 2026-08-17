@@ -34,7 +34,7 @@ const TABLES = {
   rules: "categorization_rules",
   "chart-of-accounts": "chart_of_accounts",
   employees: "employees",
-  payroll: "payroll_runs",
+  "payroll-v2": "payroll_runs_v2",
   reconciliations: "reconciliations",
   business: "businesses",
 };
@@ -50,9 +50,13 @@ const SKIP_RESOURCES = new Set([
   "notifications",
 ]);
 
-const SENSITIVE_KEY = /password|token|secret|authorization/i;
+// "ssn" covers ssn, ssnLast4, ssn_encrypted — plaintext SSNs must never
+// reach the audit trail in any form (ROADMAP-V5 §7 / spec §9).
+const SENSITIVE_KEY = /password|token|secret|authorization|ssn/i;
 
-function sanitize(obj) {
+// Exported for tests: the guarantee that no SSN (or credential) key ever
+// reaches an audit snapshot is load-bearing for the payroll module.
+export function sanitize(obj) {
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) return null;
   const out = {};
   for (const [k, v] of Object.entries(obj)) {
@@ -110,8 +114,10 @@ export function auditLogger(req, res, next) {
     const user = req.user;
     if (!user?.businessId) return;
 
+    // Delete snapshots are raw DB rows — scrub them like request bodies
+    // so columns such as ssn_last4/ssn_encrypted never land in the log.
     const snapshot =
-      action === "delete" ? capture.snapshot : sanitize(req.body);
+      action === "delete" ? sanitize(capture.snapshot) : sanitize(req.body);
     const summary = summarize(
       action === "delete" ? capture.snapshot : req.body,
       parsed.verb,

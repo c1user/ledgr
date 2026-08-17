@@ -21,7 +21,11 @@ import transactionRoutes from "./routes/transactions.js";
 import accountRoutes from "./routes/accounts.js";
 import receiptRoutes from "./routes/receipts.js";
 import employeeRoutes from "./routes/employees.js";
-import payrollRoutes from "./routes/payroll.js";
+import payrollRulesRoutes from "./routes/payrollRules.js";
+import payrollProfileRoutes from "./routes/payrollProfile.js";
+import payrollV2Routes from "./routes/payrollV2.js";
+import payrollTimeRoutes from "./routes/payrollTime.js";
+import payrollFilingsRoutes from "./routes/payrollFilings.js";
 import aiRoutes from "./routes/ai.js";
 import reportRoutes from "./routes/reports.js";
 import rulesRoutes from "./routes/rules.js";
@@ -110,6 +114,12 @@ app.use(
     origin: process.env.CORS_ORIGIN,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    // Download filenames + payroll export warnings must reach the client.
+    exposedHeaders: [
+      "Content-Disposition",
+      "X-W2PR-Warnings",
+      "X-Stub-Warnings",
+    ],
     credentials: true,
   }),
 );
@@ -150,7 +160,11 @@ app.use("/api/transactions", transactionRoutes);
 app.use("/api/accounts", accountRoutes);
 app.use("/api/receipts", receiptRoutes);
 app.use("/api/employees", ...gate("payroll"), employeeRoutes);
-app.use("/api/payroll", ...gate("payroll"), payrollRoutes);
+app.use("/api/payroll-rules", ...gate("payroll"), payrollRulesRoutes);
+app.use("/api/payroll-profile", ...gate("payroll"), payrollProfileRoutes);
+app.use("/api/payroll-v2", ...gate("payroll"), payrollV2Routes);
+app.use("/api/payroll-time", ...gate("payroll"), payrollTimeRoutes);
+app.use("/api/payroll-filings", ...gate("payroll"), payrollFilingsRoutes);
 // aiChatLimiter is applied inside ai.js on the /chat route only
 app.use("/api/ai", ...gate("ai_chat"), aiRoutes);
 app.use("/api/reports", reportRoutes);
@@ -169,7 +183,11 @@ app.use("/api/business", businessRoutes);
 app.use("/api/chart-of-accounts", chartOfAccountsRoutes);
 app.use("/api/ledger", ledgerRoutes);
 app.use("/api/search", searchRoutes);
-app.use("/api/reconciliations", ...gate("reconciliation"), reconciliationRoutes);
+app.use(
+  "/api/reconciliations",
+  ...gate("reconciliation"),
+  reconciliationRoutes,
+);
 app.use("/api/audit-log", ...gate("audit_log"), auditLogRoutes);
 app.use("/api/team", ...gate("multi_user"), teamRoutes);
 // No plan gate — support must be reachable on every tier.

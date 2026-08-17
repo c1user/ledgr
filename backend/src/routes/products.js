@@ -88,12 +88,19 @@ router.get("/:id", async (req, res) => {
 router.post("/", async (req, res) => {
   const { businessId } = req.user;
   const {
-    name, sku, description, unitCost, sellPrice,
-    reorderPoint, valuationMethod, categoryId,
+    name,
+    sku,
+    description,
+    unitCost,
+    sellPrice,
+    reorderPoint,
+    valuationMethod,
+    categoryId,
   } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: "name is required" });
   const cost = parseFloat(unitCost) || 0;
-  if (cost < 0) return res.status(400).json({ error: "unit_cost cannot be negative" });
+  if (cost < 0)
+    return res.status(400).json({ error: "unit_cost cannot be negative" });
   try {
     const result = await pool.query(
       `INSERT INTO products
@@ -113,7 +120,10 @@ router.post("/", async (req, res) => {
     );
     return res.status(201).json(result.rows[0]);
   } catch (err) {
-    if (err.code === "23505") return res.status(409).json({ error: "SKU already exists for this business" });
+    if (err.code === "23505")
+      return res
+        .status(409)
+        .json({ error: "SKU already exists for this business" });
     console.error("Create product error:", err);
     return res.status(500).json({ error: "Failed to create product" });
   }
@@ -124,8 +134,15 @@ router.put("/:id", async (req, res) => {
   const { businessId } = req.user;
   const { id } = req.params;
   const {
-    name, sku, description, unitCost, sellPrice,
-    reorderPoint, valuationMethod, categoryId, isActive,
+    name,
+    sku,
+    description,
+    unitCost,
+    sellPrice,
+    reorderPoint,
+    valuationMethod,
+    categoryId,
+    isActive,
   } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: "name is required" });
   try {
@@ -159,7 +176,10 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json({ error: "Product not found" });
     return res.json(result.rows[0]);
   } catch (err) {
-    if (err.code === "23505") return res.status(409).json({ error: "SKU already exists for this business" });
+    if (err.code === "23505")
+      return res
+        .status(409)
+        .json({ error: "SKU already exists for this business" });
     console.error("Update product error:", err);
     return res.status(500).json({ error: "Failed to update product" });
   }

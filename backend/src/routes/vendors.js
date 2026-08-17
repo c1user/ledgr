@@ -124,8 +124,17 @@ router.get("/:id/transactions", async (req, res) => {
 router.post("/", async (req, res) => {
   const { businessId } = req.user;
   const {
-    name, ein, address, city, state, zip, email, phone, is_1099_eligible,
-    withholding_exempt, waiver_certificate_no,
+    name,
+    ein,
+    address,
+    city,
+    state,
+    zip,
+    email,
+    phone,
+    is_1099_eligible,
+    withholding_exempt,
+    waiver_certificate_no,
   } = req.body;
 
   if (!name?.trim()) {
@@ -163,8 +172,17 @@ router.put("/:id", async (req, res) => {
   const { businessId } = req.user;
   const { id } = req.params;
   const {
-    name, ein, address, city, state, zip, email, phone, is_1099_eligible,
-    withholding_exempt, waiver_certificate_no,
+    name,
+    ein,
+    address,
+    city,
+    state,
+    zip,
+    email,
+    phone,
+    is_1099_eligible,
+    withholding_exempt,
+    waiver_certificate_no,
   } = req.body;
 
   if (!name?.trim()) {
@@ -231,10 +249,10 @@ router.delete("/:id", async (req, res) => {
       return res.status(404).json({ error: "Vendor not found" });
     }
 
-    await pool.query(
-      "DELETE FROM vendors WHERE id = $1 AND business_id = $2",
-      [id, businessId],
-    );
+    await pool.query("DELETE FROM vendors WHERE id = $1 AND business_id = $2", [
+      id,
+      businessId,
+    ]);
     return res.json({ message: "Vendor deleted" });
   } catch (err) {
     console.error("Delete vendor error:", err);

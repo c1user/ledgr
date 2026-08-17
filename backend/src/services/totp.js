@@ -73,7 +73,11 @@ export function totp(secretBase32, timeMs = Date.now(), stepSeconds = 30) {
  * Verify a submitted code against the secret, accepting ±window steps of
  * clock drift (default one step each way). Constant-time comparison.
  */
-export function verifyTotp(secretBase32, code, { window = 1, timeMs = Date.now() } = {}) {
+export function verifyTotp(
+  secretBase32,
+  code,
+  { window = 1, timeMs = Date.now() } = {},
+) {
   const submitted = String(code || "").replace(/\s/g, "");
   if (!/^\d{6}$/.test(submitted)) return false;
   const key = base32Decode(secretBase32);
@@ -112,6 +116,8 @@ export function generateBackupCodes(count = 8) {
 }
 
 export function hashBackupCode(code) {
-  const normalized = String(code || "").toLowerCase().replace(/[^a-f0-9]/g, "");
+  const normalized = String(code || "")
+    .toLowerCase()
+    .replace(/[^a-f0-9]/g, "");
   return crypto.createHash("sha256").update(normalized).digest("hex");
 }

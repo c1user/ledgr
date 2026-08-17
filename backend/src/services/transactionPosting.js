@@ -13,14 +13,12 @@
  * client), and all posting goes through services/ledger.js — never raw amounts.
  */
 
-import {
-  postJournalEntry,
-  round2,
-} from "./ledger.js";
+import { postJournalEntry, round2 } from "./ledger.js";
 
 // COA liability account (seeded by name_key) that the §1062.03 service
 // withholding is credited to — the 10% held back is owed to Hacienda.
-export const WITHHOLDING_PAYABLE_KEY = "coa.accounts.services_withholding_payable";
+export const WITHHOLDING_PAYABLE_KEY =
+  "coa.accounts.services_withholding_payable";
 
 // Resolve a seeded system COA account id by its i18n name_key.
 export async function getSystemAccountId(client, businessId, nameKey) {
@@ -95,7 +93,12 @@ export async function resolveFundingSource(
 // Validate the category/split accounts: they must be chart_of_accounts rows
 // of this business, of the expected type (revenue for income, expense for
 // expense). Returns { error } or { ok: true }.
-export async function validateCategoryAccounts(client, businessId, ids, txType) {
+export async function validateCategoryAccounts(
+  client,
+  businessId,
+  ids,
+  txType,
+) {
   const expectedType = txType === "income" ? "revenue" : "expense";
   const uniqueIds = [...new Set(ids)];
   const result = await client.query(

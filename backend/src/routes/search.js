@@ -14,7 +14,12 @@ router.get("/", async (req, res) => {
   const q = String(req.query.q || "").trim();
 
   if (q.length < 2) {
-    return res.json({ transactions: [], invoices: [], clients: [], vendors: [] });
+    return res.json({
+      transactions: [],
+      invoices: [],
+      clients: [],
+      vendors: [],
+    });
   }
   const like = `%${q}%`;
 

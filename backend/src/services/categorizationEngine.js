@@ -6,7 +6,12 @@
  * Must receive `client` (a pool connection inside an active DB transaction)
  * so the rule lookup participates in the same transaction as the INSERT.
  */
-export async function applyRules(client, { merchant, notes }, businessId, transactionType) {
+export async function applyRules(
+  client,
+  { merchant, notes },
+  businessId,
+  transactionType,
+) {
   const { rows: rules } = await client.query(
     `SELECT r.id, r.match_type, r.pattern, r.category_id,
             CASE WHEN c.account_type = 'revenue' THEN 'income' ELSE 'expense' END AS category_type

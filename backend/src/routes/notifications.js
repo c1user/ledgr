@@ -71,10 +71,9 @@ router.post("/mark-read", requireAuth, async (req, res) => {
 // Full category list with effective values (missing key = enabled).
 router.get("/prefs", requireAuth, async (req, res) => {
   try {
-    const r = await pool.query(
-      "SELECT notify_prefs FROM users WHERE id = $1",
-      [req.user.userId],
-    );
+    const r = await pool.query("SELECT notify_prefs FROM users WHERE id = $1", [
+      req.user.userId,
+    ]);
     if (r.rows.length === 0) {
       return res.status(404).json({ error: "User not found" });
     }

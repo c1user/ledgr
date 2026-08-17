@@ -28,6 +28,8 @@ const Accounting = lazy(() => import("./pages/Accounting"));
 const Accounts = lazy(() => import("./pages/Accounts"));
 const Receipts = lazy(() => import("./pages/Receipts"));
 const Payroll = lazy(() => import("./pages/Payroll"));
+const PayrollRules = lazy(() => import("./pages/PayrollRules"));
+const PayrollCompliance = lazy(() => import("./pages/PayrollCompliance"));
 const AiChat = lazy(() => import("./pages/AiChat"));
 const Reports = lazy(() => import("./pages/Reports"));
 const ProfitLoss = lazy(() => import("./pages/ProfitLoss"));
@@ -160,6 +162,22 @@ export default function App() {
             element={
               <RequireFeature feature="payroll">
                 <Payroll />
+              </RequireFeature>
+            }
+          />
+          <Route
+            path="payroll/rules"
+            element={
+              <RequireFeature feature="payroll">
+                <PayrollRules />
+              </RequireFeature>
+            }
+          />
+          <Route
+            path="payroll/compliance"
+            element={
+              <RequireFeature feature="payroll">
+                <PayrollCompliance />
               </RequireFeature>
             }
           />
