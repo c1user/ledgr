@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "migrate": "psql $DATABASE_URL -f migrations/001_initial.sql",
+    "migrate": "node scripts/migrate.mjs",
+    "migrate:status": "node scripts/migrate.mjs --status",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "node --test tests/"

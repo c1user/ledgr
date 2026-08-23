@@ -1,7 +1,14 @@
 import axios from "axios";
 
+// API base (PENDIENTES §4.1 config hygiene): VITE_API_URL wins when set;
+// dev falls back to the local backend; production builds default to the
+// relative /api (same-origin reverse proxy — the standard deploy shape).
+const baseURL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? "http://localhost:5000/api" : "/api");
+
 const api = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL,
   headers: {
     "Content-Type": "application/json",
   },

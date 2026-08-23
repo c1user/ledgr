@@ -54,6 +54,14 @@ dotenv.config();
 
 const app = express();
 
+// Behind a reverse proxy (any real deployment), Express must trust the
+// X-Forwarded-For chain or express-rate-limit keys every client on the
+// proxy's IP. TRUST_PROXY = number of proxy hops (usually 1). Unset in
+// dev, where the app is hit directly.
+if (process.env.TRUST_PROXY) {
+  app.set("trust proxy", Number(process.env.TRUST_PROXY) || 1);
+}
+
 // ── OWASP A05: Helmet with CSP ────────────────────────────────
 app.use(
   helmet({

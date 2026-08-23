@@ -180,11 +180,11 @@ Todas las reglas se sembraron como placeholders **UNVERIFIED**; la nómina en mo
 
 ### 4.1 Bloqueadores críticos de despliegue (arreglar antes de cualquier deploy)
 
-- [ ] **El DDL del ledger no está en las migraciones (crítico):** ninguna migración crea `chart_of_accounts`, `journal_entries`, `journal_entry_lines` ni la vista `account_ledger_balances` — el núcleo de partida doble vive solo en la base de datos de dev. Una base fresca de producción no se puede construir. Capturar el DDL en una migración.
-- [ ] **Runner de migraciones real:** `npm run migrate` aplica solo `001_initial.sql` de 35 archivos y nada registra qué migración corrió. Meta: una base fresca llega al esquema actual con un comando (esto también es el plan de recuperación de desastres).
-- [ ] **URL del API hardcodeada:** `frontend/src/lib/api.js:4` fija `http://localhost:5000/api` y no hay ningún `VITE_API_URL`. Un build de producción llamaría a localhost. Hacerla env-driven (default relativo `/api`) y auditar APP_URL/CORS_ORIGIN.
-- [ ] **Merge de `ABACOQ` a `main`:** main está 21 commits atrás (todo V3–V5 vive en ABACOQ). CI/auto-deploy apuntarán a main.
-- [ ] **`seed_transactions.sql` vive dentro de `migrations/`:** es un seed de dev con UUIDs y tu email hardcodeados; un runner que barra la carpeta lo aplicaría a producción. Sacarlo o excluirlo.
+- [x] **DDL del ledger capturado** — HECHO 2026-08-23: `migrations/009a_ledger_core.sql` (captura verbatim vía pg_dump: las 3 tablas, la vista, el trigger diferido de balanceo, y `accounts.coa_account_id` que el diff de esquemas destapó). **Probado de verdad:** base de datos construida desde cero con las 40 migraciones y la suite completa (192/193, 1 skip por diseño) pasando contra el esquema prístino. `scripts/schema-diff.mjs` queda como herramienta anti-drift.
+- [x] **Runner de migraciones real** — HECHO: `npm run migrate` aplica todo en orden con tabla `schema_migrations` (+ `--status`, `--baseline`); la base de dev quedó baselined (40 aplicadas, 0 pendientes).
+- [x] **URL del API env-driven** — HECHO: `VITE_API_URL` (dev → localhost, prod → `/api` relativo) + `frontend/.env.example`.
+- [ ] **Merge de `ABACOQ` a `main`:** main sigue atrás; CI/auto-deploy apuntarán a main. (Decisión de git tuya.)
+- [x] **Seed de dev fuera de `migrations/`** — HECHO: movido a `scripts/dev-seed-transactions.sql`; el runner además solo acepta archivos `NNN_*.sql`.
 
 ### 4.2 Infraestructura de producción
 
@@ -197,9 +197,9 @@ Todas las reglas se sembraron como placeholders **UNVERIFIED**; la nómina en mo
 
 ### 4.3 Pase de seguridad para exposición real
 
-- [ ] **`trust proxy` no está configurado** en `server.js`: detrás de cualquier reverse proxy de producción, el rate limiting de auth se rompe (todas las IPs se ven como el proxy). Arreglarlo al desplegar.
+- [x] **`trust proxy`** — HECHO 2026-08-23: env `TRUST_PROXY` (número de saltos) en `app.js`; documentado en `.env.example`. `PAYROLL_ENC_KEY` ahora es requerido al arrancar (falla rápido, no en la primera nómina).
 - [ ] Re-verificar helmet/CSP contra el dominio real; sanity-check de los rate limits con tráfico real.
-- [ ] `npm audit` y **rotar todo secreto que haya vivido en dev** (JWT_SECRET, llaves AWS, ANTHROPIC_API_KEY).
+- [x] **`npm audit` limpio** — HECHO 2026-08-23: 0 vulnerabilidades en backend y frontend (`npm audit fix`, sin bumps rompientes; suites y builds verdes). Queda tuyo al desplegar: **rotar todo secreto que haya vivido en dev** (JWT_SECRET, llaves AWS, ANTHROPIC_API_KEY).
 - [ ] Política de seeds/demo en producción: sin cuentas demo (o una controlada), y desactivar todo lo dev-only.
 
 ### 4.4 Verificación en producción y lanzamiento

@@ -21,6 +21,10 @@ const REQUIRED_ENV = [
   "S3_BUCKET_NAME",
   "AWS_REGION",
   "CORS_ORIGIN", // NEW — must be set in production
+  // SSN field encryption (payroll + individual 480.6SP payees). Checked at
+  // boot so a missing key fails fast, not at the first payroll write.
+  // Losing this key loses every encrypted SSN — see PAYROLL_RUNBOOK.md.
+  "PAYROLL_ENC_KEY",
 ];
 
 for (const key of REQUIRED_ENV) {
