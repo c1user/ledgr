@@ -200,7 +200,9 @@ router.post("/", async (req, res) => {
       }
 
       await client.query("COMMIT");
-      return res.status(201).json(account);
+      // The RETURNING * ran before createAccountCoa linked the ledger
+      // twin — include it so clients don't have to re-fetch the account.
+      return res.status(201).json({ ...account, coa_account_id: coaId });
     } catch (err) {
       await client.query("ROLLBACK");
       console.error("Create account error:", err);
@@ -208,8 +210,6 @@ router.post("/", async (req, res) => {
     } finally {
       client.release();
     }
-
-    return res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error("Create account error:", err);
     return res.status(500).json({ error: "Failed to create account" });

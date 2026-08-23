@@ -1,6 +1,7 @@
 import express from "express";
 import pool from "../config/db.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
+import { uuidParam } from "../middleware/validateUuid.js";
 import { requireFeature } from "../middleware/entitlements.js";
 import {
   buildCashFlowPdf,
@@ -10,10 +11,17 @@ import {
 } from "../services/reportPdf.js";
 import { postJournalEntry } from "../services/ledger.js";
 import { buildSuriFile } from "../services/suriFile.js";
+import {
+  generateIvuSchedule,
+  displayStatus,
+} from "../services/complianceSchedule.js";
+import { todayPR, toIso } from "../services/prDates.js";
+import { decryptField } from "../services/fieldCrypto.js";
 
 const router = express.Router();
 
 router.use(requireAuth);
+router.param("id", uuidParam("Obligation"));
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -635,10 +643,17 @@ router.get("/ar-summary", requireFeature("invoicing"), async (req, res) => {
 const THRESHOLD_1099 = 600;
 const REQUIRED_1099_FIELDS = ["ein", "address", "city", "state", "zip"];
 
+// TIN requirement depends on the payee type (§2.4): entities need an EIN,
+// individuals an SSN on file (stored encrypted; presence = ssn_encrypted).
 function missing1099Fields(v) {
-  return REQUIRED_1099_FIELDS.filter(
-    (f) => v[f] == null || String(v[f]).trim() === "",
-  );
+  return REQUIRED_1099_FIELDS.filter((f) => {
+    if (f === "ein") {
+      return v.payee_type === "individual"
+        ? !v.ssn_encrypted
+        : v.ein == null || String(v.ein).trim() === "";
+    }
+    return v[f] == null || String(v[f]).trim() === "";
+  }).map((f) => (f === "ein" && v.payee_type === "individual" ? "ssn" : f));
 }
 
 // Per-vendor expense totals for 1099-eligible vendors in a tax year. The "paid"
@@ -646,7 +661,8 @@ function missing1099Fields(v) {
 async function fetch1099Vendors(businessId, year) {
   const result = await pool.query(
     `SELECT
-       v.id, v.name, v.ein, v.address, v.city, v.state, v.zip, v.email, v.phone,
+       v.id, v.name, v.ein, v.payee_type, v.ssn_encrypted, v.ssn_last4,
+       v.address, v.city, v.state, v.zip, v.email, v.phone,
        COALESCE(SUM(t.total_amount) FILTER (WHERE t.type = 'expense'), 0)::numeric AS total_paid,
        COUNT(t.id) FILTER (WHERE t.type = 'expense')::int AS payment_count
      FROM vendors v
@@ -660,8 +676,11 @@ async function fetch1099Vendors(businessId, year) {
   );
   return result.rows.map((v) => {
     const total = parseFloat(v.total_paid);
+    const { ssn_encrypted, ssn_last4, ...pub } = v;
     return {
-      ...v,
+      ...pub,
+      ssn_last4: ssn_last4 ? `***-**-${ssn_last4}` : null,
+      has_ssn: Boolean(ssn_encrypted),
       total_paid: total,
       flagged: total >= THRESHOLD_1099,
       missing_fields: missing1099Fields(v),
@@ -796,7 +815,8 @@ function missingPayerFields(biz) {
 async function fetch480spVendors(businessId, year) {
   const result = await pool.query(
     `SELECT
-       v.id, v.name, v.ein, v.address, v.city, v.state, v.zip,
+       v.id, v.name, v.ein, v.payee_type, v.ssn_encrypted, v.ssn_last4,
+       v.address, v.city, v.state, v.zip,
        v.waiver_certificate_no,
        COALESCE(SUM(t.total_amount) FILTER (WHERE t.type = 'expense'), 0)::numeric AS gross_paid,
        COALESCE(SUM(t.withholding_amount) FILTER (WHERE t.type = 'expense'), 0)::numeric AS withheld,
@@ -824,6 +844,17 @@ async function fetch480spVendors(businessId, year) {
       missing_fields: missing1099Fields(v),
     };
   });
+}
+
+// Strip SSN ciphertext and mask the last-4 before a vendor row leaves the
+// API (the SURI e-file builder is the only consumer of the ciphertext).
+function present480spVendor(v) {
+  const { ssn_encrypted, ssn_last4, ...pub } = v;
+  return {
+    ...pub,
+    ssn_last4: ssn_last4 ? `***-**-${ssn_last4}` : null,
+    has_ssn: Boolean(ssn_encrypted),
+  };
 }
 
 async function fetchPayer(businessId) {
@@ -1010,7 +1041,7 @@ router.get("/480-6sp", requireFeature("hacienda"), async (req, res) => {
         complete: payerMissing.length === 0,
         missing_fields: payerMissing,
       },
-      vendors,
+      vendors: vendors.map(present480spVendor),
       eligible_count: vendors.length,
       flagged_count: flagged.length,
       incomplete_count: incomplete.length,
@@ -1080,13 +1111,49 @@ router.get("/480-6sp/suri", requireFeature("hacienda"), async (req, res) => {
       [businessId],
     );
 
+    // Individual payees file under their SSN — decrypted here, straight
+    // into the e-file, never logged (same discipline as the W-2PR route).
+    const withSsn = flagged.map((v) => {
+      let ssn = null;
+      if (v.payee_type === "individual" && v.ssn_encrypted) {
+        try {
+          ssn = decryptField(v.ssn_encrypted);
+        } catch {
+          ssn = null;
+        }
+      }
+      return { ...v, ssn };
+    });
+
     const { content, filename } = buildSuriFile({
       payer,
-      vendors: flagged,
+      vendors: withSsn,
       year,
       controlStart,
       contactEmail: owner.rows[0]?.email || "",
     });
+
+    // SSN-bearing download — explicit audit row (the auto middleware only
+    // covers mutations, and GET downloads would otherwise leave no trace).
+    const ssnCount = withSsn.filter((v) => v.ssn).length;
+    if (ssnCount > 0) {
+      try {
+        await pool.query(
+          `INSERT INTO audit_log
+             (business_id, user_id, user_name, action, entity_type, summary, snapshot)
+           VALUES ($1, $2, (SELECT name FROM users WHERE id = $2),
+                   'export', 'reports', $3, $4)`,
+          [
+            businessId,
+            req.user.userId,
+            `480.6SP SURI file ${year}`,
+            JSON.stringify({ ssn_count: ssnCount }),
+          ],
+        );
+      } catch (auditErr) {
+        console.error("SURI export audit write error:", auditErr.message);
+      }
+    }
 
     res.setHeader("Content-Type", "text/plain; charset=ascii");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
@@ -1163,7 +1230,13 @@ router.get("/480-6sp/export", requireFeature("hacienda"), async (req, res) => {
           payer.name,
           payer.tax_id,
           v.name,
-          v.ein,
+          // Individuals: masked SSN — the full TIN travels only inside the
+          // SURI e-file, never a spreadsheet.
+          v.payee_type === "individual"
+            ? v.ssn_last4
+              ? `***-**-${v.ssn_last4}`
+              : ""
+            : v.ein,
           v.address,
           v.city,
           v.state,
@@ -1190,5 +1263,327 @@ router.get("/480-6sp/export", requireFeature("hacienda"), async (req, res) => {
     return res.status(500).json({ error: "Failed to export 480.6SP report" });
   }
 });
+
+// ── IVU mensual (SC 2915) ────────────────────────────────────
+// Monthly sales & use tax prep for SURI. Sales figures are accrual-basis
+// from invoices (tax_type='ivu', issue_date month, drafts/voids excluded) —
+// the same basis the ledger posts on send. Remittances and the running
+// balance come from the seeded "IVU por pagar" liability (2200), so manual
+// journal entries against it flow into the report too.
+const IVU_KEY = "coa.accounts.sales_tax_payable";
+
+async function ivuAccountId(businessId) {
+  const r = await pool.query(
+    "SELECT id FROM chart_of_accounts WHERE business_id = $1 AND name_key = $2",
+    [businessId, IVU_KEY],
+  );
+  return r.rows[0]?.id || null;
+}
+
+// Shared by the JSON and CSV endpoints.
+async function getIvuMonths(businessId, accountId, year) {
+  const [byMonth, ledgerByMonth] = await Promise.all([
+    pool.query(
+      `SELECT EXTRACT(MONTH FROM issue_date)::int AS month,
+              COALESCE(SUM(subtotal) FILTER (WHERE tax_total > 0 AND tax_muni_rate > 0), 0)::NUMERIC(12,2) AS taxable_sales,
+              COALESCE(SUM(subtotal) FILTER (WHERE tax_total > 0 AND tax_muni_rate = 0), 0)::NUMERIC(12,2) AS reduced_sales,
+              COALESCE(SUM(subtotal) FILTER (WHERE tax_total = 0), 0)::NUMERIC(12,2) AS exempt_sales,
+              COALESCE(SUM(tax_state_total), 0)::NUMERIC(12,2) AS state_tax,
+              COALESCE(SUM(tax_muni_total), 0)::NUMERIC(12,2) AS muni_tax,
+              COALESCE(SUM(tax_total), 0)::NUMERIC(12,2) AS tax_total
+       FROM invoices
+       WHERE business_id = $1 AND tax_type = 'ivu'
+         AND status IN ('sent', 'paid', 'overdue')
+         AND issue_date >= $2::date AND issue_date <= $3::date
+       GROUP BY 1`,
+      [businessId, `${year}-01-01`, `${year}-12-31`],
+    ),
+    pool.query(
+      `SELECT EXTRACT(MONTH FROM je.entry_date)::int AS month,
+              COALESCE(SUM(jel.debit), 0)::NUMERIC(12,2) AS remitted
+       FROM journal_entry_lines jel
+       JOIN journal_entries je ON je.id = jel.journal_entry_id
+       WHERE je.business_id = $1 AND jel.account_id = $2
+         AND je.entry_date >= $3::date AND je.entry_date <= $4::date
+       GROUP BY 1`,
+      [businessId, accountId, `${year}-01-01`, `${year}-12-31`],
+    ),
+  ]);
+
+  return Array.from({ length: 12 }, (_, i) => {
+    const m = i + 1;
+    const inv = byMonth.rows.find((r) => r.month === m);
+    const led = ledgerByMonth.rows.find((r) => r.month === m);
+    return {
+      month: m,
+      period: `${year}-${String(m).padStart(2, "0")}`,
+      taxable_sales: parseFloat(inv?.taxable_sales || 0),
+      reduced_sales: parseFloat(inv?.reduced_sales || 0),
+      exempt_sales: parseFloat(inv?.exempt_sales || 0),
+      state_tax: parseFloat(inv?.state_tax || 0),
+      muni_tax: parseFloat(inv?.muni_tax || 0),
+      tax_total: parseFloat(inv?.tax_total || 0),
+      remitted: parseFloat(led?.remitted || 0),
+    };
+  });
+}
+
+// GET /api/reports/ivu-summary?year=
+router.get("/ivu-summary", requireFeature("hacienda"), async (req, res) => {
+  const { businessId } = req.user;
+  const year =
+    parseInt(req.query.year, 10) || Number(todayPR().slice(0, 4));
+  try {
+    const accountId = await ivuAccountId(businessId);
+    if (!accountId) {
+      return res
+        .status(404)
+        .json({ error: "Sales tax (IVU) liability account not found" });
+    }
+
+    const [payerRow, months, allTime] = await Promise.all([
+      pool.query(
+        "SELECT name, merchant_registration_number FROM businesses WHERE id = $1",
+        [businessId],
+      ),
+      getIvuMonths(businessId, accountId, year),
+      pool.query(
+        `SELECT COALESCE(SUM(jel.credit - jel.debit), 0)::NUMERIC(12,2) AS balance
+         FROM journal_entry_lines jel
+         JOIN journal_entries je ON je.id = jel.journal_entry_id
+         WHERE je.business_id = $1 AND jel.account_id = $2`,
+        [businessId, accountId],
+      ),
+    ]);
+
+    // Refresh the year's SC 2915 due dates (idempotent; statuses survive).
+    for (const o of generateIvuSchedule(year)) {
+      await pool.query(
+        `INSERT INTO compliance_obligations
+           (business_id, obligation_type, period_start, period_end, due_date, rule_id)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (business_id, obligation_type, period_start)
+         DO UPDATE SET period_end = EXCLUDED.period_end,
+                       due_date = EXCLUDED.due_date,
+                       rule_id = EXCLUDED.rule_id`,
+        [
+          businessId,
+          o.obligation_type,
+          o.period_start,
+          o.period_end,
+          o.due_date,
+          o.rule_id,
+        ],
+      );
+    }
+    // Filter by period (not due date): exactly the 12 months of `year`,
+    // so the previous December — due Jan 20 of `year` — can't sneak in.
+    const obligations = await pool.query(
+      `SELECT * FROM compliance_obligations
+       WHERE business_id = $1 AND obligation_type = 'ivu_monthly'
+         AND period_start >= $2::date AND period_start <= $3::date
+       ORDER BY period_start ASC`,
+      [businessId, `${year}-01-01`, `${year}-12-31`],
+    );
+
+    const payer = payerRow.rows[0] || {};
+    const sum = (key) =>
+      parseFloat(months.reduce((s, m) => s + m[key], 0).toFixed(2));
+    const today = todayPR();
+
+    return res.json({
+      year,
+      payer: {
+        name: payer.name || "",
+        merchant_registration_number:
+          payer.merchant_registration_number || null,
+        complete: !!payer.merchant_registration_number,
+      },
+      months,
+      totals: {
+        taxable_sales: sum("taxable_sales"),
+        reduced_sales: sum("reduced_sales"),
+        exempt_sales: sum("exempt_sales"),
+        state_tax: sum("state_tax"),
+        muni_tax: sum("muni_tax"),
+        tax_total: sum("tax_total"),
+        remitted: sum("remitted"),
+      },
+      balance_due: parseFloat(allTime.rows[0].balance),
+      // pg DATE columns come back as JS Date objects — normalize to
+      // 'YYYY-MM-DD' so the client can slice months without tz drift.
+      obligations: obligations.rows.map((o) => ({
+        ...o,
+        period_start: toIso(o.period_start),
+        period_end: toIso(o.period_end),
+        due_date: toIso(o.due_date),
+        display_status: displayStatus(o, today),
+      })),
+    });
+  } catch (err) {
+    console.error("IVU summary error:", err);
+    return res.status(500).json({ error: "Failed to load IVU summary" });
+  }
+});
+
+// POST /api/reports/ivu-remit { date, amount, fundingCoaId }
+// Records the monthly IVU payment to Hacienda: debit "IVU por pagar" /
+// credit a ledger asset account. Ledger-funded only, same as the
+// withholding remittance (operational bank balances are tracked separately).
+router.post("/ivu-remit", requireFeature("hacienda"), async (req, res) => {
+  const { businessId, userId } = req.user;
+  const { date, amount, fundingCoaId } = req.body;
+  const amt = parseFloat(amount);
+
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: "date (YYYY-MM-DD) is required" });
+  }
+  if (!(amt > 0)) {
+    return res.status(400).json({ error: "amount must be greater than 0" });
+  }
+  if (!fundingCoaId) {
+    return res
+      .status(400)
+      .json({ error: "fundingCoaId (a ledger asset account) is required" });
+  }
+
+  const client = await pool.connect();
+  try {
+    const ivuId = await ivuAccountId(businessId);
+    const funding = await client.query(
+      `SELECT id FROM chart_of_accounts
+       WHERE id = $1 AND business_id = $2 AND account_type = 'asset'`,
+      [fundingCoaId, businessId],
+    );
+    if (!ivuId || funding.rowCount === 0) {
+      return res.status(400).json({ error: "Invalid funding account" });
+    }
+
+    await client.query("BEGIN");
+    const entry = await postJournalEntry(client, {
+      businessId,
+      date,
+      description: "IVU remittance to Hacienda (SC 2915 / SURI)",
+      sourceType: "ivu_remittance",
+      createdBy: userId,
+      lines: [
+        { accountId: ivuId, debit: amt },
+        { accountId: fundingCoaId, credit: amt },
+      ],
+    });
+    await client.query("COMMIT");
+    return res.status(201).json({ ok: true, entryId: entry.id });
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("IVU remit error:", err);
+    return res.status(500).json({ error: "Failed to record IVU payment" });
+  } finally {
+    client.release();
+  }
+});
+
+// PUT /api/reports/ivu-calendar/:id/status { done }
+// Mark an SC 2915 obligation filed/unfiled. Scoped to ivu_monthly rows so
+// this professional-tier route can't touch premium payroll obligations.
+router.put(
+  "/ivu-calendar/:id/status",
+  requireFeature("hacienda"),
+  requireRole("owner", "admin"),
+  async (req, res) => {
+    const { businessId } = req.user;
+    const { id } = req.params;
+    const done = !!req.body?.done;
+    try {
+      const r = await pool.query(
+        `UPDATE compliance_obligations SET status = $1
+         WHERE id = $2 AND business_id = $3 AND obligation_type = 'ivu_monthly'
+         RETURNING *`,
+        [done ? "done" : "upcoming", id, businessId],
+      );
+      if (r.rows.length === 0) {
+        return res.status(404).json({ error: "Obligation not found" });
+      }
+      const row = r.rows[0];
+      return res.json({ ...row, display_status: displayStatus(row, todayPR()) });
+    } catch (err) {
+      console.error("IVU calendar status error:", err);
+      return res.status(500).json({ error: "Failed to update obligation" });
+    }
+  },
+);
+
+// GET /api/reports/ivu-summary/export?year= — monthly CSV for the accountant.
+router.get(
+  "/ivu-summary/export",
+  requireFeature("hacienda"),
+  async (req, res) => {
+    const { businessId } = req.user;
+    const year =
+      parseInt(req.query.year, 10) || Number(todayPR().slice(0, 4));
+    try {
+      const accountId = await ivuAccountId(businessId);
+      if (!accountId) {
+        return res
+          .status(404)
+          .json({ error: "Sales tax (IVU) liability account not found" });
+      }
+      const months = await getIvuMonths(businessId, accountId, year);
+      const hasData = months.some(
+        (m) => m.tax_total > 0 || m.exempt_sales > 0 || m.remitted > 0,
+      );
+      if (!hasData) {
+        return res
+          .status(422)
+          .json({ error: `No IVU activity recorded in ${year}.` });
+      }
+
+      const payer = await pool.query(
+        "SELECT name, merchant_registration_number FROM businesses WHERE id = $1",
+        [businessId],
+      );
+      const header = [
+        "Periodo",
+        "Ventas gravadas (tasa combinada)",
+        "Ventas 4% (servicios designados)",
+        "Ventas exentas",
+        "IVU estatal",
+        "IVU municipal",
+        "IVU total",
+        "Pagado",
+      ];
+      const lines = [
+        `Negocio,${csvCell(payer.rows[0]?.name || "")}`,
+        `Registro de Comerciante,${csvCell(payer.rows[0]?.merchant_registration_number || "")}`,
+        `Año,${year}`,
+        "",
+        header.map(csvCell).join(","),
+        ...months.map((m) =>
+          [
+            m.period,
+            m.taxable_sales.toFixed(2),
+            m.reduced_sales.toFixed(2),
+            m.exempt_sales.toFixed(2),
+            m.state_tax.toFixed(2),
+            m.muni_tax.toFixed(2),
+            m.tax_total.toFixed(2),
+            m.remitted.toFixed(2),
+          ]
+            .map(csvCell)
+            .join(","),
+        ),
+      ];
+
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="ivu-${year}.csv"`,
+      );
+      return res.send(lines.join("\r\n"));
+    } catch (err) {
+      console.error("IVU export error:", err);
+      return res.status(500).json({ error: "Failed to export IVU summary" });
+    }
+  },
+);
 
 export default router;

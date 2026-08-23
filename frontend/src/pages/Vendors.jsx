@@ -19,7 +19,9 @@ import {
 
 const emptyForm = {
   name: "",
+  payee_type: "entity",
   ein: "",
+  ssn: "",
   address: "",
   city: "",
   state: "",
@@ -76,7 +78,9 @@ function VendorModal({ vendor, onClose, t }) {
     vendor
       ? {
           name: vendor.name,
+          payee_type: vendor.payee_type || "entity",
           ein: vendor.ein || "",
+          ssn: "", // write-only: blank = keep the SSN on file
           address: vendor.address || "",
           city: vendor.city || "",
           state: vendor.state || "",
@@ -111,7 +115,12 @@ function VendorModal({ vendor, onClose, t }) {
       return;
     }
     setError("");
-    saveMutation.mutate(form);
+    // SSN is write-only: only send when the user typed one.
+    const { ssn, ...payload } = form;
+    if (form.payee_type === "individual" && ssn.trim()) {
+      payload.ssn = ssn.trim();
+    }
+    saveMutation.mutate(payload);
   }
 
   return (
@@ -137,14 +146,50 @@ function VendorModal({ vendor, onClose, t }) {
           />
         </Field>
 
-        <Field label={t("vendors.einLabel")} className="mb-0">
-          <Input
-            type="text"
-            placeholder={t("vendors.einPlaceholder")}
-            value={form.ein}
-            onChange={(e) => setForm({ ...form, ein: e.target.value })}
-          />
+        {/* Payee type drives the 480.6SP columns + TIN kind (§2.4) */}
+        <Field
+          label={t("vendors.payeeTypeLabel")}
+          hint={t("vendors.payeeTypeHint")}
+          className="mb-0"
+        >
+          <Select
+            value={form.payee_type}
+            onChange={(e) => setForm({ ...form, payee_type: e.target.value })}
+          >
+            <option value="entity">{t("vendors.payeeEntity")}</option>
+            <option value="individual">{t("vendors.payeeIndividual")}</option>
+          </Select>
         </Field>
+
+        {form.payee_type === "individual" ? (
+          <Field
+            label={t("vendors.ssnLabel")}
+            hint={t("vendors.ssnHint")}
+            className="mb-0"
+          >
+            <Input
+              type="password"
+              autoComplete="off"
+              maxLength={11}
+              placeholder={
+                vendor?.has_ssn
+                  ? t("vendors.ssnKeepPlaceholder")
+                  : "***-**-****"
+              }
+              value={form.ssn}
+              onChange={(e) => setForm({ ...form, ssn: e.target.value })}
+            />
+          </Field>
+        ) : (
+          <Field label={t("vendors.einLabel")} className="mb-0">
+            <Input
+              type="text"
+              placeholder={t("vendors.einPlaceholder")}
+              value={form.ein}
+              onChange={(e) => setForm({ ...form, ein: e.target.value })}
+            />
+          </Field>
+        )}
 
         <Field label={t("vendors.addressLabel")} className="mb-0">
           <Input
@@ -551,10 +596,14 @@ function Report1099({ fmt, t }) {
                     <div
                       className={cx(
                         "text-xs",
-                        v.ein ? "text-secondary" : "text-expense",
+                        (v.payee_type === "individual" ? v.has_ssn : v.ein)
+                          ? "text-secondary"
+                          : "text-expense",
                       )}
                     >
-                      {v.ein || t("vendors.missingEin")}
+                      {v.payee_type === "individual"
+                        ? v.ssn_last4 || t("vendors.missingSsn")
+                        : v.ein || t("vendors.missingEin")}
                     </div>
                     <div
                       className={cx(

@@ -13,7 +13,7 @@ import { sendMail } from "./email.js";
 
 // Category → what the toggle covers. Keys are stored in users.notify_prefs
 // and named in unsubscribe links; keep them stable.
-export const CATEGORIES = ["invoices", "team", "accounting"];
+export const CATEGORIES = ["invoices", "team", "accounting", "compliance"];
 
 export const emailEnabled = (prefs, category) =>
   !(prefs && prefs[category] === false);
@@ -33,6 +33,8 @@ const appUrl = () => process.env.APP_URL || "http://localhost:5173";
  * @param {string} [opts.body]     secondary in-app line
  * @param {string} [opts.link]     in-app click-through path, e.g. "/sales/invoices"
  * @param {string} [opts.excludeUserId]  the actor — they know already
+ * @param {string[]} [opts.roles]  restrict recipients to these roles
+ *                                 (e.g. ["owner","admin"]); null = everyone
  * @param {object} [opts.email]    {subject, text} — omit to skip email
  */
 export async function notify({
@@ -43,6 +45,7 @@ export async function notify({
   body = null,
   link = null,
   excludeUserId = null,
+  roles = null,
   email = null,
 }) {
   try {
@@ -50,8 +53,9 @@ export async function notify({
       `SELECT id, email, name, language, notify_prefs, unsubscribe_token
        FROM users
        WHERE business_id = $1 AND is_active AND password_hash IS NOT NULL
-         AND ($2::uuid IS NULL OR id <> $2)`,
-      [businessId, excludeUserId],
+         AND ($2::uuid IS NULL OR id <> $2)
+         AND ($3::text[] IS NULL OR role = ANY($3))`,
+      [businessId, excludeUserId, roles],
     );
     if (recipients.rows.length === 0) return;
 
@@ -60,8 +64,9 @@ export async function notify({
        SELECT $1, u.id, $2, $3, $4, $5
        FROM users u
        WHERE u.business_id = $1 AND u.is_active AND u.password_hash IS NOT NULL
-         AND ($6::uuid IS NULL OR u.id <> $6)`,
-      [businessId, type, title, body, link, excludeUserId],
+         AND ($6::uuid IS NULL OR u.id <> $6)
+         AND ($7::text[] IS NULL OR u.role = ANY($7))`,
+      [businessId, type, title, body, link, excludeUserId, roles],
     );
 
     if (!email) return;

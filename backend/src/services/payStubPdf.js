@@ -25,12 +25,15 @@ const KNOWN_FIELDS = new Set([
   "employer_address",
   "employer_ein",
   "employee_name",
+  "position", // Reg. 9017 Art. XV item 3 ("puesto")
   "period_start",
   "period_end",
   "payment_date",
   "hours_regular",
   "hours_overtime",
   "rates_by_type",
+  "wages_regular", // Art. XV item 6 — itemized in the earnings table
+  "wages_overtime",
   "gross_pay",
   "itemized_deductions",
   "net_pay",
@@ -42,6 +45,7 @@ const L = {
   employer: ["Patrono", "Employer"],
   ein: ["EIN patronal", "Employer EIN"],
   employee: ["Empleado(a)", "Employee"],
+  position: ["Puesto", "Position"],
   ssn: ["Seguro Social", "SSN"],
   period: ["Período de pago", "Pay period"],
   paymentDate: ["Fecha de pago", "Payment date"],
@@ -225,23 +229,30 @@ export function buildPayStubsPdf({
       y = Math.max(doc.y + 14, y + 64);
 
       // ── Employee + period box ──
-      doc.rect(left, y, width, 40).fill("#f5f4f8");
+      doc.rect(left, y, width, 52).fill("#f5f4f8");
       doc.font("Helvetica-Bold").fontSize(10).fillColor("#191524");
       doc.text(line.employee.name, left + 10, y + 7);
       doc.font("Helvetica").fontSize(8).fillColor("#4f4a60");
       const ssn = line.employee.ssn_last4
         ? `***-**-${line.employee.ssn_last4}`
         : "—";
-      doc.text(`${L.ssn[0]} / ${L.ssn[1]}: ${ssn}`, left + 10, y + 22);
+      doc.text(`${L.ssn[0]} / ${L.ssn[1]}: ${ssn}`, left + 10, y + 21);
+      // Reg. 9017 Art. XV item 3 — the "puesto" is a required stub field.
+      doc.text(
+        `${L.position[0]} / ${L.position[1]}: ${line.employee.position || "—"}`,
+        left + 10,
+        y + 35,
+        { width: 230 },
+      );
       doc.text(
         `${L.period[0]} / ${L.period[1]}: ${fmtDate(run.period_start)} — ${fmtDate(run.period_end)}`,
         left + 250,
         y + 7,
       );
       if (line.employee.address) {
-        doc.text(line.employee.address, left + 250, y + 22, { width: 250 });
+        doc.text(line.employee.address, left + 250, y + 21, { width: 250 });
       }
-      y += 52;
+      y += 64;
 
       const itemsOf = (type) => line.items.filter((i) => i.item_type === type);
       const label = (code) => ITEM_LABELS[code] || [code, code];
@@ -366,12 +377,15 @@ export function buildPayStubsPdf({
       y += 42;
 
       // ── Footer disclaimer (Phase 6.5) ──
+      // Must sit ABOVE pdfkit's maxY (page 792 − margin 50 = 742): a line
+      // whose baseline + height crosses maxY triggers an automatic page
+      // break, which used to spill the disclaimer onto a stray page.
       doc.font("Helvetica").fontSize(6.5).fillColor("#8a8598");
       doc.text(
         "Este documento no constituye asesoría contributiva ni legal. / This document is not tax or legal advice.",
         left,
-        742,
-        { width, align: "center" },
+        730,
+        { width, align: "center", lineBreak: false },
       );
 
       // ── 9017 gap warning (never silent) ──

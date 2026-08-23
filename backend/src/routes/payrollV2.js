@@ -36,7 +36,7 @@ async function fetchRunBundle(businessId, runId) {
   const run = runResult.rows[0];
 
   const linesResult = await pool.query(
-    `SELECT l.*, e.name, e.ssn_last4, e.address
+    `SELECT l.*, e.name, e.ssn_last4, e.address, e.position
      FROM pay_lines l JOIN employees e ON e.id = l.employee_id
      WHERE l.payroll_run_id = $1 ORDER BY e.name ASC`,
     [runId],
@@ -53,7 +53,12 @@ async function fetchRunBundle(businessId, runId) {
   }
   const lines = linesResult.rows.map((l) => ({
     ...l,
-    employee: { name: l.name, ssn_last4: l.ssn_last4, address: l.address },
+    employee: {
+      name: l.name,
+      ssn_last4: l.ssn_last4,
+      address: l.address,
+      position: l.position,
+    },
     items: itemsByLine[l.id] || [],
   }));
 

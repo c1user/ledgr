@@ -20,7 +20,12 @@ import {
   Textarea,
 } from "../components/ui";
 
-const IVU_DEFAULT_RATE = 11.5;
+import {
+  IVU_DEFAULT_RATE,
+  IVU_MUNI_RATE,
+  deriveIvuPreset,
+  autoMuniRate,
+} from "../lib/ivu";
 
 const makeFmt = (lang) => (val) =>
   new Intl.NumberFormat(lang === "es" ? "es-PR" : "en-US", {
@@ -254,10 +259,19 @@ function InvoiceModal({ invoice, clients, revenueAccounts, onClose, t, lang }) {
           .format("YYYY-MM-DD"),
     taxType: invoice?.tax_type || "generic",
     taxRate: invoice ? Number(invoice.tax_rate) : 0,
+    taxMuniRate: invoice ? Number(invoice.tax_muni_rate ?? 0) : 0,
     incomeAccountId: invoice?.income_account_id || "",
     language: invoice?.language || lang,
     notes: invoice?.notes || "",
   }));
+  const [ivuPreset, setIvuPreset] = useState(() =>
+    invoice?.tax_type === "ivu"
+      ? deriveIvuPreset(
+          Number(invoice.tax_rate),
+          Number(invoice.tax_muni_rate ?? 0),
+        )
+      : "standard",
+  );
   const [items, setItems] = useState(() =>
     invoice?.line_items?.length
       ? invoice.line_items.map((li) => ({
@@ -312,7 +326,12 @@ function InvoiceModal({ invoice, clients, revenueAccounts, onClose, t, lang }) {
     0,
   );
   const effectiveRate = taxExempt ? 0 : parseFloat(form.taxRate) || 0;
+  const effectiveMuniRate = taxExempt
+    ? 0
+    : Math.min(parseFloat(form.taxMuniRate) || 0, effectiveRate);
   const taxTotal = (subtotal * effectiveRate) / 100;
+  const muniTotal = (subtotal * effectiveMuniRate) / 100;
+  const stateTotal = taxTotal - muniTotal;
   const total = subtotal + taxTotal;
 
   function setClient(clientId) {
@@ -327,16 +346,34 @@ function InvoiceModal({ invoice, clients, revenueAccounts, onClose, t, lang }) {
   }
 
   function setTaxType(taxType) {
-    setForm((f) => ({
-      ...f,
-      taxType,
-      taxRate:
+    setForm((f) => {
+      const rate =
         taxType === "ivu"
           ? f.taxRate > 0
             ? f.taxRate
             : IVU_DEFAULT_RATE
-          : f.taxRate,
-    }));
+          : f.taxRate;
+      const muni = taxType === "ivu" ? autoMuniRate(parseFloat(rate) || 0) : 0;
+      if (taxType === "ivu")
+        setIvuPreset(deriveIvuPreset(parseFloat(rate) || 0, muni));
+      return { ...f, taxType, taxRate: rate, taxMuniRate: muni };
+    });
+  }
+
+  function applyIvuPreset(preset) {
+    setIvuPreset(preset);
+    if (preset === "standard") {
+      setForm((f) => ({
+        ...f,
+        taxRate: IVU_DEFAULT_RATE,
+        taxMuniRate: IVU_MUNI_RATE,
+      }));
+    } else if (preset === "reduced") {
+      setForm((f) => ({ ...f, taxRate: 4, taxMuniRate: 0 }));
+    } else if (preset === "exempt") {
+      setForm((f) => ({ ...f, taxRate: 0, taxMuniRate: 0 }));
+    }
+    // "custom" keeps the current rate; the rate input takes over.
   }
 
   function updateItem(i, key, val) {
@@ -391,6 +428,7 @@ function InvoiceModal({ invoice, clients, revenueAccounts, onClose, t, lang }) {
       dueDate: form.dueDate,
       taxType: form.taxType,
       taxRate: effectiveRate,
+      taxMuniRate: effectiveMuniRate,
       incomeAccountId: form.incomeAccountId || null,
       language: form.language,
       notes: form.notes,
@@ -571,7 +609,13 @@ function InvoiceModal({ invoice, clients, revenueAccounts, onClose, t, lang }) {
         </div>
 
         {/* Tax + revenue account */}
-        <div className="grid grid-cols-[1fr_110px] gap-2">
+        <div
+          className={
+            form.taxType === "ivu"
+              ? "grid grid-cols-[1fr_1fr_110px] gap-2"
+              : "grid grid-cols-[1fr_110px] gap-2"
+          }
+        >
           <Field label={t("invoices.taxType")} className="mb-0">
             <Select
               value={form.taxType}
@@ -582,14 +626,41 @@ function InvoiceModal({ invoice, clients, revenueAccounts, onClose, t, lang }) {
               <option value="ivu">{t("invoices.taxIvu")}</option>
             </Select>
           </Field>
+          {form.taxType === "ivu" && (
+            <Field label={t("invoices.ivuPreset")} className="mb-0">
+              <Select
+                value={ivuPreset}
+                onChange={(e) => applyIvuPreset(e.target.value)}
+                disabled={taxExempt}
+              >
+                <option value="standard">{t("invoices.ivuStandard")}</option>
+                <option value="reduced">{t("invoices.ivuReduced")}</option>
+                <option value="exempt">{t("invoices.ivuExempt")}</option>
+                <option value="custom">{t("invoices.ivuCustom")}</option>
+              </Select>
+            </Field>
+          )}
           <Field label={t("invoices.taxRate")} className="mb-0">
             <Input
               type="number"
               min="0"
               step="0.001"
               value={form.taxRate}
-              onChange={(e) => setForm({ ...form, taxRate: e.target.value })}
-              disabled={taxExempt}
+              onChange={(e) => {
+                // Editable only in "custom" preset (or generic tax) — never
+                // re-derive the preset here, or typing 11.5/4/0 would flip
+                // it and disable the input mid-keystroke.
+                const rate = e.target.value;
+                setForm((f) => ({
+                  ...f,
+                  taxRate: rate,
+                  taxMuniRate:
+                    f.taxType === "ivu"
+                      ? autoMuniRate(parseFloat(rate) || 0)
+                      : 0,
+                }));
+              }}
+              disabled={taxExempt || (form.taxType === "ivu" && ivuPreset !== "custom")}
               className="text-right"
             />
           </Field>
@@ -645,6 +716,24 @@ function InvoiceModal({ invoice, clients, revenueAccounts, onClose, t, lang }) {
             </span>
             <span className="text-ink">{fmt(taxTotal)}</span>
           </div>
+          {form.taxType === "ivu" && effectiveMuniRate > 0 && (
+            <>
+              <div className="flex justify-between text-xs text-muted pl-3">
+                <span>
+                  {t("invoices.ivuStateLine", {
+                    rate: +(effectiveRate - effectiveMuniRate).toFixed(3),
+                  })}
+                </span>
+                <span>{fmt(stateTotal)}</span>
+              </div>
+              <div className="flex justify-between text-xs text-muted pl-3">
+                <span>
+                  {t("invoices.ivuMuniLine", { rate: effectiveMuniRate })}
+                </span>
+                <span>{fmt(muniTotal)}</span>
+              </div>
+            </>
+          )}
           <div className="flex justify-between font-bold text-[15px] border-t border-line pt-1.5 mt-0.5">
             <span className="text-ink">{t("invoices.total")}</span>
             <span className="text-brand">{fmt(total)}</span>

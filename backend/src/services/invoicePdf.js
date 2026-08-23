@@ -87,6 +87,11 @@ export function buildInvoicePdf(invoice, business, lang = "en") {
       [business?.city, business?.state, business?.zip]
         .filter(Boolean)
         .join(", "),
+      // Registro de Comerciante — required on PR sales documents when IVU
+      // is itemized; printed only when the business has one on file.
+      business?.merchant_registration_number
+        ? `${lang === "es" ? "Registro de Comerciante" : "Merchant Reg. No."}: ${business.merchant_registration_number}`
+        : null,
     ].filter(Boolean);
     doc.font("Helvetica").fontSize(9).fillColor(grayrgb);
     bizAddr.forEach((line, i) =>

@@ -12,6 +12,7 @@ const TABS = [
   { to: "/reports/balance-sheet", labelKey: "balanceSheet.title" },
   { to: "/reports/tax-summary", labelKey: "tax.title" },
   { to: "/reports/hacienda", labelKey: "hacienda.title" },
+  { to: "/reports/ivu", labelKey: "ivu.title" },
 ];
 
 export default function Reports() {

@@ -13,16 +13,30 @@
  *       The `balances` flag is the proof your double-entry posting is correct.
  *   GET /api/ledger/journal?limit=&offset=
  *       Raw journal entries with their lines (for an audit/journal view).
+ *   POST /api/ledger/journal                       (owner/admin)
+ *       Manual/adjusting journal entry — depreciation, corrections, owner
+ *       draws, anything the guided flows can't record. Balanced lines only;
+ *       posts through services/ledger.js like every other money movement.
+ *   POST /api/ledger/journal/:id/reverse           (owner/admin)
+ *       Reversing entry for a MANUAL entry (source documents manage their
+ *       own lifecycles — invoices void, payroll runs reverse, etc.).
  */
 
 import express from "express";
 import pool from "../config/db.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
+import { uuidParam } from "../middleware/validateUuid.js";
 import { buildBalanceSheetPdf, fetchBusiness } from "../services/reportPdf.js";
 import { requireFeature } from "../middleware/entitlements.js";
+import {
+  postJournalEntry,
+  reverseJournalEntry,
+} from "../services/ledger.js";
+import { todayPR } from "../services/prDates.js";
 
 const router = express.Router();
 router.use(requireAuth);
+router.param("id", uuidParam("Entry"));
 
 const EPSILON = 0.005;
 
@@ -217,5 +231,119 @@ router.get("/journal", async (req, res) => {
     return res.status(500).json({ error: "Failed to fetch journal" });
   }
 });
+
+// ── POST /api/ledger/journal ─────────────────────────────────
+// Manual/adjusting journal entry. Shape is pre-checked here for friendly
+// 400s; postJournalEntry re-validates everything that matters (balance,
+// one side per line, account ownership + is_active) and the DB re-verifies
+// balance again at COMMIT. postJournalEntry's own validation errors are
+// plain Errors (no pg `code`), so they surface as 400s with their message.
+router.post("/journal", requireRole("owner", "admin"), async (req, res) => {
+  const { businessId, userId } = req.user;
+  const { date, description, lines } = req.body;
+
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: "date (YYYY-MM-DD) is required" });
+  }
+  if (!Array.isArray(lines) || lines.length < 2) {
+    return res
+      .status(400)
+      .json({ error: "A journal entry needs at least 2 lines" });
+  }
+
+  const entryLines = lines.map((l) => ({
+    accountId: l.accountId,
+    debit: l.debit !== undefined && l.debit !== "" ? parseFloat(l.debit) : 0,
+    credit:
+      l.credit !== undefined && l.credit !== "" ? parseFloat(l.credit) : 0,
+    memo: l.memo ? String(l.memo).slice(0, 500) : null,
+  }));
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const entry = await postJournalEntry(client, {
+      businessId,
+      date,
+      description: description ? String(description).slice(0, 500) : null,
+      sourceType: "manual",
+      createdBy: userId,
+      lines: entryLines,
+    });
+    await client.query("COMMIT");
+    return res.status(201).json({ ok: true, entryId: entry.id });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    if (!err.code) {
+      // Validation error from postJournalEntry — user-meaningful message.
+      return res.status(400).json({ error: err.message });
+    }
+    console.error("Manual journal entry error:", err);
+    return res.status(500).json({ error: "Failed to post journal entry" });
+  } finally {
+    client.release();
+  }
+});
+
+// ── POST /api/ledger/journal/:id/reverse ─────────────────────
+// Reversing entry (debits/credits swapped) for a manual entry. Source
+// documents (invoices, payroll, transactions) manage their own ledger
+// lifecycles — only source_type='manual' may be reversed here, once.
+router.post(
+  "/journal/:id/reverse",
+  requireRole("owner", "admin"),
+  async (req, res) => {
+    const { businessId, userId } = req.user;
+    const { id } = req.params;
+    const date = req.body?.date;
+
+    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: "date must be YYYY-MM-DD" });
+    }
+
+    const client = await pool.connect();
+    try {
+      const existing = await client.query(
+        `SELECT je.id, je.source_type,
+                EXISTS (
+                  SELECT 1 FROM journal_entries r
+                  WHERE r.reverses_entry_id = je.id AND r.business_id = $2
+                ) AS already_reversed
+         FROM journal_entries je
+         WHERE je.id = $1 AND je.business_id = $2`,
+        [id, businessId],
+      );
+      if (existing.rows.length === 0) {
+        return res.status(404).json({ error: "Journal entry not found" });
+      }
+      const row = existing.rows[0];
+      if (row.source_type !== "manual") {
+        return res.status(400).json({
+          error:
+            "Only manual entries can be reversed here. Source documents (invoices, payroll) manage their own ledger entries.",
+        });
+      }
+      if (row.already_reversed) {
+        return res
+          .status(400)
+          .json({ error: "This entry has already been reversed" });
+      }
+
+      await client.query("BEGIN");
+      const entry = await reverseJournalEntry(client, businessId, id, {
+        date: date || todayPR(),
+        createdBy: userId,
+      });
+      await client.query("COMMIT");
+      return res.status(201).json({ ok: true, entryId: entry.id });
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      console.error("Reverse journal entry error:", err);
+      return res.status(500).json({ error: "Failed to reverse entry" });
+    } finally {
+      client.release();
+    }
+  },
+);
 
 export default router;

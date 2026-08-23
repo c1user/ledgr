@@ -15,16 +15,23 @@
  * Treasury-assigned control numbers (sequential from the range the filer
  * obtained in SURI); summary records use zeros per spec.
  *
- * v1 limitation: vendors are exported as corporations/pass-through
- * entities (payee ID type "1" = FEIN, corporate amount columns) — the app
- * stores one EIN field and doesn't distinguish individual payees.
+ * Payee types (§2.4, per Pub 25-03 v2.0 Rev. 2026-04-28, Exhibit J):
+ * ID type "1" = FEIN (entities — Items 2/4 columns, corporate name field
+ * at 196) and "2" = SSN (individuals — Items 1/3 columns, first/last name
+ * fields at 762/792; the 196 name field is "Required only for
+ * Corporations"). Individual rows carry the decrypted SSN passed in by
+ * the route as vendor.ssn — this builder fails loudly if it's absent.
  */
 
 const RECORD_LEN = 2500;
 
-// Keep only characters Hacienda allows in name fields.
+// Keep only characters Hacienda allows in name fields — transliterating
+// accents first ("Colón" → "Colon"), never deleting the letter.
 function cleanName(v) {
-  return String(v || "").replace(/[^A-Za-z0-9\-&., ]/g, "");
+  return String(v || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^A-Za-z0-9\-&., ]/g, "");
 }
 
 function digits(v) {
@@ -58,6 +65,13 @@ function record(fields) {
     for (let i = 0; i < s.length; i++) buf[start - 1 + i] = s[i];
   }
   return buf.join("");
+}
+
+/** "First Last1 Last2" → { first, last } (PR two-surname convention). */
+function splitName(name) {
+  const tokens = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (tokens.length <= 1) return { first: "", last: tokens[0] || "" };
+  return { first: tokens[0], last: tokens.slice(1).join(" ") };
 }
 
 // ── 480.SU — submitter information (Exhibit X) ───────────────
@@ -101,9 +115,19 @@ function buildPA(payer, year) {
 
 // ── 480.6SP detail record (Exhibit J) ────────────────────────
 function buildDetail(vendor, payer, year, controlNumber) {
-  return record([
+  const isIndividual = vendor.payee_type === "individual";
+  const payeeId = isIndividual ? digits(vendor.ssn) : digits(vendor.ein);
+  if (isIndividual && payeeId.length !== 9) {
+    // Route-level completeness gates should make this unreachable — but a
+    // filing must never silently carry a zero-filled SSN.
+    throw new Error(
+      `suriFile: individual payee "${vendor.name}" has no usable SSN`,
+    );
+  }
+
+  const fields = [
     [2, num(controlNumber, 9)], // Treasury-assigned control number
-    [11, "1"], // payee ID type: FEIN (v1 — see header note)
+    [11, isIndividual ? "2" : "1"], // payee ID type: 1=FEIN, 2=SSN (Exh. J)
     [13, "H"], // form type 480.6SP
     [14, "1"], // record type: detail
     [15, "O"], // document type: original
@@ -118,26 +142,47 @@ function buildDetail(vendor, payer, year, controlNumber) {
     [156, num(digits(payer.zip).slice(0, 5), 5)],
     [161, "0000"], // zip extension
     // payee block
-    [167, num(vendor.ein, 9)],
-    [196, alpha(cleanName(vendor.name), 30)],
+    [167, num(payeeId, 9)],
     [226, alpha(vendor.address, 35)],
     [296, alpha(vendor.city, 13)],
     [309, alpha(vendor.state, 2)],
     [311, num(digits(vendor.zip).slice(0, 5), 5)],
     [316, "0000"],
-    // amounts — corporation/pass-through columns (form items 2 & 4)
-    [321, money(0, 12)], // item 1: individuals not subject
-    [333, money(vendor.not_subject, 12)], // item 2: corps not subject
-    [345, money(0, 12)], // item 3: individuals subject
-    [357, money(0, 10)], // item 3: individuals withheld
-    [367, money(vendor.subject, 12)], // item 4: corps subject
-    [379, money(vendor.withheld, 10)], // item 4: corps withheld
     [391, money(0, 12)], // Act 48-2013 special contribution
     [403, money(0, 12)], // reimbursed expenses
     [415, money(0, 12)], // health providers
     // waiver certificate, when on file
     [434, alpha(vendor.waiver_certificate_no || "", 20)],
-  ]);
+  ];
+
+  if (isIndividual) {
+    // Individuals: Items 1/3 columns; name split into the individual
+    // name fields (the 196 corporate name field is corporations-only).
+    const { first, last } = splitName(vendor.name);
+    fields.push(
+      [321, money(vendor.not_subject, 12)], // item 1: individuals not subject
+      [333, money(0, 12)],
+      [345, money(vendor.subject, 12)], // item 3: individuals subject
+      [357, money(vendor.withheld, 10)], // item 3: individuals withheld
+      [367, money(0, 12)],
+      [379, money(0, 10)],
+      [762, alpha(cleanName(first), 15)], // payee's first name
+      [792, alpha(cleanName(last), 20)], // payee's last name
+    );
+  } else {
+    // Corporations / pass-through entities: Items 2/4 columns.
+    fields.push(
+      [196, alpha(cleanName(vendor.name), 30)],
+      [321, money(0, 12)],
+      [333, money(vendor.not_subject, 12)], // item 2: corps not subject
+      [345, money(0, 12)],
+      [357, money(0, 10)],
+      [367, money(vendor.subject, 12)], // item 4: corps subject
+      [379, money(vendor.withheld, 10)], // item 4: corps withheld
+    );
+  }
+
+  return record(fields);
 }
 
 // ── 480.6SP.2 reconciliation (Exhibit U) ─────────────────────
@@ -169,12 +214,12 @@ function buildSP2(payer, vendors, year, totals) {
     [334, money(0, 15)], // health providers
     [349, money(0, 15)], // reimbursed expenses
     [364, money(0, 15)], // Act 48-2013
-    [379, money(0, 15)], // item 1: individuals not subject
-    [394, money(totals.not_subject, 15)], // item 2: corps not subject
-    [409, money(0, 15)], // item 3: individuals subject
-    [424, money(0, 15)], // item 3: individuals withheld
-    [439, money(totals.subject, 15)], // item 4: corps subject
-    [454, money(totals.withheld, 15)], // item 4: corps withheld
+    [379, money(totals.ind_not_subject, 15)], // item 1: individuals not subject
+    [394, money(totals.corp_not_subject, 15)], // item 2: corps not subject
+    [409, money(totals.ind_subject, 15)], // item 3: individuals subject
+    [424, money(totals.ind_withheld, 15)], // item 3: individuals withheld
+    [439, money(totals.corp_subject, 15)], // item 4: corps subject
+    [454, money(totals.corp_withheld, 15)], // item 4: corps withheld
     [469, money(totals.gross, 15)], // total payments
     [484, money(totals.withheld, 15)], // total withheld
     [499, "0"], // specialist paid: no (self-prepared)
@@ -223,13 +268,29 @@ export function buildSuriFile({
   contactEmail,
 }) {
   const totals = vendors.reduce(
-    (acc, v) => ({
-      gross: acc.gross + v.gross_paid,
-      subject: acc.subject + v.subject,
-      withheld: acc.withheld + v.withheld,
-      not_subject: acc.not_subject + v.not_subject,
-    }),
-    { gross: 0, subject: 0, withheld: 0, not_subject: 0 },
+    (acc, v) => {
+      const ind = v.payee_type === "individual";
+      acc.gross += v.gross_paid;
+      acc.subject += v.subject;
+      acc.withheld += v.withheld;
+      acc.not_subject += v.not_subject;
+      acc[ind ? "ind_subject" : "corp_subject"] += v.subject;
+      acc[ind ? "ind_withheld" : "corp_withheld"] += v.withheld;
+      acc[ind ? "ind_not_subject" : "corp_not_subject"] += v.not_subject;
+      return acc;
+    },
+    {
+      gross: 0,
+      subject: 0,
+      withheld: 0,
+      not_subject: 0,
+      ind_subject: 0,
+      ind_withheld: 0,
+      ind_not_subject: 0,
+      corp_subject: 0,
+      corp_withheld: 0,
+      corp_not_subject: 0,
+    },
   );
 
   const records = [

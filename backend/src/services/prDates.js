@@ -13,6 +13,19 @@
 export const todayPR = () =>
   new Date().toLocaleDateString("en-CA", { timeZone: "America/Puerto_Rico" });
 
-/** Normalize a pg DATE (JS Date) or ISO-ish string to YYYY-MM-DD. */
-export const toIso = (d) =>
-  d instanceof Date ? d.toISOString().slice(0, 10) : String(d).slice(0, 10);
+/**
+ * Normalize a pg DATE (JS Date) or ISO-ish string to YYYY-MM-DD.
+ *
+ * pg parses DATE columns as LOCAL midnight, so the local date parts are
+ * always the stored date. toISOString() would round-trip through UTC and
+ * shift the date one day EARLIER on any server east of UTC — use the
+ * local parts, which are correct in every timezone.
+ */
+export const toIso = (d) => {
+  if (d instanceof Date) {
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${d.getFullYear()}-${m}-${day}`;
+  }
+  return String(d).slice(0, 10);
+};

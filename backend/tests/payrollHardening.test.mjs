@@ -190,7 +190,10 @@ test("todayPR returns the PR calendar day, not the UTC day", () => {
 });
 
 test("toIso survives pg Date objects (the String(Date) trap)", () => {
-  assert.equal(toIso(new Date("2026-08-14T00:00:00Z")), "2026-08-14");
+  // node-postgres parses DATE columns as LOCAL midnight — model that.
+  // (A UTC-midnight fixture would misrepresent pg and reintroduce the
+  // east-of-UTC off-by-one toIso now guards against.)
+  assert.equal(toIso(new Date(2026, 7, 14)), "2026-08-14");
   assert.equal(toIso("2026-08-14"), "2026-08-14");
   assert.equal(toIso("2026-08-14T12:00:00Z"), "2026-08-14");
 });

@@ -135,6 +135,36 @@ export function generateSchedule(rules, year) {
   return out;
 }
 
+// SC 2915 (Planilla Mensual de IVU) is due the 20th of the following month —
+// a statutory date, not a payroll rule, so unlike generateSchedule this is
+// not rule-driven and rule_id is null. Filed electronically through SURI.
+const IVU_DUE_DAY = 20;
+
+/**
+ * Monthly IVU (SC 2915) obligations for a calendar year.
+ * @param {number} year - calendar year to generate for
+ * @returns {Array<{obligation_type, period_start, period_end, due_date, rule_id}>}
+ */
+export function generateIvuSchedule(year) {
+  const out = [];
+  for (let m = 1; m <= 12; m++) {
+    const nextY = m === 12 ? year + 1 : year;
+    const nextM = m === 12 ? 1 : m + 1;
+    out.push({
+      obligation_type: "ivu_monthly",
+      period_start: iso(year, m, 1),
+      period_end: iso(year, m, monthEnd(year, m)),
+      due_date: iso(
+        nextY,
+        nextM,
+        Math.min(IVU_DUE_DAY, monthEnd(nextY, nextM)),
+      ),
+      rule_id: null,
+    });
+  }
+  return out;
+}
+
 /**
  * Display status for an obligation row.
  * @param {object} row - { status, due_date, period_end }

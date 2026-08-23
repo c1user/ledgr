@@ -75,7 +75,7 @@ async function businessMode(businessId) {
 
 async function employerRow(businessId) {
   const r = await pool.query(
-    "SELECT name, address, city, state, zip, tax_id FROM businesses WHERE id = $1",
+    "SELECT name, address, city, state, zip, tax_id, email FROM businesses WHERE id = $1",
     [businessId],
   );
   return r.rows[0];
@@ -89,6 +89,7 @@ async function employerRow(businessId) {
 async function windowFigures(businessId, start, end, mode) {
   const linesResult = await pool.query(
     `SELECT l.employee_id, e.name, e.ssn_last4, e.ssn_encrypted,
+            e.address, e.address_city, e.address_state, e.address_zip,
             SUM(CASE WHEN r.reversal_of IS NULL THEN l.gross_cents ELSE -l.gross_cents END) AS gross_cents,
             SUM(CASE WHEN r.reversal_of IS NULL THEN l.ss_taxable_cents ELSE -l.ss_taxable_cents END) AS ss_wages_cents,
             SUM(CASE WHEN r.reversal_of IS NULL THEN l.medicare_taxable_cents ELSE -l.medicare_taxable_cents END) AS medicare_wages_cents,
@@ -101,7 +102,8 @@ async function windowFigures(businessId, start, end, mode) {
      WHERE r.business_id = $1 AND r.run_mode = $2
        AND r.status IN ('finalized', 'reversed')
        AND p.pay_date BETWEEN $3 AND $4
-     GROUP BY l.employee_id, e.name, e.ssn_last4, e.ssn_encrypted
+     GROUP BY l.employee_id, e.name, e.ssn_last4, e.ssn_encrypted,
+              e.address, e.address_city, e.address_state, e.address_zip
      ORDER BY e.name`,
     [businessId, mode, start, end],
   );
@@ -134,6 +136,10 @@ async function windowFigures(businessId, start, end, mode) {
         name: l.name,
         ssnLast4: l.ssn_last4,
         ssnEncrypted: l.ssn_encrypted,
+        addressStreet: l.address,
+        addressCity: l.address_city,
+        addressState: l.address_state,
+        addressZip: l.address_zip,
         grossCents: Number(l.gross_cents),
         prTaxCents: items.pr_income_tax || 0,
         ssWagesCents: Number(l.ss_wages_cents),

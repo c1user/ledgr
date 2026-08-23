@@ -2,7 +2,7 @@ import express from "express";
 import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { uuidParam } from "../middleware/validateUuid.js";
-import { encryptField } from "../services/fieldCrypto.js";
+import { processSsn } from "../services/fieldCrypto.js";
 
 const router = express.Router();
 
@@ -13,25 +13,8 @@ router.param("id", uuidParam("Employee"));
 const PAY_FREQUENCIES = ["weekly", "biweekly", "semimonthly", "monthly"];
 const CLASSIFICATIONS = ["nonexempt_hourly", "exempt_salaried"];
 
-// Full SSN handling (ROADMAP-V5 Phase 2.2): the plaintext arrives once,
-// is encrypted immediately (AES-256-GCM), and only the last 4 digits are
-// kept in clear for display. The plaintext is NEVER echoed back, logged
-// (auditLog scrubs /ssn/i keys), or stored anywhere else.
-// Returns { error } | { ssnEncrypted, ssnLast4 } | null when absent.
-function processSsn(ssn) {
-  if (ssn === undefined || ssn === null || ssn === "") return null;
-  const digits = String(ssn).replace(/[\s-]/g, "");
-  if (!/^\d{9}$/.test(digits)) {
-    return { error: "ssn must be 9 digits (dashes optional)" };
-  }
-  try {
-    return { ssnEncrypted: encryptField(digits), ssnLast4: digits.slice(-4) };
-  } catch (err) {
-    // Key misconfiguration — fail closed, never store plaintext instead.
-    console.error("SSN encryption unavailable:", err.message);
-    return { error: "SSN encryption is not configured on this server" };
-  }
-}
+// Full SSN handling (ROADMAP-V5 Phase 2.2) lives in fieldCrypto.processSsn —
+// shared with individual 480.6SP vendors since §2.4.
 
 // Strip every SSN column and mask the display last-4.
 function presentEmployee(row) {
@@ -144,6 +127,10 @@ router.post("/", async (req, res) => {
     elections499r4,
     isChauffeur,
     startDate,
+    position,
+    addressCity,
+    addressState,
+    addressZip,
   } = req.body;
 
   // Validation
@@ -196,8 +183,9 @@ router.post("/", async (req, res) => {
       `INSERT INTO employees (
         business_id, name, email, ssn_last4, ssn_encrypted, address,
         pay_type, pay_rate, pay_frequency, classification,
-        elections_499r4, is_chauffeur, start_date
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+        elections_499r4, is_chauffeur, start_date,
+        position, address_city, address_state, address_zip
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
       RETURNING *`,
       [
         businessId,
@@ -214,6 +202,10 @@ router.post("/", async (req, res) => {
         JSON.stringify(elections499r4 || {}),
         isChauffeur === true,
         startDate,
+        position || null,
+        addressCity || null,
+        addressState || null,
+        addressZip || null,
       ],
     );
 
@@ -242,6 +234,10 @@ router.put("/:id", async (req, res) => {
     isChauffeur,
     endDate,
     isActive,
+    position,
+    addressCity,
+    addressState,
+    addressZip,
   } = req.body;
 
   if (payFrequency && !PAY_FREQUENCIES.includes(payFrequency)) {
@@ -295,8 +291,12 @@ router.put("/:id", async (req, res) => {
         address               = COALESCE($10, address),
         classification        = COALESCE($11, classification),
         elections_499r4       = COALESCE($12, elections_499r4),
-        is_chauffeur          = COALESCE($13, is_chauffeur)
-       WHERE id = $14 AND business_id = $15
+        is_chauffeur          = COALESCE($13, is_chauffeur),
+        position              = COALESCE($14, position),
+        address_city          = COALESCE($15, address_city),
+        address_state         = COALESCE($16, address_state),
+        address_zip           = COALESCE($17, address_zip)
+       WHERE id = $18 AND business_id = $19
        RETURNING *`,
       [
         name || null,
@@ -312,6 +312,10 @@ router.put("/:id", async (req, res) => {
         classification || null,
         elections499r4 !== undefined ? JSON.stringify(elections499r4) : null,
         typeof isChauffeur === "boolean" ? isChauffeur : null,
+        position ?? null,
+        addressCity ?? null,
+        addressState ?? null,
+        addressZip ?? null,
         id,
         businessId,
       ],

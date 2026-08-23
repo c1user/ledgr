@@ -2,10 +2,22 @@ import express from "express";
 import pool from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { uuidParam } from "../middleware/validateUuid.js";
+import { processSsn } from "../services/fieldCrypto.js";
 
 const router = express.Router();
 router.use(requireAuth);
 router.param("id", uuidParam("Vendor"));
+
+const PAYEE_TYPES = ["entity", "individual"];
+
+// Individual 480.6SP payees carry an encrypted SSN (§2.4) — same write-only
+// discipline as employees: strip the ciphertext, mask the last-4.
+function presentVendor(row) {
+  const { ssn_encrypted, ssn_last4, ...v } = row;
+  v.ssn_last4 = ssn_last4 ? `***-**-${ssn_last4}` : null;
+  v.has_ssn = Boolean(ssn_encrypted);
+  return v;
+}
 
 // ── GET /api/vendors ──────────────────────────────────────────
 router.get("/", async (req, res) => {
@@ -15,9 +27,10 @@ router.get("/", async (req, res) => {
   try {
     let query = `
       SELECT
-        v.id, v.name, v.ein, v.address, v.city, v.state, v.zip,
+        v.id, v.name, v.ein, v.payee_type, v.address, v.city, v.state, v.zip,
         v.email, v.phone, v.is_1099_eligible,
         v.withholding_exempt, v.waiver_certificate_no, v.created_at,
+        v.ssn_encrypted, v.ssn_last4,
         COUNT(t.id)::int AS transaction_count,
         COALESCE(SUM(t.total_amount) FILTER (WHERE t.type = 'expense'), 0)::numeric AS ytd_paid
       FROM vendors v
@@ -40,7 +53,7 @@ router.get("/", async (req, res) => {
     query += ` GROUP BY v.id ORDER BY v.name ASC`;
 
     const result = await pool.query(query, params);
-    return res.json(result.rows);
+    return res.json(result.rows.map(presentVendor));
   } catch (err) {
     console.error("Get vendors error:", err);
     return res.status(500).json({ error: "Failed to fetch vendors" });
@@ -64,7 +77,7 @@ router.get("/:id", async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Vendor not found" });
     }
-    return res.json(result.rows[0]);
+    return res.json(presentVendor(result.rows[0]));
   } catch (err) {
     console.error("Get vendor error:", err);
     return res.status(500).json({ error: "Failed to fetch vendor" });
@@ -126,6 +139,8 @@ router.post("/", async (req, res) => {
   const {
     name,
     ein,
+    payee_type,
+    ssn,
     address,
     city,
     state,
@@ -140,15 +155,30 @@ router.post("/", async (req, res) => {
   if (!name?.trim()) {
     return res.status(400).json({ error: "name is required" });
   }
+  if (payee_type !== undefined && !PAYEE_TYPES.includes(payee_type)) {
+    return res
+      .status(400)
+      .json({ error: `payee_type must be one of: ${PAYEE_TYPES.join(", ")}` });
+  }
+  const ssnResult = processSsn(ssn);
+  if (ssnResult?.error) {
+    return res.status(400).json({ error: ssnResult.error });
+  }
 
   try {
     const result = await pool.query(
-      `INSERT INTO vendors (business_id, name, ein, address, city, state, zip, email, phone, is_1099_eligible, withholding_exempt, waiver_certificate_no)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+      `INSERT INTO vendors (business_id, name, ein, payee_type, ssn_encrypted,
+         ssn_last4, address, city, state, zip, email, phone, is_1099_eligible,
+         withholding_exempt, waiver_certificate_no)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+       RETURNING *`,
       [
         businessId,
         name.trim(),
         ein || null,
+        payee_type || "entity",
+        ssnResult?.ssnEncrypted || null,
+        ssnResult?.ssnLast4 || null,
         address || null,
         city || null,
         state || null,
@@ -160,7 +190,7 @@ router.post("/", async (req, res) => {
         waiver_certificate_no || null,
       ],
     );
-    return res.status(201).json(result.rows[0]);
+    return res.status(201).json(presentVendor(result.rows[0]));
   } catch (err) {
     console.error("Create vendor error:", err);
     return res.status(500).json({ error: "Failed to create vendor" });
@@ -174,6 +204,8 @@ router.put("/:id", async (req, res) => {
   const {
     name,
     ein,
+    payee_type,
+    ssn,
     address,
     city,
     state,
@@ -187,6 +219,16 @@ router.put("/:id", async (req, res) => {
 
   if (!name?.trim()) {
     return res.status(400).json({ error: "name is required" });
+  }
+  if (payee_type !== undefined && !PAYEE_TYPES.includes(payee_type)) {
+    return res
+      .status(400)
+      .json({ error: `payee_type must be one of: ${PAYEE_TYPES.join(", ")}` });
+  }
+  // SSN is write-only: sent → replaced (encrypted); absent → unchanged.
+  const ssnResult = processSsn(ssn);
+  if (ssnResult?.error) {
+    return res.status(400).json({ error: ssnResult.error });
   }
 
   try {
@@ -202,19 +244,25 @@ router.put("/:id", async (req, res) => {
       `UPDATE vendors SET
         name                  = $1,
         ein                   = $2,
-        address               = $3,
-        city                  = $4,
-        state                 = $5,
-        zip                   = $6,
-        email                 = $7,
-        phone                 = $8,
-        is_1099_eligible      = $9,
-        withholding_exempt    = $10,
-        waiver_certificate_no = $11
-       WHERE id = $12 AND business_id = $13 RETURNING *`,
+        payee_type            = COALESCE($3, payee_type),
+        ssn_encrypted         = COALESCE($4, ssn_encrypted),
+        ssn_last4             = COALESCE($5, ssn_last4),
+        address               = $6,
+        city                  = $7,
+        state                 = $8,
+        zip                   = $9,
+        email                 = $10,
+        phone                 = $11,
+        is_1099_eligible      = $12,
+        withholding_exempt    = $13,
+        waiver_certificate_no = $14
+       WHERE id = $15 AND business_id = $16 RETURNING *`,
       [
         name.trim(),
         ein || null,
+        payee_type || null,
+        ssnResult?.ssnEncrypted || null,
+        ssnResult?.ssnLast4 || null,
         address || null,
         city || null,
         state || null,
@@ -228,7 +276,7 @@ router.put("/:id", async (req, res) => {
         businessId,
       ],
     );
-    return res.json(result.rows[0]);
+    return res.json(presentVendor(result.rows[0]));
   } catch (err) {
     console.error("Update vendor error:", err);
     return res.status(500).json({ error: "Failed to update vendor" });

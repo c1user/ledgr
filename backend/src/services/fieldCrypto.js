@@ -1,6 +1,7 @@
 /**
  * services/fieldCrypto.js — application-level field encryption at rest
- * (ROADMAP-V5 · Phase 2.2). First consumer: employee SSNs.
+ * (ROADMAP-V5 · Phase 2.2). Consumers: employee SSNs, and vendor SSNs for
+ * individual 480.6SP payees (PENDIENTES §2.4).
  *
  * AES-256-GCM with a random 96-bit IV per value; the auth tag makes any
  * ciphertext tampering a hard decrypt failure. Stored form is three
@@ -73,4 +74,26 @@ export function decryptField(blob) {
     decipher.update(ciphertext),
     decipher.final(),
   ]).toString("utf8");
+}
+
+/**
+ * Shared SSN intake (employees, individual 480.6SP vendors): the plaintext
+ * arrives once, is encrypted immediately, and only the last 4 digits are
+ * kept in clear for display. The plaintext is NEVER echoed back, logged
+ * (auditLog scrubs /ssn/i keys), or stored anywhere else.
+ * @returns {{error}|{ssnEncrypted, ssnLast4}|null} null when absent
+ */
+export function processSsn(ssn) {
+  if (ssn === undefined || ssn === null || ssn === "") return null;
+  const digits = String(ssn).replace(/[\s-]/g, "");
+  if (!/^\d{9}$/.test(digits)) {
+    return { error: "ssn must be 9 digits (dashes optional)" };
+  }
+  try {
+    return { ssnEncrypted: encryptField(digits), ssnLast4: digits.slice(-4) };
+  } catch (err) {
+    // Key misconfiguration — fail closed, never store plaintext instead.
+    console.error("SSN encryption unavailable:", err.message);
+    return { error: "SSN encryption is not configured on this server" };
+  }
 }

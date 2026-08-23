@@ -48,6 +48,8 @@ const AccountsReceivable = lazy(() => import("./pages/AccountsReceivable"));
 const Sales = lazy(() => import("./pages/Sales"));
 const Recurring = lazy(() => import("./pages/Recurring"));
 const Hacienda = lazy(() => import("./pages/Hacienda"));
+const IvuReport = lazy(() => import("./pages/IvuReport"));
+const Journal = lazy(() => import("./pages/Journal"));
 const BusinessProfile = lazy(() => import("./pages/BusinessProfile"));
 const Activity = lazy(() => import("./pages/Activity"));
 const Plans = lazy(() => import("./pages/Plans"));
@@ -211,7 +213,16 @@ export default function App() {
                 </RequireFeature>
               }
             />
+            <Route
+              path="ivu"
+              element={
+                <RequireFeature feature="hacienda">
+                  <IvuReport />
+                </RequireFeature>
+              }
+            />
           </Route>
+          <Route path="journal" element={<Journal />} />
           {/* Legacy redirects for the old top-level report routes */}
           <Route
             path="balance-sheet"

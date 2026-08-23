@@ -242,22 +242,22 @@ export const PAYROLL_RULES_TEMPLATE = [
     rule_type: "paystub_fields_9017",
     jurisdiction: "PR",
     source_citation:
-      "PLACEHOLDER — obtain: Regulation 9017 minimum pay-stub field list — DTRH",
+      "PENDING VERIFY — transcribed from Reglamento 9017 (DTRH, 4 abr 2018), Artículo XV 'Talonarios de pago' (8 items; electronic stubs allowed, available within 5 calendar days, e-mail = safe harbor). Official text: app.estado.gobierno.pr/ReglamentosOnLine/Reglamentos/9017.pdf",
     notes:
-      "The stub template must render every required field; list is a guess until verified.",
+      "Art. XV list: (1) nombre y dirección del patrono; (2) nombre del empleado; (3) puesto; (4) fecha y período; (5) total de horas regulares y extraordinarias; (6) salario devengado por horas regulares y extraordinarias; (7) adiciones y deducciones con concepto; (8) cantidad neta. Rates/hourly detail belong to the Art. XVI payroll RECORD, not the stub.",
     payload: {
       required_fields: [
         "employer_name",
         "employer_address",
-        "employer_ein",
         "employee_name",
+        "position",
         "period_start",
         "period_end",
         "payment_date",
         "hours_regular",
         "hours_overtime",
-        "rates_by_type",
-        "gross_pay",
+        "wages_regular",
+        "wages_overtime",
         "itemized_deductions",
         "net_pay",
       ],
@@ -296,13 +296,13 @@ export const PAYROLL_RULES_TEMPLATE = [
     rule_type: "w2pr_file_spec",
     jurisdiction: "PR",
     source_citation:
-      "PLACEHOLDER — obtain: W-2PR (Form 499R-2) electronic file specification for the current tax year — Hacienda annual publication",
+      "PENDING VERIFY — implemented from Hacienda Publication 25-01 (Rev. 2025-09-23), 'Developer Guide — Form 499R-2/W-2PR (Copy A) Electronic Filing Requirements, Tax Year 2025' (hacienda.pr.gov/publicaciones). Diff against the TY2026 publication (expected fall 2026) before the January 2027 filing.",
     notes:
-      "The export builder must target the version named here; bumping the year is a new rule version.",
+      "The export builder must target the version named here; bumping the year is a new rule version. EFW2PR: 9 mandatory 512-byte records (RA/RE/RW/RO/RS/RT/RU/RV/RF). TY2025 due date was Feb 2, 2026; SURI accepts one employer (RE) per upload and issues the confirmation number the printed forms need.",
     payload: {
-      spec_version: "TY2025-PLACEHOLDER",
+      spec_version: "EFW2PR-TY2025",
       publication:
-        "Hacienda annual W-2PR (499R-2) electronic filing specification",
+        "Hacienda Publication 25-01 (Rev. 2025-09-23) — EFW2PR, Tax Year 2025",
       generation_window: { start: "01-01", end: "01-31" },
     },
   },

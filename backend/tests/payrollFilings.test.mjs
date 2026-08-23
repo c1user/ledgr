@@ -154,8 +154,10 @@ const EMP = {
 };
 
 test("W-2PR file: RA/RE/RS/RT/RF records, all exactly 512 chars", () => {
+  // Pinned to the placeholder layout — the EFW2PR layout has its own suite
+  // (tests/efw2pr.test.mjs).
   const { content, filename, warnings } = buildW2prFile({
-    specVersion: SUPPORTED_SPEC_VERSIONS[0],
+    specVersion: "TY2025-PLACEHOLDER",
     year: 2026,
     employer: EMPLOYER,
     employees: [EMP, { ...EMP, name: "Jorge Meléndez", ssn: "987654321" }],
@@ -178,7 +180,7 @@ test("W-2PR file: RA/RE/RS/RT/RF records, all exactly 512 chars", () => {
 
 test("W-2PR totals record sums employees", () => {
   const { content } = buildW2prFile({
-    specVersion: SUPPORTED_SPEC_VERSIONS[0],
+    specVersion: "TY2025-PLACEHOLDER",
     year: 2026,
     employer: EMPLOYER,
     employees: [EMP, EMP],
@@ -190,7 +192,7 @@ test("W-2PR totals record sums employees", () => {
 
 test("missing SSN produces a warning, never a silent zero-fill", () => {
   const { warnings } = buildW2prFile({
-    specVersion: SUPPORTED_SPEC_VERSIONS[0],
+    specVersion: "TY2025-PLACEHOLDER",
     year: 2026,
     employer: EMPLOYER,
     employees: [{ ...EMP, ssn: null }],

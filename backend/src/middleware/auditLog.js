@@ -114,6 +114,12 @@ export function auditLogger(req, res, next) {
     const user = req.user;
     if (!user?.businessId) return;
 
+    // Closing the business purges every row it owns — including audit_log
+    // (and the businesses row the FK points at), so an audit row for the
+    // closure can neither be written nor survive. The purge summary that
+    // businessData.js logs to the server console is the closure's record.
+    if (action === "delete" && parsed.resource === "business") return;
+
     // Delete snapshots are raw DB rows — scrub them like request bodies
     // so columns such as ssn_last4/ssn_encrypted never land in the log.
     const snapshot =

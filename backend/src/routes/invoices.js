@@ -38,6 +38,7 @@ import {
   round2,
 } from "../services/ledger.js";
 import { buildInvoicePdf } from "../services/invoicePdf.js";
+import { computeTotals } from "../services/invoiceTotals.js";
 import { notify } from "../services/notifications.js";
 
 // Fire-and-forget teammate notification when an invoice is collected.
@@ -123,20 +124,6 @@ function readLineItems(body) {
   if (lines.length === 0)
     return { error: "An invoice needs at least one line item" };
   return { lines };
-}
-
-// Compute money from line items + tax inputs. tax_exempt forces tax to 0.
-function computeTotals(lines, { taxType, taxRate, taxExempt }) {
-  const subtotal = round2(lines.reduce((s, l) => s + l.total, 0));
-  const rate = taxExempt ? 0 : Math.max(0, parseFloat(taxRate) || 0);
-  const taxTotal = round2((subtotal * rate) / 100);
-  return {
-    subtotal,
-    tax_type: taxType === "ivu" ? "ivu" : "generic",
-    tax_rate: rate,
-    tax_total: taxTotal,
-    total: round2(subtotal + taxTotal),
-  };
 }
 
 // ── AI draft helpers (#12) ───────────────────────────────────
@@ -229,7 +216,9 @@ async function loadInvoice(runner, businessId, id) {
 // Payer header info for the PDF/email (name + #16 address block + currency).
 async function loadBusinessForPdf(businessId) {
   const r = await pool.query(
-    "SELECT name, address, city, state, zip, currency FROM businesses WHERE id = $1",
+    `SELECT name, address, city, state, zip, currency,
+            merchant_registration_number
+     FROM businesses WHERE id = $1`,
     [businessId],
   );
   return r.rows[0] || { name: "", currency: "USD" };
@@ -468,6 +457,7 @@ router.post("/", async (req, res) => {
     dueDate,
     taxType,
     taxRate,
+    taxMuniRate,
     incomeAccountId,
     language,
     notes,
@@ -522,6 +512,7 @@ router.post("/", async (req, res) => {
     const totals = computeTotals(parsed.lines, {
       taxType,
       taxRate,
+      taxMuniRate,
       taxExempt: clientRow.rows[0].tax_exempt,
     });
 
@@ -533,9 +524,10 @@ router.post("/", async (req, res) => {
     const inv = await dbClient.query(
       `INSERT INTO invoices
          (business_id, client_id, invoice_number, issue_date, due_date, status,
-          income_account_id, subtotal, tax_type, tax_rate, tax_total, total,
-          language, notes)
-       VALUES ($1, $2, $3, $4, $5, 'draft', $6, $7, $8, $9, $10, $11, $12, $13)
+          income_account_id, subtotal, tax_type, tax_rate, tax_muni_rate,
+          tax_total, tax_state_total, tax_muni_total, total, language, notes)
+       VALUES ($1, $2, $3, $4, $5, 'draft', $6, $7, $8, $9, $10, $11, $12, $13,
+               $14, $15, $16)
        RETURNING id`,
       [
         businessId,
@@ -547,7 +539,10 @@ router.post("/", async (req, res) => {
         totals.subtotal,
         totals.tax_type,
         totals.tax_rate,
+        totals.tax_muni_rate,
         totals.tax_total,
+        totals.tax_state_total,
+        totals.tax_muni_total,
         totals.total,
         lang,
         notes || null,
@@ -659,15 +654,17 @@ router.put("/:id", async (req, res) => {
     const totals = computeTotals(parsed.lines, {
       taxType: req.body.taxType ?? old.tax_type,
       taxRate: req.body.taxRate ?? old.tax_rate,
+      taxMuniRate: req.body.taxMuniRate ?? old.tax_muni_rate,
       taxExempt: clientRow.rows[0].tax_exempt,
     });
 
     await dbClient.query(
       `UPDATE invoices SET
          client_id = $1, issue_date = $2, due_date = $3, income_account_id = $4,
-         subtotal = $5, tax_type = $6, tax_rate = $7, tax_total = $8,
-         total = $9, language = $10, notes = $11
-       WHERE id = $12 AND business_id = $13`,
+         subtotal = $5, tax_type = $6, tax_rate = $7, tax_muni_rate = $8,
+         tax_total = $9, tax_state_total = $10, tax_muni_total = $11,
+         total = $12, language = $13, notes = $14
+       WHERE id = $15 AND business_id = $16`,
       [
         clientId,
         issueDate,
@@ -676,7 +673,10 @@ router.put("/:id", async (req, res) => {
         totals.subtotal,
         totals.tax_type,
         totals.tax_rate,
+        totals.tax_muni_rate,
         totals.tax_total,
+        totals.tax_state_total,
+        totals.tax_muni_total,
         totals.total,
         lang,
         notes || null,

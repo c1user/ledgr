@@ -37,7 +37,11 @@ const emptyEmployee = {
   name: "",
   email: "",
   ssn: "",
+  position: "",
   address: "",
+  addressCity: "",
+  addressState: "PR",
+  addressZip: "",
   payType: "salary",
   payRate: "",
   payFrequency: "biweekly",
@@ -66,7 +70,11 @@ function EmployeeModal({ onClose, editEmployee, t }) {
           name: editEmployee.name,
           email: editEmployee.email || "",
           ssn: "", // write-only: blank = keep the SSN on file
+          position: editEmployee.position || "",
           address: editEmployee.address || "",
+          addressCity: editEmployee.address_city || "",
+          addressState: editEmployee.address_state || "PR",
+          addressZip: editEmployee.address_zip || "",
           payType: editEmployee.pay_type,
           payRate: editEmployee.pay_rate,
           payFrequency: editEmployee.pay_frequency,
@@ -121,7 +129,11 @@ function EmployeeModal({ onClose, editEmployee, t }) {
     const payload = {
       name: form.name,
       email: form.email,
+      position: form.position,
       address: form.address,
+      addressCity: form.addressCity,
+      addressState: form.addressState,
+      addressZip: form.addressZip,
       payType: form.payType,
       payRate: parseFloat(form.payRate),
       payFrequency: form.payFrequency,
@@ -214,9 +226,22 @@ function EmployeeModal({ onClose, editEmployee, t }) {
           </Field>
         </div>
         <Field
+          label={t("payroll.position")}
+          htmlFor="emp-position"
+          className="mb-3.5"
+          hint={t("payroll.positionHint")}
+        >
+          <Input
+            id="emp-position"
+            value={form.position}
+            onChange={(e) => setForm({ ...form, position: e.target.value })}
+            placeholder={t("payroll.positionPlaceholder")}
+          />
+        </Field>
+        <Field
           label={t("payroll.address")}
           htmlFor="emp-address"
-          className="mb-5"
+          className="mb-3.5"
         >
           <Input
             id="emp-address"
@@ -225,6 +250,45 @@ function EmployeeModal({ onClose, editEmployee, t }) {
             placeholder={t("payroll.addressPlaceholder")}
           />
         </Field>
+        <div className="grid grid-cols-[1fr_90px_110px] gap-3 mb-5">
+          <Field
+            label={t("payroll.addressCity")}
+            htmlFor="emp-city"
+            className="mb-0"
+          >
+            <Input
+              id="emp-city"
+              value={form.addressCity}
+              onChange={(e) =>
+                setForm({ ...form, addressCity: e.target.value })
+              }
+            />
+          </Field>
+          <Field
+            label={t("payroll.addressState")}
+            htmlFor="emp-state"
+            className="mb-0"
+          >
+            <Input
+              id="emp-state"
+              value={form.addressState}
+              onChange={(e) =>
+                setForm({ ...form, addressState: e.target.value })
+              }
+            />
+          </Field>
+          <Field
+            label={t("payroll.addressZip")}
+            htmlFor="emp-zip"
+            className="mb-0"
+          >
+            <Input
+              id="emp-zip"
+              value={form.addressZip}
+              onChange={(e) => setForm({ ...form, addressZip: e.target.value })}
+            />
+          </Field>
+        </div>
 
         <SectionLabel>{t("payroll.payInfo")}</SectionLabel>
         <div className="grid grid-cols-2 gap-3 mb-3.5">

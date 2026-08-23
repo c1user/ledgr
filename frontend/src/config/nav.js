@@ -52,6 +52,7 @@ export const navGroups = [
         icon: "ti-list-tree",
         label: "nav.chartOfAccounts",
       },
+      { to: "/journal", icon: "ti-notebook", label: "nav.journal" },
       {
         to: "/budget",
         icon: "ti-wallet",
@@ -147,6 +148,12 @@ export const subPages = [
     to: "/reports/hacienda",
     icon: "ti-building-bank",
     label: "hacienda.title",
+    feature: "hacienda",
+  },
+  {
+    to: "/reports/ivu",
+    icon: "ti-receipt-2",
+    label: "ivu.title",
     feature: "hacienda",
   },
   {

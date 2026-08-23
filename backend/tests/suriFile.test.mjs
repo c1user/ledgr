@@ -122,3 +122,69 @@ test("480.5 summary record (Exhibit O)", () => {
   assert.equal(at(5, 169, 183), "000000000010000"); // total withheld
   assert.equal(at(5, 184, 198), "000000000175050"); // total paid
 });
+
+// ── Individual payees (§2.4 — Pub 25-03 v2.0 Exhibit J) ──────
+
+const individual = {
+  name: "Ana Rivera Colón",
+  payee_type: "individual",
+  ein: null,
+  ssn: "581239876", // decrypted by the route before reaching the builder
+  address: "12 Calle Norte",
+  city: "Caguas",
+  state: "PR",
+  zip: "00725",
+  gross_paid: 900,
+  subject: 600,
+  withheld: 60,
+  not_subject: 300,
+  waiver_certificate_no: null,
+};
+
+const mixed = buildSuriFile({
+  payer,
+  vendors: [vendors[0], individual],
+  year: 2025,
+  controlStart: 500001,
+  contactEmail: "demo@ledgr.test",
+});
+const mLines = mixed.content.split("\r\n").filter(Boolean);
+const mAt = (line, from, to) => mLines[line].slice(from - 1, to);
+
+test("individual detail: ID type 2, SSN, split name fields, Items 1/3 columns", () => {
+  assert.equal(mAt(3, 11, 11), "2"); // payee ID type: SSN
+  assert.equal(mAt(3, 167, 175), "581239876"); // SSN in the payee ID field
+  assert.equal(mAt(3, 196, 225).trim(), ""); // corporate name: corporations-only
+  assert.equal(mAt(3, 762, 776).trim(), "ANA"); // first name
+  assert.equal(mAt(3, 792, 811).trim(), "RIVERA COLON"); // both surnames
+  assert.equal(mAt(3, 321, 332), "000000030000"); // item 1 not subject $300
+  assert.equal(mAt(3, 345, 356), "000000060000"); // item 3 subject $600
+  assert.equal(mAt(3, 357, 366), "0000006000"); // item 3 withheld $60
+  assert.equal(mAt(3, 333, 344), "000000000000"); // corp columns zero
+  assert.equal(mAt(3, 367, 378), "000000000000");
+});
+
+test("reconciliation splits totals by payee type (Items 1/3 vs 2/4)", () => {
+  const sp2 = mLines.length - 2; // SP.2 is second-to-last
+  assert.equal(mAt(sp2, 379, 393), "000000000030000"); // item 1 individuals
+  assert.equal(mAt(sp2, 409, 423), "000000000060000"); // item 3 individuals
+  assert.equal(mAt(sp2, 424, 438), "000000000006000"); // item 3 withheld
+  assert.equal(mAt(sp2, 439, 453), "000000000100000"); // item 4 corps
+  assert.equal(mAt(sp2, 454, 468), "000000000010000"); // item 4 withheld
+  assert.equal(mAt(sp2, 469, 483), "000000000190000"); // total payments
+  assert.equal(mAt(sp2, 484, 498), "000000000016000"); // total withheld
+});
+
+test("an individual without a usable SSN fails loudly, never zero-fills", () => {
+  assert.throws(
+    () =>
+      buildSuriFile({
+        payer,
+        vendors: [{ ...individual, ssn: null }],
+        year: 2025,
+        controlStart: 1,
+        contactEmail: "",
+      }),
+    /has no usable SSN/,
+  );
+});

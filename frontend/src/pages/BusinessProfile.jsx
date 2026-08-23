@@ -25,6 +25,7 @@ export default function BusinessProfile() {
   const [form, setForm] = useState({
     name: "",
     taxId: "",
+    merchantRegistrationNumber: "",
     address: "",
     city: "",
     state: "",
@@ -47,6 +48,7 @@ export default function BusinessProfile() {
     setForm({
       name: data.name || "",
       taxId: data.tax_id || "",
+      merchantRegistrationNumber: data.merchant_registration_number || "",
       address: data.address || "",
       city: data.city || "",
       state: data.state || "",
@@ -132,6 +134,9 @@ export default function BusinessProfile() {
               {field("name", t("business.name"))}
               {field("taxId", t("business.ein"), {
                 placeholder: t("business.einPlaceholder"),
+              })}
+              {field("merchantRegistrationNumber", t("business.merchantReg"), {
+                placeholder: t("business.merchantRegPlaceholder"),
               })}
               {field("address", t("business.address"))}
               <div className="grid grid-cols-[1fr_100px_110px] gap-3">

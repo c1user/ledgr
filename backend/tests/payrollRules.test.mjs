@@ -123,10 +123,13 @@ test("every template rule is a placeholder and can never self-verify", () => {
   assert.ok(PAYROLL_RULES_TEMPLATE.length >= 15);
   for (const r of PAYROLL_RULES_TEMPLATE) {
     assert.ok(r.rule_type, "rule_type required");
+    // PLACEHOLDER = values are guesses; PENDING VERIFY = transcribed from
+    // the named official source but not yet human-verified in the rules
+    // admin. Either way the rule must announce it needs verification.
     assert.match(
       r.source_citation,
-      /^PLACEHOLDER\b/,
-      `${r.rule_type}: seed citations must be marked PLACEHOLDER`,
+      /^(PLACEHOLDER|PENDING VERIFY)\b/,
+      `${r.rule_type}: seed citations must be marked PLACEHOLDER or PENDING VERIFY`,
     );
     assert.equal(typeof r.payload, "object");
     // The template must never carry a verification status — rows rely on

@@ -16,6 +16,7 @@ import {
   Input,
   Modal,
 } from "../components/ui";
+import RulePayloadEditor from "../components/payroll/RulePayloadEditor";
 
 // The exact sandbox banner text, verbatim — mirrored from
 // backend/src/services/payrollRules.js (SANDBOX_WATERMARK).
@@ -39,12 +40,29 @@ function RuleModal({ rule, isOwner, onClose, t }) {
   const queryClient = useQueryClient();
   const isVerified = rule.verification_status === "VERIFIED";
 
-  const [payloadText, setPayloadText] = useState(
-    JSON.stringify(rule.payload, null, 2),
-  );
+  // Structured editing works on an object copy; the raw-JSON toggle is the
+  // escape hatch for structural changes (e.g. restructuring bracket tables).
+  const [payloadObj, setPayloadObj] = useState(rule.payload);
+  const [jsonMode, setJsonMode] = useState(false);
+  const [payloadText, setPayloadText] = useState("");
   const [citation, setCitation] = useState(rule.source_citation || "");
   const [attest, setAttest] = useState(false);
   const [payloadError, setPayloadError] = useState("");
+
+  const toggleJsonMode = () => {
+    if (!jsonMode) {
+      setPayloadText(JSON.stringify(payloadObj, null, 2));
+      setJsonMode(true);
+      return;
+    }
+    try {
+      setPayloadObj(JSON.parse(payloadText));
+      setPayloadError("");
+      setJsonMode(false);
+    } catch {
+      setPayloadError(t("payrollRules.invalidJson"));
+    }
+  };
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["payroll-rules"] });
@@ -88,15 +106,17 @@ function RuleModal({ rule, isOwner, onClose, t }) {
   });
 
   const handleSave = () => {
-    let parsed;
-    try {
-      parsed = JSON.parse(payloadText);
-    } catch {
-      setPayloadError(t("payrollRules.invalidJson"));
-      return;
+    let payload = payloadObj;
+    if (jsonMode) {
+      try {
+        payload = JSON.parse(payloadText);
+      } catch {
+        setPayloadError(t("payrollRules.invalidJson"));
+        return;
+      }
     }
     setPayloadError("");
-    saveMutation.mutate({ payload: parsed, sourceCitation: citation });
+    saveMutation.mutate({ payload, sourceCitation: citation });
   };
 
   const typeLabel = t(`payrollRules.type_${rule.rule_type}`, {
@@ -141,18 +161,46 @@ function RuleModal({ rule, isOwner, onClose, t }) {
         )}
       </Field>
 
-      <Field label={t("payrollRules.payload")}>
-        <textarea
-          className={cx(
-            "w-full font-mono text-[12px] rounded-lg border border-line bg-canvas p-3 min-h-[220px]",
-            "focus:outline-none focus:ring-2 focus:ring-brand/40",
-            (isVerified || !isOwner) && "opacity-70",
-          )}
-          value={payloadText}
-          onChange={(e) => setPayloadText(e.target.value)}
-          readOnly={isVerified || !isOwner}
-          spellCheck={false}
-        />
+      <Field
+        label={
+          <span className="flex items-center justify-between w-full">
+            <span>{t("payrollRules.payload")}</span>
+            <button
+              type="button"
+              onClick={toggleJsonMode}
+              className="text-[11px] text-brand hover:underline cursor-pointer font-normal"
+            >
+              <i
+                className={cx("ti mr-1", jsonMode ? "ti-list-details" : "ti-code")}
+                aria-hidden="true"
+              />
+              {jsonMode
+                ? t("payrollRules.structuredView")
+                : t("payrollRules.jsonView")}
+            </button>
+          </span>
+        }
+      >
+        {jsonMode ? (
+          <textarea
+            className={cx(
+              "w-full font-mono text-[12px] rounded-lg border border-line bg-canvas p-3 min-h-[220px]",
+              "focus:outline-none focus:ring-2 focus:ring-brand/40",
+              (isVerified || !isOwner) && "opacity-70",
+            )}
+            value={payloadText}
+            onChange={(e) => setPayloadText(e.target.value)}
+            readOnly={isVerified || !isOwner}
+            spellCheck={false}
+          />
+        ) : (
+          <RulePayloadEditor
+            payload={payloadObj}
+            onChange={setPayloadObj}
+            readOnly={isVerified || !isOwner}
+            t={t}
+          />
+        )}
         {payloadError && (
           <div className="text-[12px] text-danger mt-1">{payloadError}</div>
         )}

@@ -134,7 +134,8 @@ router.get("/", async (req, res) => {
   const { businessId } = req.user;
   try {
     const result = await pool.query(
-      `SELECT id, name, tax_id, address, city, state, zip, currency, plan
+      `SELECT id, name, tax_id, merchant_registration_number,
+              address, city, state, zip, currency, plan
        FROM businesses WHERE id = $1`,
       [businessId],
     );
@@ -152,7 +153,8 @@ router.get("/", async (req, res) => {
 // Update the payer profile: name, EIN, and address block. Owner/admin only.
 router.put("/", requireRole("owner", "admin"), async (req, res) => {
   const { businessId } = req.user;
-  const { name, taxId, address, city, state, zip } = req.body;
+  const { name, taxId, merchantRegistrationNumber, address, city, state, zip } =
+    req.body;
 
   if (name !== undefined && !String(name).trim()) {
     return res.status(400).json({ error: "Business name cannot be empty" });
@@ -172,15 +174,20 @@ router.put("/", requireRole("owner", "admin"), async (req, res) => {
       `UPDATE businesses SET
          name    = $1,
          tax_id  = $2,
-         address = $3,
-         city    = $4,
-         state   = $5,
-         zip     = $6
-       WHERE id = $7
-       RETURNING id, name, tax_id, address, city, state, zip, currency, plan`,
+         merchant_registration_number = $3,
+         address = $4,
+         city    = $5,
+         state   = $6,
+         zip     = $7
+       WHERE id = $8
+       RETURNING id, name, tax_id, merchant_registration_number,
+                 address, city, state, zip, currency, plan`,
       [
         name !== undefined ? String(name).trim() : old.name,
         taxId !== undefined ? taxId || null : old.tax_id,
+        merchantRegistrationNumber !== undefined
+          ? merchantRegistrationNumber || null
+          : old.merchant_registration_number,
         address !== undefined ? address || null : old.address,
         city !== undefined ? city || null : old.city,
         state !== undefined ? state || null : old.state,
