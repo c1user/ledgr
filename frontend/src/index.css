@@ -46,11 +46,6 @@
   --row-y-sm: 10px;
 }
 
-[data-density="compact"] {
-  --row-y: 7px;
-  --row-y-sm: 6px;
-}
-
 /* ── Dark theme ──────────────────────────────────────────── */
 [data-theme="dark"] {
   --bg-primary: #181420;

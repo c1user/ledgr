@@ -9,19 +9,11 @@ const useThemeStore = create(
   persist(
     (set, get) => ({
       theme: "light",
-      density: "comfortable", // table rows: "comfortable" | "compact"
 
       toggleTheme: () => {
         const next = get().theme === "light" ? "dark" : "light";
         document.documentElement.setAttribute("data-theme", next);
         set({ theme: next });
-      },
-
-      toggleDensity: () => {
-        const next =
-          get().density === "compact" ? "comfortable" : "compact";
-        document.documentElement.setAttribute("data-density", next);
-        set({ density: next });
       },
     }),
     {
