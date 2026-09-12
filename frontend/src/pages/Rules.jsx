@@ -60,8 +60,7 @@ function TestPreview({ matchType, pattern, t }) {
   });
 
   if (!enabled) return null;
-  if (isFetching)
-    return <div className="text-xs text-muted mt-1.5">…</div>;
+  if (isFetching) return <div className="text-xs text-muted mt-1.5">…</div>;
   if (isError || data?.error)
     return (
       <div className="text-xs text-expense mt-1.5">{t("rules.testError")}</div>
@@ -136,7 +135,9 @@ function RuleModal({ rule, onClose, categories, t }) {
   }
 
   // Group categories by type for the optgroup selector
-  const incomeCategories = (categories || []).filter((c) => c.type === "income");
+  const incomeCategories = (categories || []).filter(
+    (c) => c.type === "income",
+  );
   const expenseCategories = (categories || []).filter(
     (c) => c.type === "expense",
   );
@@ -176,7 +177,11 @@ function RuleModal({ rule, onClose, categories, t }) {
             onChange={(e) => setForm({ ...form, pattern: e.target.value })}
             autoComplete="off"
           />
-          <TestPreview matchType={form.match_type} pattern={form.pattern} t={t} />
+          <TestPreview
+            matchType={form.match_type}
+            pattern={form.pattern}
+            t={t}
+          />
         </Field>
 
         {/* Category */}
@@ -216,7 +221,10 @@ function RuleModal({ rule, onClose, categories, t }) {
             onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
             className="w-4 h-4 cursor-pointer"
           />
-          <label htmlFor="rule-active" className="text-md text-ink cursor-pointer">
+          <label
+            htmlFor="rule-active"
+            className="text-md text-ink cursor-pointer"
+          >
             {t("rules.active")}
           </label>
         </div>
@@ -243,7 +251,16 @@ function RuleModal({ rule, onClose, categories, t }) {
 }
 
 // ── Rule card ─────────────────────────────────────────────────
-function RuleCard({ rule, index, total, onMoveUp, onMoveDown, onEdit, onDelete, t }) {
+function RuleCard({
+  rule,
+  index,
+  total,
+  onMoveUp,
+  onMoveDown,
+  onEdit,
+  onDelete,
+  t,
+}) {
   const matchTypeLabelMap = {
     contains: "contains",
     equals: "=",
@@ -254,7 +271,7 @@ function RuleCard({ rule, index, total, onMoveUp, onMoveDown, onEdit, onDelete, 
     <Card
       padding="none"
       className={cx(
-        "flex items-center gap-3 px-4 py-3.5",
+        "flex flex-wrap sm:flex-nowrap items-center gap-3 px-4 py-3.5",
         !rule.is_active && "opacity-50",
       )}
     >
@@ -277,7 +294,9 @@ function RuleCard({ rule, index, total, onMoveUp, onMoveDown, onEdit, onDelete, 
           <span className="bg-canvas rounded px-1.5 py-px font-mono">
             {matchTypeLabelMap[rule.match_type]}
           </span>
-          <span className="font-mono text-ink">"{rule.pattern}"</span>
+          <span className="font-mono text-ink break-all md:break-normal">
+            "{rule.pattern}"
+          </span>
           <span>→</span>
           <span className="flex items-center gap-1">
             <span
@@ -293,7 +312,7 @@ function RuleCard({ rule, index, total, onMoveUp, onMoveDown, onEdit, onDelete, 
       </div>
 
       {/* Actions */}
-      <div className="flex gap-1 items-center shrink-0">
+      <div className="flex gap-1 items-center shrink-0 basis-full sm:basis-auto justify-end sm:justify-normal">
         <Button
           size="sm"
           icon="ti-chevron-up"
@@ -335,7 +354,8 @@ export default function Rules() {
   const categories = coaToCategories(coaGroups, t);
 
   const reorderMutation = useMutation({
-    mutationFn: (ids) => api.post("/rules/reorder", { ids }).then((r) => r.data),
+    mutationFn: (ids) =>
+      api.post("/rules/reorder", { ids }).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["rules"] }),
   });
 

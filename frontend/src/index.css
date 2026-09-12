@@ -153,10 +153,14 @@ a:focus-visible,
 @keyframes tourPulse {
   0%,
   100% {
-    box-shadow: 0 0 0 3px var(--brand-light), 0 0 0 5px var(--brand);
+    box-shadow:
+      0 0 0 3px var(--brand-light),
+      0 0 0 5px var(--brand);
   }
   50% {
-    box-shadow: 0 0 0 5px var(--brand-light), 0 0 0 7px var(--brand);
+    box-shadow:
+      0 0 0 5px var(--brand-light),
+      0 0 0 7px var(--brand);
   }
 }
 .tour-highlight {
@@ -164,4 +168,17 @@ a:focus-visible,
   z-index: 390;
   border-radius: 8px;
   animation: tourPulse 1.6s ease-in-out infinite;
+}
+
+/* ── Utilities ───────────────────────────────────────────── */
+@layer utilities {
+  /* Horizontal tab strips / chip rows on phones: keep them swipeable
+     without painting a permanent scrollbar track under them. */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
 }

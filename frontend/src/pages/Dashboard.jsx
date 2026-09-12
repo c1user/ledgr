@@ -298,7 +298,9 @@ function GettingStarted({ steps, navigate, t }) {
             <i
               className={cx(
                 "ti",
-                step.done ? "ti-circle-check text-income" : "ti-circle text-muted",
+                step.done
+                  ? "ti-circle-check text-income"
+                  : "ti-circle text-muted",
               )}
               aria-hidden="true"
             />
@@ -306,7 +308,10 @@ function GettingStarted({ steps, navigate, t }) {
               {t(step.label)}
             </span>
             {!step.done && (
-              <i className="ti ti-chevron-right text-muted text-xs" aria-hidden="true" />
+              <i
+                className="ti ti-chevron-right text-muted text-xs"
+                aria-hidden="true"
+              />
             )}
           </button>
         ))}
@@ -620,10 +625,12 @@ export default function Dashboard() {
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-md font-medium text-ink truncate">
-                        {tx.merchant || t("dashboard.noMerchant")}
+                      <div className="flex items-center flex-wrap text-md font-medium text-ink">
+                        <span className="truncate">
+                          {tx.merchant || t("dashboard.noMerchant")}
+                        </span>
                         {tx.is_split && (
-                          <span className="text-[10px] bg-payroll-bg text-payroll px-1.5 rounded-sm ml-1.5">
+                          <span className="text-[10px] bg-payroll-bg text-payroll px-1.5 rounded-sm ml-1.5 shrink-0">
                             {t("dashboard.split")}
                           </span>
                         )}

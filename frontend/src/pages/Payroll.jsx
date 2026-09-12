@@ -171,8 +171,12 @@ function EmployeeModal({ onClose, editEmployee, t }) {
 
       <form onSubmit={handleSubmit}>
         <SectionLabel>{t("payroll.basicInfo")}</SectionLabel>
-        <div className="grid grid-cols-2 gap-3 mb-3.5">
-          <Field label={t("payroll.fullName")} htmlFor="emp-name" className="mb-0">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3.5">
+          <Field
+            label={t("payroll.fullName")}
+            htmlFor="emp-name"
+            className="mb-0"
+          >
             <Input
               id="emp-name"
               value={form.name}
@@ -192,8 +196,12 @@ function EmployeeModal({ onClose, editEmployee, t }) {
             />
           </Field>
         </div>
-        <div className="grid grid-cols-2 gap-3 mb-3.5">
-          <Field label={t("payroll.ssnFull")} htmlFor="emp-ssn" className="mb-0">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3.5">
+          <Field
+            label={t("payroll.ssnFull")}
+            htmlFor="emp-ssn"
+            className="mb-0"
+          >
             <Input
               id="emp-ssn"
               type="password"
@@ -291,7 +299,7 @@ function EmployeeModal({ onClose, editEmployee, t }) {
         </div>
 
         <SectionLabel>{t("payroll.payInfo")}</SectionLabel>
-        <div className="grid grid-cols-2 gap-3 mb-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3.5">
           <Field
             label={t("payroll.payType")}
             htmlFor="emp-paytype"
@@ -344,7 +352,7 @@ function EmployeeModal({ onClose, editEmployee, t }) {
         </Field>
 
         <SectionLabel>{t("payroll.prSection")}</SectionLabel>
-        <div className="grid grid-cols-2 gap-3 mb-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3.5">
           <Field
             label={t("payroll.classification")}
             htmlFor="emp-class"
@@ -378,16 +386,14 @@ function EmployeeModal({ onClose, editEmployee, t }) {
               }
             >
               <option value="none">{t("payroll.exemptionNone")}</option>
-              <option value="complete">
-                {t("payroll.exemptionComplete")}
-              </option>
+              <option value="complete">{t("payroll.exemptionComplete")}</option>
               <option value="half_joint">
                 {t("payroll.exemptionHalfJoint")}
               </option>
             </Select>
           </Field>
         </div>
-        <div className="grid grid-cols-2 gap-3 mb-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3.5">
           <Field
             label={t("payroll.allowances499")}
             htmlFor="emp-allowances"
@@ -744,7 +750,9 @@ export default function Payroll() {
               title={t("payroll.runPayroll")}
               onClick={() => setShowRunModal(true)}
             >
-              <span className="hidden sm:inline">{t("payroll.runPayroll")}</span>
+              <span className="hidden sm:inline">
+                {t("payroll.runPayroll")}
+              </span>
             </Button>
           </>
         }
@@ -787,7 +795,11 @@ export default function Payroll() {
       {v2Runs && (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3 mb-6">
           {[
-            { label: t("payroll.ytdGross"), value: fmt(ytd.gross), cls: "text-ink" },
+            {
+              label: t("payroll.ytdGross"),
+              value: fmt(ytd.gross),
+              cls: "text-ink",
+            },
             {
               label: t("payroll.ytdTaxes"),
               value: fmt(ytd.taxes),
@@ -856,7 +868,10 @@ export default function Payroll() {
                   <Card
                     key={emp.id}
                     padding="none"
-                    className={cx("px-4 py-3.5", !emp.is_active && "opacity-60")}
+                    className={cx(
+                      "px-4 py-3.5",
+                      !emp.is_active && "opacity-60",
+                    )}
                   >
                     <div className="flex justify-between items-start mb-2.5">
                       <div>
@@ -1029,11 +1044,17 @@ export default function Payroll() {
               <table className="w-full text-[13px]">
                 <thead>
                   <tr className="text-left text-[11px] text-muted uppercase tracking-[0.5px] border-b border-line">
-                    <th className="px-4 py-2.5">{t("payroll.tablePeriod", "Period")}</th>
+                    <th className="px-4 py-2.5">
+                      {t("payroll.tablePeriod", "Period")}
+                    </th>
                     <th className="px-4 py-2.5">{t("payrollV2.payDate")}</th>
                     <th className="px-4 py-2.5">{t("payrollV2.mode")}</th>
-                    <th className="px-4 py-2.5">{t("payroll.tableStatus", "Status")}</th>
-                    <th className="px-4 py-2.5 text-right">{t("payrollV2.net")}</th>
+                    <th className="px-4 py-2.5">
+                      {t("payroll.tableStatus", "Status")}
+                    </th>
+                    <th className="px-4 py-2.5 text-right">
+                      {t("payrollV2.net")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1057,7 +1078,9 @@ export default function Payroll() {
                       </td>
                       <td className="px-4 py-3">
                         <Badge
-                          tone={run.run_mode === "sandbox" ? "danger" : "income"}
+                          tone={
+                            run.run_mode === "sandbox" ? "danger" : "income"
+                          }
                         >
                           {run.run_mode === "sandbox"
                             ? t("payrollV2.modeSandbox")
@@ -1067,9 +1090,11 @@ export default function Payroll() {
                       <td className="px-4 py-3">
                         <Badge
                           tone={
-                            { draft: "payroll", finalized: "income", reversed: "expense" }[
-                              run.status
-                            ]
+                            {
+                              draft: "payroll",
+                              finalized: "income",
+                              reversed: "expense",
+                            }[run.status]
                           }
                         >
                           {t(`payrollV2.status_${run.status}`, run.status)}
@@ -1084,7 +1109,6 @@ export default function Payroll() {
               </table>
             </Card>
           )}
-
         </div>
       )}
 

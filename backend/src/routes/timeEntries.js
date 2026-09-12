@@ -16,7 +16,7 @@ router.get("/", async (req, res) => {
   try {
     let query = `
       SELECT
-        te.id, te.date, te.hours, te.description, te.is_billable, te.hourly_rate,
+        te.id, te.date::text AS date, te.hours, te.description, te.is_billable, te.hourly_rate,
         te.created_at, te.user_id,
         u.name  AS user_name,
         te.project_id,
@@ -72,7 +72,7 @@ router.get("/", async (req, res) => {
 
 // ── POST /api/time-entries ───────────────────────────────────
 router.post("/", async (req, res) => {
-  const { businessId, id: userId } = req.user;
+  const { businessId, userId } = req.user;
   const { projectId, date, hours, description, isBillable, hourlyRate } =
     req.body;
 

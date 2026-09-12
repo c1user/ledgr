@@ -65,7 +65,11 @@ export default function Activity() {
   const [limit, setLimit] = useState(PAGE);
   const [expanded, setExpanded] = useState(null);
 
-  const { data: rows = [], isLoading, isFetching } = useQuery({
+  const {
+    data: rows = [],
+    isLoading,
+    isFetching,
+  } = useQuery({
     queryKey: ["audit-log", action, entityType, limit],
     queryFn: () => {
       const p = new URLSearchParams({ limit });
@@ -76,7 +80,9 @@ export default function Activity() {
   });
 
   const fmtTime = (ts) =>
-    dayjs(ts).format(i18n.language === "es" ? "D MMM YYYY, HH:mm" : "MMM D, YYYY, h:mm A");
+    dayjs(ts).format(
+      i18n.language === "es" ? "D MMM YYYY, HH:mm" : "MMM D, YYYY, h:mm A",
+    );
 
   return (
     <div className="max-w-[860px] mx-auto">
@@ -139,12 +145,15 @@ export default function Activity() {
         <>
           <Card padding="none" className="overflow-hidden">
             {rows.map((row) => (
-              <div key={row.id} className="border-b border-line last:border-b-0">
+              <div
+                key={row.id}
+                className="border-b border-line last:border-b-0"
+              >
                 <button
                   onClick={() =>
                     setExpanded(expanded === row.id ? null : row.id)
                   }
-                  className="flex items-center gap-3 w-full px-4 py-[var(--row-y)] text-left cursor-pointer hover:bg-canvas transition-colors"
+                  className="flex flex-wrap sm:flex-nowrap items-center gap-x-3 gap-y-1.5 sm:gap-y-3 w-full px-4 py-[var(--row-y)] text-left cursor-pointer hover:bg-canvas transition-colors"
                 >
                   <Badge tone={ACTION_TONES[row.action]}>
                     {t(`activity.action_${row.action}`)}
@@ -154,15 +163,15 @@ export default function Activity() {
                   </span>
                   <span
                     className={cx(
-                      "flex-1 min-w-0 truncate text-md",
+                      "basis-full order-last sm:flex-1 sm:order-none min-w-0 truncate text-md",
                       row.summary ? "text-ink" : "text-muted",
                     )}
                   >
                     {row.summary || "—"}
                   </span>
-                  <span className="text-[11px] text-muted shrink-0 text-right">
+                  <span className="flex-1 min-w-0 sm:flex-none text-[11px] text-muted shrink-0 text-right">
                     {row.user_name && (
-                      <span className="block text-secondary font-medium">
+                      <span className="block truncate text-secondary font-medium">
                         {row.user_name}
                       </span>
                     )}

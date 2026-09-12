@@ -79,7 +79,8 @@ function setAtPath(obj, path, value) {
 // ── Leaf editor ──────────────────────────────────────────────
 function ScalarEditor({ k, value, inCents, onChange }) {
   const cents = inCents || isCentsKey(k);
-  const rate = !cents && isRateKey(k) && (value === null || Math.abs(value) < 1);
+  const rate =
+    !cents && isRateKey(k) && (value === null || Math.abs(value) < 1);
 
   if (typeof value === "boolean") {
     return (
@@ -276,7 +277,7 @@ function Node({ k, value, path, inCents, readOnly, onSet, t, depth = 0 }) {
                       <button
                         type="button"
                         onClick={() => removeRow(i)}
-                        className="text-muted hover:text-danger cursor-pointer"
+                        className="inline-flex items-center justify-center w-9 h-9 -mx-3 -my-2 text-muted hover:text-danger cursor-pointer"
                         title={t("common.delete")}
                       >
                         <i className="ti ti-x text-[12px]" aria-hidden="true" />
@@ -292,7 +293,7 @@ function Node({ k, value, path, inCents, readOnly, onSet, t, depth = 0 }) {
           <button
             type="button"
             onClick={addRow}
-            className="text-[12px] text-brand hover:underline mt-1 cursor-pointer"
+            className="text-[12px] text-brand hover:underline mt-1 py-1.5 sm:py-0 cursor-pointer"
           >
             <i className="ti ti-plus mr-1" aria-hidden="true" />
             {t("payrollRules.addRow")}
@@ -305,7 +306,12 @@ function Node({ k, value, path, inCents, readOnly, onSet, t, depth = 0 }) {
   if (kind === "object") {
     const childInCents = isCentsKey(k);
     return (
-      <div className={cx("py-1.5", depth === 0 && "border-b border-line/60 last:border-0")}>
+      <div
+        className={cx(
+          "py-1.5",
+          depth === 0 && "border-b border-line/60 last:border-0",
+        )}
+      >
         <div className="text-[12px] font-semibold text-secondary mb-1">
           {labelFor(k, t)}
         </div>

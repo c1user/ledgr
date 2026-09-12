@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation, Trans } from "react-i18next";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
+import { confirmDialog } from "../store/feedbackStore";
 import dayjs from "dayjs";
 import cx from "../lib/cx";
 import { Button, Card } from "../components/ui";
@@ -22,12 +23,7 @@ function Avatar({ icon }) {
 function Message({ msg }) {
   const isUser = msg.role === "user";
   return (
-    <div
-      className={cx(
-        "flex mb-4",
-        isUser ? "justify-end" : "justify-start",
-      )}
-    >
+    <div className={cx("flex mb-4", isUser ? "justify-end" : "justify-start")}>
       {!isUser && (
         <div className="mr-2">
           <Avatar icon="ti-sparkles" />
@@ -169,6 +165,13 @@ export default function AiChat() {
 
   const deleteConversation = async (id, e) => {
     e.stopPropagation();
+    if (
+      !(await confirmDialog({
+        message: t("aichat.confirmDelete"),
+        danger: true,
+      }))
+    )
+      return;
     setPanelError("");
     try {
       await api.delete(`/ai/conversations/${id}`);
@@ -183,8 +186,8 @@ export default function AiChat() {
   return (
     <div className="fade-in flex flex-col h-[calc(100vh-52px-48px)]">
       {/* Header */}
-      <div className="flex justify-between items-center mb-4 shrink-0">
-        <div>
+      <div className="flex justify-between items-center gap-3 sm:gap-0 mb-4 shrink-0">
+        <div className="min-w-0">
           <h1 className="text-xl font-semibold text-ink mb-1">
             {t("aichat.title")}
           </h1>
@@ -198,15 +201,16 @@ export default function AiChat() {
             />
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           <Button
             icon="ti-history"
             onClick={() => setShowHistory(!showHistory)}
+            title={t("aichat.history")}
           >
-            {t("aichat.history")}
+            <span className="hidden sm:inline">{t("aichat.history")}</span>
           </Button>
-          <Button icon="ti-plus" onClick={startNew}>
-            {t("aichat.newChat")}
+          <Button icon="ti-plus" onClick={startNew} title={t("aichat.newChat")}>
+            <span className="hidden sm:inline">{t("aichat.newChat")}</span>
           </Button>
         </div>
       </div>
@@ -290,55 +294,62 @@ export default function AiChat() {
 
         {/* History panel */}
         {showHistory && (
-          <Card
-            padding="none"
-            className="w-[260px] overflow-hidden shrink-0 flex flex-col"
-          >
-            <div className="flex justify-between items-center px-4 py-3.5 border-b border-line text-md font-medium text-ink">
-              {t("aichat.pastConversations")}
-              <button
-                onClick={() => setShowHistory(false)}
-                className="text-base text-muted cursor-pointer"
-              >
-                <i className="ti ti-x" aria-hidden="true" />
-              </button>
-            </div>
-            {panelError && (
-              <div className="px-4 py-2 text-xs text-danger border-b border-line">
-                {panelError}
+          <>
+            {/* Phone-only backdrop: the panel is a bottom sheet below md */}
+            <div
+              className="fixed inset-0 z-[199] bg-black/40 md:hidden"
+              onClick={() => setShowHistory(false)}
+            />
+            <Card
+              padding="none"
+              className="fixed inset-x-0 bottom-0 z-[200] w-full max-h-[80dvh] rounded-b-none md:static md:z-auto md:w-[260px] md:max-h-none md:rounded-b-card overflow-hidden shrink-0 flex flex-col"
+            >
+              <div className="flex justify-between items-center px-4 py-3.5 border-b border-line text-md font-medium text-ink">
+                {t("aichat.pastConversations")}
+                <button
+                  onClick={() => setShowHistory(false)}
+                  className="text-base text-muted cursor-pointer"
+                >
+                  <i className="ti ti-x" aria-hidden="true" />
+                </button>
               </div>
-            )}
-            <div className="overflow-y-auto flex-1">
-              {!conversations?.length ? (
-                <div className="p-5 text-center text-muted text-md">
-                  {t("aichat.noPastConversations")}
+              {panelError && (
+                <div className="px-4 py-2 text-xs text-danger border-b border-line">
+                  {panelError}
                 </div>
-              ) : (
-                conversations.map((conv) => (
-                  <div
-                    key={conv.id}
-                    onClick={() => loadConversation(conv)}
-                    className="flex justify-between items-start px-4 py-3 border-b border-line cursor-pointer transition-colors hover:bg-canvas"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs text-ink font-medium truncate mb-0.5">
-                        {conv.first_message || t("aichat.newConversation")}
-                      </div>
-                      <div className="text-[11px] text-muted">
-                        {dayjs(conv.updated_at).format("MMM D, YYYY")}
-                      </div>
-                    </div>
-                    <button
-                      onClick={(e) => deleteConversation(conv.id, e)}
-                      className="px-1 py-0.5 shrink-0 ml-1.5 text-danger cursor-pointer"
-                    >
-                      <i className="ti ti-trash text-md" aria-hidden="true" />
-                    </button>
-                  </div>
-                ))
               )}
-            </div>
-          </Card>
+              <div className="overflow-y-auto flex-1">
+                {!conversations?.length ? (
+                  <div className="p-5 text-center text-muted text-md">
+                    {t("aichat.noPastConversations")}
+                  </div>
+                ) : (
+                  conversations.map((conv) => (
+                    <div
+                      key={conv.id}
+                      onClick={() => loadConversation(conv)}
+                      className="flex justify-between items-start px-4 py-3 border-b border-line cursor-pointer transition-colors hover:bg-canvas"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-ink font-medium truncate mb-0.5">
+                          {conv.first_message || t("aichat.newConversation")}
+                        </div>
+                        <div className="text-[11px] text-muted">
+                          {dayjs(conv.updated_at).format("MMM D, YYYY")}
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => deleteConversation(conv.id, e)}
+                        className="inline-flex items-center justify-center min-w-9 min-h-9 shrink-0 -ml-px -mr-[7px] -my-[5px] text-danger cursor-pointer"
+                      >
+                        <i className="ti ti-trash text-md" aria-hidden="true" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </Card>
+          </>
         )}
       </div>
     </div>

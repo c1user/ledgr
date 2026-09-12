@@ -6,7 +6,14 @@ import api from "../lib/api";
 import { downloadFile } from "../lib/download";
 import useAuthStore from "../store/authStore";
 import { toast } from "../store/feedbackStore";
-import { Button, Card, Field, Input, Modal, PageHeader } from "../components/ui";
+import {
+  Button,
+  Card,
+  Field,
+  Input,
+  Modal,
+  PageHeader,
+} from "../components/ui";
 
 // Business (payer) profile — EIN + mailing address. These fill the 480.6SP
 // "informante" block, which the Hacienda export requires before it will run.
@@ -117,7 +124,10 @@ export default function BusinessProfile() {
 
   return (
     <div className="fade-in max-w-[620px] mx-auto">
-      <PageHeader title={t("business.title")} subtitle={t("business.subtitle")} />
+      <PageHeader
+        title={t("business.title")}
+        subtitle={t("business.subtitle")}
+      />
 
       {error && (
         <div className="bg-danger-bg text-danger border border-danger rounded-lg px-3.5 py-2.5 text-md mb-4">
@@ -139,8 +149,10 @@ export default function BusinessProfile() {
                 placeholder: t("business.merchantRegPlaceholder"),
               })}
               {field("address", t("business.address"))}
-              <div className="grid grid-cols-[1fr_100px_110px] gap-3">
-                {field("city", t("business.city"))}
+              <div className="grid grid-cols-2 sm:grid-cols-[1fr_100px_110px] gap-3">
+                <div className="col-span-2 sm:col-span-1">
+                  {field("city", t("business.city"))}
+                </div>
                 {field("state", t("business.state"))}
                 {field("zip", t("business.zip"))}
               </div>

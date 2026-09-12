@@ -572,7 +572,7 @@ export default function Inventory() {
             {products.length} {t("inventory.productCount")}
           </p>
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex flex-wrap sm:flex-nowrap gap-2 items-center">
           <div className="flex gap-0.5 bg-canvas rounded-lg p-1">
             {["products", "valuation"].map((tb) => (
               <button
@@ -594,9 +594,12 @@ export default function Inventory() {
           <Button
             variant="primary"
             icon="ti-plus"
+            title={t("inventory.addProduct")}
             onClick={() => setProductModal({ open: true, product: null })}
           >
-            {t("inventory.addProduct")}
+            <span className="hidden sm:inline">
+              {t("inventory.addProduct")}
+            </span>
           </Button>
         </div>
       </div>

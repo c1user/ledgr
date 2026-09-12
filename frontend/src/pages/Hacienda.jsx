@@ -26,7 +26,12 @@ const makeFmt =
     }).format(val || 0);
 
 const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2, CURRENT_YEAR - 3];
+const YEARS = [
+  CURRENT_YEAR,
+  CURRENT_YEAR - 1,
+  CURRENT_YEAR - 2,
+  CURRENT_YEAR - 3,
+];
 
 function SummaryCard({ label, value }) {
   return (
@@ -111,9 +116,11 @@ export default function Hacienda() {
       <div className="flex justify-between items-center mb-1.5 gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold text-ink">{t("hacienda.title")}</h1>
-          <div className="text-md text-muted mt-1">{t("hacienda.subtitle")}</div>
+          <div className="text-md text-muted mt-1">
+            {t("hacienda.subtitle")}
+          </div>
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap">
           <Select
             className="w-[100px]"
             value={year}
@@ -136,7 +143,7 @@ export default function Hacienda() {
                 : t("hacienda.exportDisabledHint")
             }
           >
-            {t("hacienda.exportCsv")}
+            <span className="hidden sm:inline">{t("hacienda.exportCsv")}</span>
           </Button>
           <Button
             icon="ti-file-export"
@@ -148,7 +155,7 @@ export default function Hacienda() {
                 : t("hacienda.exportDisabledHint")
             }
           >
-            {t("hacienda.suriExport")}
+            <span className="hidden sm:inline">{t("hacienda.suriExport")}</span>
           </Button>
         </div>
       </div>
@@ -191,7 +198,9 @@ export default function Hacienda() {
               <Button
                 type="submit"
                 variant="primary"
-                disabled={!/^\d{1,9}$/.test(controlStart) || exportSuri.isPending}
+                disabled={
+                  !/^\d{1,9}$/.test(controlStart) || exportSuri.isPending
+                }
               >
                 {t("hacienda.suriDownload")}
               </Button>
@@ -247,7 +256,10 @@ export default function Hacienda() {
 
           {/* Reconciliation summary (480.6SP.2 totals) */}
           <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3 mb-5">
-            <SummaryCard label={t("hacienda.recipients")} value={flaggedCount} />
+            <SummaryCard
+              label={t("hacienda.recipients")}
+              value={flaggedCount}
+            />
             <SummaryCard
               label={t("hacienda.totalPaid")}
               value={fmt(data.totals.gross, currency)}
@@ -323,7 +335,9 @@ export default function Hacienda() {
                             title={v.missing_fields.map(fieldLabel).join(", ")}
                           >
                             {t("hacienda.statusMissing", {
-                              fields: v.missing_fields.map(fieldLabel).join(", "),
+                              fields: v.missing_fields
+                                .map(fieldLabel)
+                                .join(", "),
                             })}
                           </Badge>
                         ) : (
@@ -363,9 +377,7 @@ function WithholdingSection({ year, fmt, currency, t }) {
   const { data } = useQuery({
     queryKey: ["withholding-summary", year],
     queryFn: () =>
-      api
-        .get(`/reports/withholding-summary?year=${year}`)
-        .then((r) => r.data),
+      api.get(`/reports/withholding-summary?year=${year}`).then((r) => r.data),
   });
 
   const { data: coaGroups } = useQuery({
@@ -509,9 +521,7 @@ function WithholdingSection({ year, fmt, currency, t }) {
                   step="0.01"
                   min="0"
                   value={form.amount}
-                  onChange={(e) =>
-                    setForm({ ...form, amount: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
                 />
               </Field>
             </div>

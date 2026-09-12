@@ -55,8 +55,7 @@ function getCompareRange(startDate, endDate, mode) {
 function Delta({ current, prev, invert }) {
   if (prev === undefined || prev === null) return null;
   if (prev === 0 && current === 0) return null;
-  const pct =
-    prev === 0 ? null : ((current - prev) / Math.abs(prev)) * 100;
+  const pct = prev === 0 ? null : ((current - prev) / Math.abs(prev)) * 100;
   const up = current >= prev;
   const good = invert ? !up : up;
   return (
@@ -164,7 +163,9 @@ function TrendTooltip({ active, payload, label, fmt, currency }) {
       {payload.map((p) => (
         <div key={p.dataKey} className="flex justify-between gap-4 text-md">
           <span style={{ color: p.color }}>{p.name}</span>
-          <span className="font-semibold text-ink">{fmt(p.value, currency)}</span>
+          <span className="font-semibold text-ink">
+            {fmt(p.value, currency)}
+          </span>
         </div>
       ))}
     </div>
@@ -339,7 +340,7 @@ function FXSummary({ currencies, baseCurrency, fmt, t }) {
         <i className="ti ti-currency-dollar text-base" aria-hidden="true" />
         {t("fx.fxSectionTitle")}
       </div>
-      <div className="grid grid-cols-[auto_1fr_auto_auto] gap-x-4 items-center text-xs text-muted font-semibold tracking-[0.5px] uppercase pb-1.5 border-b-[1.5px] border-line mb-1">
+      <div className="hidden sm:grid grid-cols-[auto_1fr_auto_auto] gap-x-4 items-center text-xs text-muted font-semibold tracking-[0.5px] uppercase pb-1.5 border-b-[1.5px] border-line mb-1">
         <span>{t("fx.fxCurrencyCol")}</span>
         <span />
         <span className="text-right">{t("fx.fxOriginalCol")}</span>
@@ -350,7 +351,7 @@ function FXSummary({ currencies, baseCurrency, fmt, t }) {
       {currencies.map((row) => (
         <div
           key={row.currency}
-          className="grid grid-cols-[auto_1fr_auto_auto] gap-x-4 items-center py-2 border-b border-line"
+          className="grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_auto_auto] gap-x-4 items-center py-2 border-b border-line"
         >
           <span className="text-xs font-bold bg-brand-light text-brand px-2 py-0.5 rounded">
             {row.currency}
@@ -358,12 +359,22 @@ function FXSummary({ currencies, baseCurrency, fmt, t }) {
           <span className="text-xs text-muted">
             {row.count} {t("fx.fxTransactions")}
           </span>
-          <span className="text-md font-medium text-ink text-right">
-            {fmt(parseFloat(row.original_total), row.currency)}
-          </span>
-          <span className="text-md font-medium text-ink text-right">
-            {fmt(parseFloat(row.converted_total), baseCurrency)}
-          </span>
+          {/* Phones: amounts drop to a labelled second row; from sm up the
+              wrapper dissolves (display: contents) into the 4-column grid. */}
+          <div className="col-span-2 mt-1.5 grid grid-cols-2 gap-x-4 sm:contents">
+            <span className="sm:hidden text-[11px] text-muted uppercase tracking-[0.5px] text-right">
+              {t("fx.fxOriginalCol")}
+            </span>
+            <span className="sm:hidden text-[11px] text-muted uppercase tracking-[0.5px] text-right">
+              {t("fx.fxConvertedCol", { base: baseCurrency })}
+            </span>
+            <span className="text-md font-medium text-ink text-right">
+              {fmt(parseFloat(row.original_total), row.currency)}
+            </span>
+            <span className="text-md font-medium text-ink text-right">
+              {fmt(parseFloat(row.converted_total), baseCurrency)}
+            </span>
+          </div>
         </div>
       ))}
     </Card>
@@ -421,7 +432,9 @@ export default function ProfitLoss() {
     <div className="max-w-[1100px] mx-auto">
       {/* Page header */}
       <div className="print-hide flex justify-between items-center mb-5 flex-wrap gap-3">
-        <h1 className="text-xl font-bold text-ink">{t("reports.profitLoss")}</h1>
+        <h1 className="text-xl font-bold text-ink">
+          {t("reports.profitLoss")}
+        </h1>
         <div className="flex gap-2">
           <Button
             size="sm"

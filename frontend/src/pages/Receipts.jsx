@@ -222,7 +222,10 @@ function UploadZone({ onUploaded, t }) {
             <div className="flex gap-2.5 justify-center p-4">
               {!capturedImage ? (
                 <>
-                  <Button onClick={stopCamera} className="flex-1 justify-center">
+                  <Button
+                    onClick={stopCamera}
+                    className="flex-1 justify-center"
+                  >
                     {t("common.cancel")}
                   </Button>
                   <Button
@@ -372,7 +375,8 @@ const CONFIDENCE_CLASSES = {
   medium: { text: "text-payroll", bar: "bg-payroll" },
   low: { text: "text-expense", bar: "bg-expense" },
 };
-const confidenceLevel = (c) => (c >= 0.7 ? "high" : c >= 0.4 ? "medium" : "low");
+const confidenceLevel = (c) =>
+  c >= 0.7 ? "high" : c >= 0.4 ? "medium" : "low";
 
 // ── Receipt Detail Modal ──────────────────────────────────────
 function ReceiptModal({ receipt, onClose, transactions, accounts, fmt, t }) {
@@ -538,8 +542,7 @@ function ReceiptModal({ receipt, onClose, transactions, accounts, fmt, t }) {
     } else if (action === "create") {
       if (!newTx.accountId) return setError(t("receipts.errSelectAccount"));
       if (useSplit) {
-        if (splits.length === 0)
-          return setError(t("transactions.errAddSplit"));
+        if (splits.length === 0) return setError(t("transactions.errAddSplit"));
       } else if (!newTx.categoryId) {
         return setError(t("receipts.errSelectCategory"));
       }
@@ -638,7 +641,11 @@ function ReceiptModal({ receipt, onClose, transactions, accounts, fmt, t }) {
             {t("receipts.reviewHint")}
           </div>
 
-          <Field label={t("common.merchant")} htmlFor="r-merchant" className="mb-3">
+          <Field
+            label={t("common.merchant")}
+            htmlFor="r-merchant"
+            className="mb-3"
+          >
             <Input
               id="r-merchant"
               value={form.merchant}
@@ -890,7 +897,7 @@ function ReceiptModal({ receipt, onClose, transactions, accounts, fmt, t }) {
           {/* Create form */}
           {action === "create" && (
             <div className="mb-4">
-              <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 <Field
                   label={t("common.account")}
                   htmlFor="new-account"
@@ -934,7 +941,11 @@ function ReceiptModal({ receipt, onClose, transactions, accounts, fmt, t }) {
                     value={newTx.type}
                     onChange={(e) => {
                       // category list is type-filtered — reset picks on change
-                      setNewTx({ ...newTx, type: e.target.value, categoryId: "" });
+                      setNewTx({
+                        ...newTx,
+                        type: e.target.value,
+                        categoryId: "",
+                      });
                       setSplits((prev) =>
                         prev.map((s) => ({ ...s, categoryId: "" })),
                       );
@@ -971,9 +982,7 @@ function ReceiptModal({ receipt, onClose, transactions, accounts, fmt, t }) {
                     splits={splits}
                     setSplits={setSplits}
                     totalAmount={form.total}
-                    categories={categories.filter(
-                      (c) => c.type === newTx.type,
-                    )}
+                    categories={categories.filter((c) => c.type === newTx.type)}
                     fmt={fmt}
                     t={t}
                   />
@@ -991,7 +1000,9 @@ function ReceiptModal({ receipt, onClose, transactions, accounts, fmt, t }) {
                       setNewTx({ ...newTx, categoryId: e.target.value })
                     }
                   >
-                    <option value="">{t("transactions.selectACategory")}</option>
+                    <option value="">
+                      {t("transactions.selectACategory")}
+                    </option>
                     {categories
                       .filter((c) => c.type === newTx.type)
                       .map((c) => (
@@ -1010,7 +1021,9 @@ function ReceiptModal({ receipt, onClose, transactions, accounts, fmt, t }) {
                 <Input
                   id="new-notes"
                   value={newTx.notes}
-                  onChange={(e) => setNewTx({ ...newTx, notes: e.target.value })}
+                  onChange={(e) =>
+                    setNewTx({ ...newTx, notes: e.target.value })
+                  }
                   placeholder={t("receipts.notesPlaceholder")}
                 />
               </Field>

@@ -93,7 +93,9 @@ function CategoryModal({ onClose, editCategory, categories, t }) {
       open
       onClose={onClose}
       size="sm"
-      title={editCategory ? t("categories.editTitle") : t("categories.newTitle")}
+      title={
+        editCategory ? t("categories.editTitle") : t("categories.newTitle")
+      }
     >
       {error && (
         <div className="bg-danger-bg text-danger border border-danger rounded-lg px-3.5 py-2.5 text-md mb-4">
@@ -130,7 +132,9 @@ function CategoryModal({ onClose, editCategory, categories, t }) {
               <button
                 key={catType}
                 type="button"
-                onClick={() => setForm({ ...form, type: catType, parentId: "" })}
+                onClick={() =>
+                  setForm({ ...form, type: catType, parentId: "" })
+                }
                 disabled={!!editCategory}
                 className={cx(
                   "flex-1 py-2 rounded-lg border text-md font-medium transition-colors",
@@ -244,10 +248,10 @@ function CategoryCard({ category, subcategories, onEdit, onDelete, t }) {
             )}
           </div>
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-2 md:gap-1">
           <button
             onClick={() => onEdit(category)}
-            className="p-1 text-muted hover:text-ink cursor-pointer"
+            className="inline-flex md:inline-block items-center justify-center w-9 h-9 md:w-auto md:h-auto -m-1 md:m-0 p-1 text-muted hover:text-ink cursor-pointer"
             title={t("common.edit")}
           >
             <i className="ti ti-pencil text-[15px]" aria-hidden="true" />
@@ -255,7 +259,7 @@ function CategoryCard({ category, subcategories, onEdit, onDelete, t }) {
           {!category.is_system && (
             <button
               onClick={() => onDelete(category)}
-              className="p-1 text-danger cursor-pointer"
+              className="inline-flex md:inline-block items-center justify-center w-9 h-9 md:w-auto md:h-auto -m-1 md:m-0 p-1 text-danger cursor-pointer"
               title={t("common.delete")}
             >
               <i className="ti ti-trash text-[15px]" aria-hidden="true" />
@@ -279,16 +283,18 @@ function CategoryCard({ category, subcategories, onEdit, onDelete, t }) {
                 />
                 <span className="text-md text-secondary">{sub.name}</span>
               </div>
-              <div className="flex gap-1">
+              <div className="flex gap-2 md:gap-1">
                 <button
                   onClick={() => onEdit(sub)}
-                  className="p-1 text-muted hover:text-ink cursor-pointer"
+                  title={t("common.edit")}
+                  className="inline-flex md:inline-block items-center justify-center w-9 h-9 md:w-auto md:h-auto -m-1 md:m-0 p-1 text-muted hover:text-ink cursor-pointer"
                 >
                   <i className="ti ti-pencil text-md" aria-hidden="true" />
                 </button>
                 <button
                   onClick={() => onDelete(sub)}
-                  className="p-1 text-danger cursor-pointer"
+                  title={t("common.delete")}
+                  className="inline-flex md:inline-block items-center justify-center w-9 h-9 md:w-auto md:h-auto -m-1 md:m-0 p-1 text-danger cursor-pointer"
                 >
                   <i className="ti ti-trash text-md" aria-hidden="true" />
                 </button>
@@ -313,7 +319,10 @@ export default function Categories() {
     queryKey: ["chart-of-accounts"],
     queryFn: () => api.get("/chart-of-accounts").then((r) => r.data),
   });
-  const categories = useMemo(() => coaToCategories(coaGroups, t), [coaGroups, t]);
+  const categories = useMemo(
+    () => coaToCategories(coaGroups, t),
+    [coaGroups, t],
+  );
 
   const deleteMutation = useMutation({
     mutationFn: (id) => api.delete(`/chart-of-accounts/${id}`),

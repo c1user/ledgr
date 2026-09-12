@@ -15,12 +15,16 @@ import {
   Badge,
   EmptyState,
   Field,
+  FilterSheet,
+  FilterButton,
   Input,
   Modal,
   PageHeader,
   Select,
   Toggle,
 } from "../components/ui";
+
+const EMPTY_FILTERS = { type: "", startDate: "", endDate: "", categoryId: "" };
 
 const makeFmt =
   (lang) =>
@@ -98,7 +102,9 @@ function Chip({ tone = "neutral", icon, children, className }) {
         className,
       )}
     >
-      {icon && <i className={cx("ti", icon, "text-[9px] mr-0.5")} aria-hidden="true" />}
+      {icon && (
+        <i className={cx("ti", icon, "text-[9px] mr-0.5")} aria-hidden="true" />
+      )}
       {children}
     </span>
   );
@@ -303,7 +309,7 @@ function TransactionModal({
         {/* Currency + Amount + Date */}
         <div
           className={cx(
-            "grid grid-cols-[120px_1fr_1fr] gap-3",
+            "grid grid-cols-2 sm:grid-cols-[120px_minmax(0,1fr)_minmax(0,1fr)] gap-3",
             isFx ? "mb-2" : "mb-3.5",
           )}
         >
@@ -351,7 +357,11 @@ function TransactionModal({
               required
             />
           </Field>
-          <Field label={t("common.date")} htmlFor="date" className="mb-0">
+          <Field
+            label={t("common.date")}
+            htmlFor="date"
+            className="mb-0 col-span-2 sm:col-span-1"
+          >
             <Input
               id="date"
               type="date"
@@ -648,11 +658,7 @@ function TransactionModal({
 
         <div className="flex gap-2 justify-end">
           <Button onClick={onClose}>{t("common.cancel")}</Button>
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={mutation.isPending}
-          >
+          <Button type="submit" variant="primary" disabled={mutation.isPending}>
             {mutation.isPending
               ? t("transactions.saving")
               : editTx
@@ -798,7 +804,12 @@ function ImportModal({ onClose, accounts, ledgerAccounts, fmt, t }) {
     accountId && mapped && rows.length > 0 && !importMutation.isPending;
 
   return (
-    <Modal open onClose={onClose} title={t("transactions.importTitle")} size="lg">
+    <Modal
+      open
+      onClose={onClose}
+      title={t("transactions.importTitle")}
+      size="lg"
+    >
       {result ? (
         <div className="text-center py-5">
           <i
@@ -875,7 +886,7 @@ function ImportModal({ onClose, accounts, ledgerAccounts, fmt, t }) {
               <div className="text-xs font-semibold text-muted uppercase tracking-[0.5px] mb-2">
                 {t("transactions.mapColumns")}
               </div>
-              <div className="grid grid-cols-3 gap-3 mb-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
                 <MappingCol
                   k="date"
                   label={t("transactions.colDate")}
@@ -923,16 +934,18 @@ function ImportModal({ onClose, accounts, ledgerAccounts, fmt, t }) {
 
               {mapped && (
                 <Card padding="none" className="overflow-hidden mb-3.5">
-                  <div className="grid grid-cols-[90px_1fr_90px_70px] px-3 py-2 bg-canvas text-[10px] text-muted font-semibold tracking-[0.5px]">
+                  <div className="grid grid-cols-[76px_minmax(0,1fr)_84px] sm:grid-cols-[90px_1fr_90px_70px] px-3 py-2 bg-canvas text-[10px] text-muted font-semibold tracking-[0.5px]">
                     <div>{t("common.date")}</div>
                     <div>{t("common.merchant")}</div>
                     <div className="text-right">{t("common.amount")}</div>
-                    <div className="text-right">{t("common.type")}</div>
+                    <div className="hidden sm:block text-right">
+                      {t("common.type")}
+                    </div>
                   </div>
                   {preview.map((r, i) => (
                     <div
                       key={i}
-                      className="grid grid-cols-[90px_1fr_90px_70px] px-3 py-[7px] border-t border-line text-xs items-center"
+                      className="grid grid-cols-[76px_minmax(0,1fr)_84px] sm:grid-cols-[90px_1fr_90px_70px] px-3 py-[7px] border-t border-line text-xs items-center"
                     >
                       <div className="text-muted">{r.date}</div>
                       <div className="truncate">{r.merchant || "—"}</div>
@@ -944,8 +957,10 @@ function ImportModal({ onClose, accounts, ledgerAccounts, fmt, t }) {
                       >
                         {fmt(r.amount)}
                       </div>
-                      <div className="text-right text-[10px] text-muted">
-                        {r.amount < 0 ? t("common.expense") : t("common.income")}
+                      <div className="hidden sm:block text-right text-[10px] text-muted">
+                        {r.amount < 0
+                          ? t("common.expense")
+                          : t("common.income")}
                       </div>
                     </div>
                   ))}
@@ -995,12 +1010,25 @@ export default function Transactions() {
     setAppliedNewParam(newParam);
     if (newParam) setShowModal(true);
   }
-  const [filters, setFilters] = useState({
-    type: "",
-    startDate: "",
-    endDate: "",
-    categoryId: "",
-  });
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  // Phones get one "Filters" button that opens a bottom sheet. The sheet
+  // edits a draft; nothing refetches until Apply.
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const [draftFilters, setDraftFilters] = useState(EMPTY_FILTERS);
+  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+  const openFilterSheet = () => {
+    setDraftFilters(filters);
+    setFilterSheetOpen(true);
+  };
+  const applyDraftFilters = () => {
+    setFilters(draftFilters);
+    setFilterSheetOpen(false);
+  };
+  const clearFilters = () => {
+    setFilters(EMPTY_FILTERS);
+    setDraftFilters(EMPTY_FILTERS);
+    setFilterSheetOpen(false);
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ["transactions", filters],
@@ -1202,10 +1230,20 @@ export default function Transactions() {
         }
       />
 
-      {/* Filters */}
-      <Card padding="none" className="px-4 py-3 mb-4 flex gap-2 flex-wrap items-center">
+      {/* Filters — phones: one button opens the full set in a bottom sheet;
+          md+ keeps the inline controls. */}
+      <Card
+        padding="none"
+        className="px-4 py-3 mb-4 flex gap-2 flex-wrap items-center"
+      >
+        <FilterButton
+          className="md:hidden"
+          label={t("common.filters")}
+          count={activeFilterCount}
+          onClick={openFilterSheet}
+        />
         <Select
-          className="w-full md:w-[140px]"
+          className="hidden md:block w-[140px]"
           value={filters.type}
           onChange={(e) =>
             setFilters({ ...filters, type: e.target.value, categoryId: "" })
@@ -1236,7 +1274,9 @@ export default function Transactions() {
           className="hidden md:block w-[160px]"
           type="date"
           value={filters.startDate}
-          onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+          onChange={(e) =>
+            setFilters({ ...filters, startDate: e.target.value })
+          }
         />
         <Input
           className="hidden md:block w-[160px]"
@@ -1244,26 +1284,90 @@ export default function Transactions() {
           value={filters.endDate}
           onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
         />
-        {(filters.type ||
-          filters.startDate ||
-          filters.endDate ||
-          filters.categoryId) && (
-          <Button
-            size="sm"
-            icon="ti-x"
-            onClick={() =>
-              setFilters({
-                type: "",
-                startDate: "",
-                endDate: "",
-                categoryId: "",
-              })
-            }
-          >
+        {activeFilterCount > 0 && (
+          <Button size="sm" icon="ti-x" onClick={clearFilters}>
             {t("transactions.clear")}
           </Button>
         )}
       </Card>
+
+      <FilterSheet
+        open={filterSheetOpen}
+        onClose={() => setFilterSheetOpen(false)}
+        title={t("common.filters")}
+        applyLabel={t("common.apply")}
+        clearLabel={t("transactions.clear")}
+        onApply={applyDraftFilters}
+        onClear={clearFilters}
+      >
+        <Field label={t("common.type")} htmlFor="filterType">
+          <Select
+            id="filterType"
+            value={draftFilters.type}
+            onChange={(e) =>
+              setDraftFilters({
+                ...draftFilters,
+                type: e.target.value,
+                categoryId: "",
+              })
+            }
+          >
+            <option value="">{t("transactions.allTypes")}</option>
+            <option value="income">{t("common.income")}</option>
+            <option value="expense">{t("common.expense")}</option>
+          </Select>
+        </Field>
+        <Field label={t("common.category")} htmlFor="filterCategory">
+          <Select
+            id="filterCategory"
+            value={draftFilters.categoryId || ""}
+            onChange={(e) =>
+              setDraftFilters({ ...draftFilters, categoryId: e.target.value })
+            }
+          >
+            <option value="">{t("transactions.allCategories")}</option>
+            {categories
+              ?.filter(
+                (c) => !draftFilters.type || c.type === draftFilters.type,
+              )
+              .map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+          </Select>
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field
+            label={t("common.dateFrom")}
+            htmlFor="filterStart"
+            className="mb-0"
+          >
+            <Input
+              id="filterStart"
+              type="date"
+              value={draftFilters.startDate}
+              onChange={(e) =>
+                setDraftFilters({ ...draftFilters, startDate: e.target.value })
+              }
+            />
+          </Field>
+          <Field
+            label={t("common.dateTo")}
+            htmlFor="filterEnd"
+            className="mb-0"
+          >
+            <Input
+              id="filterEnd"
+              type="date"
+              value={draftFilters.endDate}
+              onChange={(e) =>
+                setDraftFilters({ ...draftFilters, endDate: e.target.value })
+              }
+            />
+          </Field>
+        </div>
+      </FilterSheet>
 
       {/* ── DESKTOP: Table layout ── */}
       <Card padding="none" className="hidden md:block overflow-hidden">
@@ -1284,86 +1388,93 @@ export default function Transactions() {
             </div>
           ))}
         </div>
-        {isLoading ? (
-          loadingState
-        ) : transactions.length === 0 ? (
-          emptyState
-        ) : (
-          transactions.map((tx) => (
-            <div
-              key={tx.id}
-              className="grid grid-cols-[100px_1fr_120px_110px_90px_70px] px-[18px] py-[var(--row-y)] border-b border-line items-center transition-colors hover:bg-canvas"
-            >
-              <div className="text-xs text-muted">
-                {dayjs(tx.date).format("MMM D, YYYY")}
-              </div>
-              <div>
-                <div className="text-md font-medium text-ink">
-                  {tx.merchant || "—"}
-                  {catName(tx) && (
-                    <div className="text-[11px] text-muted mt-px">
-                      {catName(tx)}
-                    </div>
-                  )}
-                  {tx.vendor_name && (
-                    <div className="mt-0.5">
-                      <Chip tone="brand">{tx.vendor_name}</Chip>
-                    </div>
-                  )}
-                  {txChips(tx)}
-                </div>
-                {tx.notes && (
-                  <div className="text-[11px] text-muted mt-px">{tx.notes}</div>
-                )}
-              </div>
-              <div className="text-xs text-secondary">{acctName(tx)}</div>
-              <div
-                className={cx(
-                  "text-md font-semibold",
-                  tx.type === "income" ? "text-income" : "text-expense",
-                )}
-              >
-                {tx.type === "income" ? "+" : "-"}
-                {fmt(tx.total_amount, currency)}
-                {tx.original_currency && tx.original_currency !== currency && (
-                  <div className="text-[10px] text-muted font-normal mt-0.5">
-                    {fmt(tx.original_amount, tx.original_currency)}
+        {isLoading
+          ? loadingState
+          : transactions.length === 0
+            ? emptyState
+            : transactions.map((tx) => (
+                <div
+                  key={tx.id}
+                  className="grid grid-cols-[100px_1fr_120px_110px_90px_70px] px-[18px] py-[var(--row-y)] border-b border-line items-center transition-colors hover:bg-canvas"
+                >
+                  <div className="text-xs text-muted">
+                    {dayjs(tx.date).format("MMM D, YYYY")}
                   </div>
-                )}
-              </div>
-              <div>
-                <Badge tone={tx.type}>{t(`common.${tx.type}`)}</Badge>
-              </div>
-              <div className="flex gap-1.5 justify-end">
-                <button
-                  onClick={() => {
-                    setEditTx(tx);
-                    setShowModal(true);
-                  }}
-                  className="p-1 text-muted hover:text-ink cursor-pointer"
-                  title={t("common.edit")}
-                >
-                  <i className="ti ti-pencil text-[15px]" aria-hidden="true" />
-                </button>
-                <button
-                  onClick={async () => {
-                    if (
-                      await confirmDialog({
-                        message: t("transactions.confirmDelete"),
-                        danger: true,
-                      })
-                    )
-                      deleteMutation.mutate(tx.id);
-                  }}
-                  className="p-1 text-danger cursor-pointer"
-                  title={t("common.delete")}
-                >
-                  <i className="ti ti-trash text-[15px]" aria-hidden="true" />
-                </button>
-              </div>
-            </div>
-          ))
-        )}
+                  <div>
+                    <div className="text-md font-medium text-ink">
+                      {tx.merchant || "—"}
+                      {catName(tx) && (
+                        <div className="text-[11px] text-muted mt-px">
+                          {catName(tx)}
+                        </div>
+                      )}
+                      {tx.vendor_name && (
+                        <div className="mt-0.5">
+                          <Chip tone="brand">{tx.vendor_name}</Chip>
+                        </div>
+                      )}
+                      {txChips(tx)}
+                    </div>
+                    {tx.notes && (
+                      <div className="text-[11px] text-muted mt-px">
+                        {tx.notes}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-xs text-secondary">{acctName(tx)}</div>
+                  <div
+                    className={cx(
+                      "text-md font-semibold",
+                      tx.type === "income" ? "text-income" : "text-expense",
+                    )}
+                  >
+                    {tx.type === "income" ? "+" : "-"}
+                    {fmt(tx.total_amount, currency)}
+                    {tx.original_currency &&
+                      tx.original_currency !== currency && (
+                        <div className="text-[10px] text-muted font-normal mt-0.5">
+                          {fmt(tx.original_amount, tx.original_currency)}
+                        </div>
+                      )}
+                  </div>
+                  <div>
+                    <Badge tone={tx.type}>{t(`common.${tx.type}`)}</Badge>
+                  </div>
+                  <div className="flex gap-1.5 justify-end">
+                    <button
+                      onClick={() => {
+                        setEditTx(tx);
+                        setShowModal(true);
+                      }}
+                      className="p-1 text-muted hover:text-ink cursor-pointer"
+                      title={t("common.edit")}
+                    >
+                      <i
+                        className="ti ti-pencil text-[15px]"
+                        aria-hidden="true"
+                      />
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (
+                          await confirmDialog({
+                            message: t("transactions.confirmDelete"),
+                            danger: true,
+                          })
+                        )
+                          deleteMutation.mutate(tx.id);
+                      }}
+                      className="p-1 text-danger cursor-pointer"
+                      title={t("common.delete")}
+                    >
+                      <i
+                        className="ti ti-trash text-[15px]"
+                        aria-hidden="true"
+                      />
+                    </button>
+                  </div>
+                </div>
+              ))}
       </Card>
 
       {/* ── MOBILE: Card layout ── */}
@@ -1395,8 +1506,10 @@ export default function Transactions() {
                       />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-sm font-medium text-ink truncate">
-                        {tx.merchant || t("dashboard.noMerchant")}
+                      <div className="flex items-center flex-wrap gap-y-0.5 text-sm font-medium text-ink">
+                        <span className="truncate">
+                          {tx.merchant || t("dashboard.noMerchant")}
+                        </span>
                         {txChips(tx)}
                       </div>
                       <div className="text-[11px] text-muted mt-0.5">

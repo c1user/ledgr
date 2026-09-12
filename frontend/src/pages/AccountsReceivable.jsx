@@ -60,46 +60,89 @@ function BucketCard({ label, bucket, fmt, currency }) {
 function ClientTable({ clients, fmt, currency, t, onSelectClient }) {
   const cols = "grid-cols-[1fr_100px_100px_100px_100px_100px_110px]";
   return (
-    <Card padding="none" className="overflow-x-auto">
-      <div className="min-w-[720px]">
-        <div
-          className={cx(
-            "grid px-4 py-2.5 border-b border-line bg-canvas text-[11px] text-muted font-medium tracking-[0.5px]",
-            cols,
-          )}
-        >
-          <div>{t("ar.colClient")}</div>
-          <div className="text-right">{t("ar.bucketCurrent")}</div>
-          <div className="text-right">{t("ar.bucket1_30")}</div>
-          <div className="text-right">{t("ar.bucket31_60")}</div>
-          <div className="text-right">{t("ar.bucket61_90")}</div>
-          <div className="text-right">{t("ar.bucket90_plus")}</div>
-          <div className="text-right">{t("common.total")}</div>
-        </div>
+    <>
+      {/* ── MOBILE: Card layout ── */}
+      <div className="md:hidden flex flex-col gap-2">
         {clients.map((c) => (
-          <div
+          <Card
             key={c.client_id}
+            padding="none"
             onClick={() => onSelectClient(c.client_id)}
+            className="px-4 py-3.5 cursor-pointer transition-colors hover:bg-canvas text-md"
+          >
+            <div className="flex justify-between items-start gap-3">
+              <div
+                className="min-w-0 font-semibold text-ink truncate"
+                title={c.client_name}
+              >
+                {c.client_name}
+              </div>
+              <div className="shrink-0 text-right font-bold text-ink">
+                {fmt(c.total, currency)}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5 text-[11px]">
+              {BUCKETS.map((b) => (
+                <div
+                  key={b.key}
+                  className="flex items-baseline gap-1 whitespace-nowrap"
+                >
+                  <span className="text-muted">{t(b.labelKey)}</span>
+                  <Cell
+                    value={c[b.key]}
+                    fmt={fmt}
+                    currency={currency}
+                    danger={b.key === "d90_plus"}
+                  />
+                </div>
+              ))}
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* ── DESKTOP: Table layout ── */}
+      <Card padding="none" className="hidden md:block overflow-x-auto">
+        <div className="min-w-[720px]">
+          <div
             className={cx(
-              "grid px-4 py-3 border-b border-line items-center cursor-pointer transition-colors hover:bg-canvas text-md",
+              "grid px-4 py-2.5 border-b border-line bg-canvas text-[11px] text-muted font-medium tracking-[0.5px]",
               cols,
             )}
           >
-            <div className="font-semibold text-ink truncate">
-              {c.client_name}
-            </div>
-            <Cell value={c.current} fmt={fmt} currency={currency} />
-            <Cell value={c.d1_30} fmt={fmt} currency={currency} />
-            <Cell value={c.d31_60} fmt={fmt} currency={currency} />
-            <Cell value={c.d61_90} fmt={fmt} currency={currency} />
-            <Cell value={c.d90_plus} fmt={fmt} currency={currency} danger />
-            <div className="text-right font-bold text-ink">
-              {fmt(c.total, currency)}
-            </div>
+            <div>{t("ar.colClient")}</div>
+            <div className="text-right">{t("ar.bucketCurrent")}</div>
+            <div className="text-right">{t("ar.bucket1_30")}</div>
+            <div className="text-right">{t("ar.bucket31_60")}</div>
+            <div className="text-right">{t("ar.bucket61_90")}</div>
+            <div className="text-right">{t("ar.bucket90_plus")}</div>
+            <div className="text-right">{t("common.total")}</div>
           </div>
-        ))}
-      </div>
-    </Card>
+          {clients.map((c) => (
+            <div
+              key={c.client_id}
+              onClick={() => onSelectClient(c.client_id)}
+              className={cx(
+                "grid px-4 py-3 border-b border-line items-center cursor-pointer transition-colors hover:bg-canvas text-md",
+                cols,
+              )}
+            >
+              <div className="font-semibold text-ink truncate">
+                {c.client_name}
+              </div>
+              <Cell value={c.current} fmt={fmt} currency={currency} />
+              <Cell value={c.d1_30} fmt={fmt} currency={currency} />
+              <Cell value={c.d31_60} fmt={fmt} currency={currency} />
+              <Cell value={c.d61_90} fmt={fmt} currency={currency} />
+              <Cell value={c.d90_plus} fmt={fmt} currency={currency} danger />
+              <div className="text-right font-bold text-ink">
+                {fmt(c.total, currency)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </>
   );
 }
 
@@ -121,48 +164,89 @@ function Cell({ value, fmt, currency, danger }) {
 function OverdueList({ invoices, fmt, currency, t, onSelectInvoice }) {
   const cols = "grid-cols-[120px_1fr_120px_90px_110px]";
   return (
-    <Card padding="none" className="overflow-x-auto">
-      <div className="min-w-[560px]">
-        <div
-          className={cx(
-            "grid px-4 py-2.5 border-b border-line bg-canvas text-[11px] text-muted font-medium tracking-[0.5px]",
-            cols,
-          )}
-        >
-          <div>{t("ar.colNumber")}</div>
-          <div>{t("ar.colClient")}</div>
-          <div>{t("ar.colDue")}</div>
-          <div className="text-right">{t("ar.colDaysLate")}</div>
-          <div className="text-right">{t("common.amount")}</div>
-        </div>
+    <>
+      {/* ── MOBILE: Card layout ── */}
+      <div className="md:hidden flex flex-col gap-2">
         {invoices.map((inv) => (
-          <div
+          <Card
             key={inv.id}
+            padding="none"
             onClick={() => onSelectInvoice(inv.id)}
+            className="px-4 py-3.5 cursor-pointer transition-colors hover:bg-canvas"
+          >
+            <div className="flex justify-between items-start gap-3">
+              <div className="min-w-0">
+                <div className="text-md font-semibold text-ink">
+                  {inv.invoice_number}
+                </div>
+                <div
+                  className="text-md text-secondary truncate"
+                  title={inv.client_name}
+                >
+                  {inv.client_name}
+                </div>
+                <div className="text-xs text-muted mt-0.5">
+                  {t("ar.colDue")} {dayjs(inv.due_date).format("MMM D, YYYY")}
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-md font-semibold text-ink">
+                  {fmt(inv.total, currency)}
+                </div>
+                <div className="text-xs font-semibold text-expense mt-0.5">
+                  {t("ar.colDaysLate")}:{" "}
+                  {t("ar.daysLate", { days: inv.days_overdue })}
+                </div>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* ── DESKTOP: Table layout ── */}
+      <Card padding="none" className="hidden md:block overflow-x-auto">
+        <div className="min-w-[560px]">
+          <div
             className={cx(
-              "grid px-4 py-3 border-b border-line items-center cursor-pointer transition-colors hover:bg-canvas",
+              "grid px-4 py-2.5 border-b border-line bg-canvas text-[11px] text-muted font-medium tracking-[0.5px]",
               cols,
             )}
           >
-            <div className="text-md font-semibold text-ink">
-              {inv.invoice_number}
-            </div>
-            <div className="text-md text-secondary truncate">
-              {inv.client_name}
-            </div>
-            <div className="text-xs text-muted">
-              {dayjs(inv.due_date).format("MMM D, YYYY")}
-            </div>
-            <div className="text-xs font-semibold text-right text-expense">
-              {t("ar.daysLate", { days: inv.days_overdue })}
-            </div>
-            <div className="text-md font-semibold text-right text-ink">
-              {fmt(inv.total, currency)}
-            </div>
+            <div>{t("ar.colNumber")}</div>
+            <div>{t("ar.colClient")}</div>
+            <div>{t("ar.colDue")}</div>
+            <div className="text-right">{t("ar.colDaysLate")}</div>
+            <div className="text-right">{t("common.amount")}</div>
           </div>
-        ))}
-      </div>
-    </Card>
+          {invoices.map((inv) => (
+            <div
+              key={inv.id}
+              onClick={() => onSelectInvoice(inv.id)}
+              className={cx(
+                "grid px-4 py-3 border-b border-line items-center cursor-pointer transition-colors hover:bg-canvas",
+                cols,
+              )}
+            >
+              <div className="text-md font-semibold text-ink">
+                {inv.invoice_number}
+              </div>
+              <div className="text-md text-secondary truncate">
+                {inv.client_name}
+              </div>
+              <div className="text-xs text-muted">
+                {dayjs(inv.due_date).format("MMM D, YYYY")}
+              </div>
+              <div className="text-xs font-semibold text-right text-expense">
+                {t("ar.daysLate", { days: inv.days_overdue })}
+              </div>
+              <div className="text-md font-semibold text-right text-ink">
+                {fmt(inv.total, currency)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </>
   );
 }
 
@@ -199,7 +283,8 @@ export default function AccountsReceivable() {
 
   // Deep-link into the invoices page: a client row filters to that client, an
   // overdue row opens that invoice's drawer.
-  const goToClient = (clientId) => navigate(`/sales/invoices?client=${clientId}`);
+  const goToClient = (clientId) =>
+    navigate(`/sales/invoices?client=${clientId}`);
   const goToInvoice = (invoiceId) =>
     navigate(`/sales/invoices?invoice=${invoiceId}`);
 

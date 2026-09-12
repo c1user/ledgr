@@ -164,7 +164,7 @@ Todas las reglas se sembraron como placeholders **UNVERIFIED**; la nómina en mo
 
 ### 3.4 Cuentas de terceros (plazos largos — abrirlas temprano)
 
-- [ ] **Dominio** (~$12/año). Todo lo demás lo referencia: SPF/DKIM, APP_URL, CORS, deep links, listados.
+- [x] **Dominio** — COMPRADO 2026-08-25: **abacopr.com** (primario) y **abacopr.app** (redirect 301 al .com), en Cloudflare Registrar. Todo lo demás lo referencia: SPF/DKIM, APP_URL (`https://abacopr.com`), CORS, deep links, listados.
 - [ ] **Hosting:** backend (Render/Railway/Fly/VPS) + Postgres administrado + host estático para el frontend ($0–25/mes al inicio).
 - [ ] **Email transaccional** (SES/Postmark/Resend) + registros SPF/DKIM/DMARC en el DNS. Sin esto no llegan invitaciones, resets ni verificaciones.
 - [ ] **Stripe:** crear y activar la cuenta (la verificación de identidad tarda días).

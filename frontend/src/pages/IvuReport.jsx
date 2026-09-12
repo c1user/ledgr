@@ -25,7 +25,12 @@ const makeFmt =
     }).format(val || 0);
 
 const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = [CURRENT_YEAR + 1, CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
+const YEARS = [
+  CURRENT_YEAR + 1,
+  CURRENT_YEAR,
+  CURRENT_YEAR - 1,
+  CURRENT_YEAR - 2,
+];
 
 const STATUS_TONE = {
   done: "income",
@@ -33,6 +38,37 @@ const STATUS_TONE = {
   ready: "payroll",
   upcoming: "neutral",
 };
+
+// Phone layout for one row of the monthly table: the six amount columns as
+// label/value pairs. `row` is a month or `data.totals` (same field names).
+const IVU_FIGURES = [
+  ["colTaxable", "taxable_sales"],
+  ["colReduced", "reduced_sales"],
+  ["colExempt", "exempt_sales"],
+  ["colState", "state_tax", true],
+  ["colMuni", "muni_tax", true],
+  ["colPaid", "remitted"],
+];
+
+function IvuFigures({ row, bold, fmt, currency, t }) {
+  return (
+    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+      {IVU_FIGURES.map(([key, field, strong]) => (
+        <div key={key}>
+          <div className="text-[11px] text-muted">{t(`ivu.${key}`)}</div>
+          <div
+            className={cx(
+              "text-md text-ink",
+              bold ? "font-bold" : strong && "font-medium",
+            )}
+          >
+            {fmt(row[field], currency)}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function SummaryCard({ label, value }) {
   return (
@@ -68,7 +104,8 @@ export default function IvuReport() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["ivu-summary", year],
-    queryFn: () => api.get(`/reports/ivu-summary?year=${year}`).then((r) => r.data),
+    queryFn: () =>
+      api.get(`/reports/ivu-summary?year=${year}`).then((r) => r.data),
   });
 
   const { data: coaGroups } = useQuery({
@@ -113,7 +150,9 @@ export default function IvuReport() {
 
   const markDone = useMutation({
     mutationFn: ({ id, done }) =>
-      api.put(`/reports/ivu-calendar/${id}/status`, { done }).then((r) => r.data),
+      api
+        .put(`/reports/ivu-calendar/${id}/status`, { done })
+        .then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ivu-summary"] }),
     onError: () => toast.error(t("ivu.statusFailed")),
   });
@@ -152,7 +191,9 @@ export default function IvuReport() {
   }, [data]);
 
   if (isLoading || !data) {
-    return <div className="p-10 text-center text-muted">{t("common.loading")}</div>;
+    return (
+      <div className="p-10 text-center text-muted">{t("common.loading")}</div>
+    );
   }
 
   const due = data.balance_due;
@@ -168,7 +209,10 @@ export default function IvuReport() {
           <p className="text-xs text-muted">{t("ivu.subtitle")}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Select value={year} onChange={(e) => setYear(Number(e.target.value))}>
+          <Select
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value))}
+          >
             {YEARS.map((y) => (
               <option key={y} value={y}>
                 {y}
@@ -213,7 +257,10 @@ export default function IvuReport() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <SummaryCard
           label={t("ivu.cardTaxable")}
-          value={fmt(data.totals.taxable_sales + data.totals.reduced_sales, currency)}
+          value={fmt(
+            data.totals.taxable_sales + data.totals.reduced_sales,
+            currency,
+          )}
         />
         <SummaryCard
           label={t("ivu.cardState")}
@@ -224,7 +271,9 @@ export default function IvuReport() {
           value={fmt(data.totals.muni_tax, currency)}
         />
         <Card padding="none" className="p-3.5">
-          <div className="text-[11px] text-muted mb-1">{t("ivu.cardBalance")}</div>
+          <div className="text-[11px] text-muted mb-1">
+            {t("ivu.cardBalance")}
+          </div>
           <div
             className={cx(
               "text-lg font-bold",
@@ -258,7 +307,7 @@ export default function IvuReport() {
           </Button>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="hidden md:block overflow-x-auto">
           <div className="min-w-[760px]">
             <div className="grid grid-cols-[110px_1fr_1fr_1fr_1fr_1fr_1fr_130px] gap-x-4 text-xs text-muted font-semibold tracking-[0.5px] uppercase pb-1.5 border-b-[1.5px] border-line mb-1">
               <span>{t("ivu.colMonth")}</span>
@@ -333,14 +382,85 @@ export default function IvuReport() {
             })}
             <div className="grid grid-cols-[110px_1fr_1fr_1fr_1fr_1fr_1fr_130px] gap-x-4 items-center pt-2.5 font-bold text-md text-ink">
               <span>{t("ivu.rowTotal")}</span>
-              <span className="text-right">{fmt(data.totals.taxable_sales, currency)}</span>
-              <span className="text-right">{fmt(data.totals.reduced_sales, currency)}</span>
-              <span className="text-right">{fmt(data.totals.exempt_sales, currency)}</span>
-              <span className="text-right">{fmt(data.totals.state_tax, currency)}</span>
-              <span className="text-right">{fmt(data.totals.muni_tax, currency)}</span>
-              <span className="text-right">{fmt(data.totals.remitted, currency)}</span>
+              <span className="text-right">
+                {fmt(data.totals.taxable_sales, currency)}
+              </span>
+              <span className="text-right">
+                {fmt(data.totals.reduced_sales, currency)}
+              </span>
+              <span className="text-right">
+                {fmt(data.totals.exempt_sales, currency)}
+              </span>
+              <span className="text-right">
+                {fmt(data.totals.state_tax, currency)}
+              </span>
+              <span className="text-right">
+                {fmt(data.totals.muni_tax, currency)}
+              </span>
+              <span className="text-right">
+                {fmt(data.totals.remitted, currency)}
+              </span>
               <span />
             </div>
+          </div>
+        </div>
+
+        {/* ── MOBILE: Card layout ── */}
+        <div className="md:hidden">
+          {data.months.map((m) => {
+            const o = obligationByMonth[m.month];
+            const status = o?.display_status;
+            return (
+              <div key={m.month} className="py-2.5 border-b border-line">
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <span className="text-md font-semibold text-ink capitalize">
+                    {monthName(m.month)}
+                  </span>
+                  <span className="flex items-center gap-1.5 shrink-0">
+                    {status && (
+                      <Badge tone={STATUS_TONE[status] || "neutral"}>
+                        {t(`ivu.status_${status}`)}
+                      </Badge>
+                    )}
+                    {canAct && o && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          markDone.mutate({ id: o.id, done: status !== "done" })
+                        }
+                        className="inline-flex items-center justify-center min-w-9 min-h-9 rounded-md text-muted hover:text-brand hover:bg-canvas cursor-pointer"
+                        title={
+                          status === "done"
+                            ? t("ivu.markNotFiled")
+                            : t("ivu.markFiled")
+                        }
+                      >
+                        <i
+                          className={cx(
+                            "ti text-xs",
+                            status === "done" ? "ti-rotate" : "ti-check",
+                          )}
+                          aria-hidden="true"
+                        />
+                      </button>
+                    )}
+                  </span>
+                </div>
+                <IvuFigures row={m} fmt={fmt} currency={currency} t={t} />
+              </div>
+            );
+          })}
+          <div className="pt-2.5">
+            <div className="text-md font-bold text-ink mb-1.5">
+              {t("ivu.rowTotal")}
+            </div>
+            <IvuFigures
+              row={data.totals}
+              bold
+              fmt={fmt}
+              currency={currency}
+              t={t}
+            />
           </div>
         </div>
 

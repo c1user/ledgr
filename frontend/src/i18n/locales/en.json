@@ -362,7 +362,11 @@
     "total": "Total",
     "netProfit": "Net Profit",
     "thisMonth": "This month",
-    "thisYear": "This year"
+    "thisYear": "This year",
+    "filters": "Filters",
+    "apply": "Apply",
+    "dateFrom": "From",
+    "dateTo": "To"
   },
   "settings": {
     "language": "Language",
@@ -383,6 +387,7 @@
     "newConversation": "New conversation",
     "loadError": "Couldn't load that conversation.",
     "deleteError": "Couldn't delete that conversation.",
+    "confirmDelete": "Delete this conversation?",
     "genericError": "Sorry, something went wrong. Please try again.",
     "suggested": {
       "q1": "What was my biggest expense this month?",

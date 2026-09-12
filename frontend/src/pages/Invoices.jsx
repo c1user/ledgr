@@ -388,7 +388,9 @@ function InvoiceModal({ invoice, clients, revenueAccounts, onClose, t, lang }) {
     ]);
   }
   function removeItem(i) {
-    setItems((arr) => (arr.length > 1 ? arr.filter((_, idx) => idx !== i) : arr));
+    setItems((arr) =>
+      arr.length > 1 ? arr.filter((_, idx) => idx !== i) : arr,
+    );
   }
 
   const saveMutation = useMutation({
@@ -479,7 +481,10 @@ function InvoiceModal({ invoice, clients, revenueAccounts, onClose, t, lang }) {
         )}
 
         <Field label={t("invoices.clientLabel")} className="mb-0">
-          <Select value={form.clientId} onChange={(e) => setClient(e.target.value)}>
+          <Select
+            value={form.clientId}
+            onChange={(e) => setClient(e.target.value)}
+          >
             <option value="">{t("invoices.selectClient")}</option>
             {clients.map((c) => (
               <option key={c.id} value={c.id}>
@@ -544,11 +549,11 @@ function InvoiceModal({ invoice, clients, revenueAccounts, onClose, t, lang }) {
             </div>
           )}
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-3 sm:gap-1.5">
             {items.map((it, i) => (
               <div
                 key={i}
-                className="grid grid-cols-[12px_minmax(0,1fr)_52px_76px_28px] sm:grid-cols-[12px_1fr_64px_90px_90px_30px] gap-1.5 items-center"
+                className="grid grid-cols-[12px_minmax(0,1fr)_36px] sm:grid-cols-[12px_1fr_64px_90px_90px_30px] gap-1.5 items-center"
               >
                 <span
                   title={
@@ -568,34 +573,41 @@ function InvoiceModal({ invoice, clients, revenueAccounts, onClose, t, lang }) {
                   value={it.description}
                   onChange={(e) => updateItem(i, "description", e.target.value)}
                 />
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder={t("invoices.qty")}
-                  value={it.quantity}
-                  onChange={(e) => updateItem(i, "quantity", e.target.value)}
-                  className="text-right"
-                />
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder={t("invoices.unitPrice")}
-                  value={it.unit_price}
-                  onChange={(e) => updateItem(i, "unit_price", e.target.value)}
-                  className="text-right"
-                />
-                <div className="hidden sm:block text-xs text-right text-secondary">
-                  {fmt(
-                    (parseFloat(it.quantity) || 0) *
-                      (parseFloat(it.unit_price) || 0),
-                  )}
+                {/* Phone: qty / price / amount drop to a second row under the
+                    description; from sm up the wrapper is display:contents so
+                    the three cells sit in the single-row grid as before. */}
+                <div className="col-start-2 col-span-2 order-last grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-1.5 items-center sm:contents sm:order-none">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder={t("invoices.qty")}
+                    value={it.quantity}
+                    onChange={(e) => updateItem(i, "quantity", e.target.value)}
+                    className="text-right"
+                  />
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder={t("invoices.unitPrice")}
+                    value={it.unit_price}
+                    onChange={(e) =>
+                      updateItem(i, "unit_price", e.target.value)
+                    }
+                    className="text-right"
+                  />
+                  <div className="text-xs text-right text-secondary">
+                    {fmt(
+                      (parseFloat(it.quantity) || 0) *
+                        (parseFloat(it.unit_price) || 0),
+                    )}
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => removeItem(i)}
-                  className="flex items-center justify-center w-[26px] h-[26px] rounded-md text-muted hover:text-danger hover:bg-danger-bg cursor-pointer"
+                  className="flex items-center justify-center w-9 h-9 sm:w-[26px] sm:h-[26px] rounded-md text-muted hover:text-danger hover:bg-danger-bg cursor-pointer"
                   title={t("common.delete")}
                 >
                   <i className="ti ti-x text-xs" aria-hidden="true" />
@@ -612,7 +624,7 @@ function InvoiceModal({ invoice, clients, revenueAccounts, onClose, t, lang }) {
         <div
           className={
             form.taxType === "ivu"
-              ? "grid grid-cols-[1fr_1fr_110px] gap-2"
+              ? "grid grid-cols-[minmax(0,1fr)_110px] sm:grid-cols-[1fr_1fr_110px] gap-2"
               : "grid grid-cols-[1fr_110px] gap-2"
           }
         >
@@ -627,7 +639,10 @@ function InvoiceModal({ invoice, clients, revenueAccounts, onClose, t, lang }) {
             </Select>
           </Field>
           {form.taxType === "ivu" && (
-            <Field label={t("invoices.ivuPreset")} className="mb-0">
+            <Field
+              label={t("invoices.ivuPreset")}
+              className="mb-0 col-span-2 order-last sm:col-auto sm:order-none"
+            >
               <Select
                 value={ivuPreset}
                 onChange={(e) => applyIvuPreset(e.target.value)}
@@ -660,7 +675,9 @@ function InvoiceModal({ invoice, clients, revenueAccounts, onClose, t, lang }) {
                       : 0,
                 }));
               }}
-              disabled={taxExempt || (form.taxType === "ivu" && ivuPreset !== "custom")}
+              disabled={
+                taxExempt || (form.taxType === "ivu" && ivuPreset !== "custom")
+              }
               className="text-right"
             />
           </Field>
@@ -881,13 +898,17 @@ function InvoiceDrawer({
           : t("invoices.emailSent", { email: invoice?.billing_email || "" }),
       });
     } else {
-      setEmailMsg({ ok: false, text: email.error || t("invoices.emailFailed") });
+      setEmailMsg({
+        ok: false,
+        text: email.error || t("invoices.emailFailed"),
+      });
     }
     setTimeout(() => setEmailMsg(null), 6000);
   }
 
   const sendMutation = useMutation({
-    mutationFn: () => api.post(`/invoices/${invoiceId}/send`).then((r) => r.data),
+    mutationFn: () =>
+      api.post(`/invoices/${invoiceId}/send`).then((r) => r.data),
     onSuccess: (data) => {
       invalidate();
       showEmailResult(data.email);
@@ -921,7 +942,8 @@ function InvoiceDrawer({
     },
   });
   const voidMutation = useMutation({
-    mutationFn: () => api.post(`/invoices/${invoiceId}/void`).then((r) => r.data),
+    mutationFn: () =>
+      api.post(`/invoices/${invoiceId}/void`).then((r) => r.data),
     onSuccess: invalidate,
     onError: (err) =>
       toast.error(err.response?.data?.error || t("invoices.voidFailed")),
@@ -995,7 +1017,10 @@ function InvoiceDrawer({
                   </div>
                 ))}
                 <div className="px-3.5 py-2.5">
-                  <Row label={t("invoices.subtotal")} value={fmt(invoice.subtotal)} />
+                  <Row
+                    label={t("invoices.subtotal")}
+                    value={fmt(invoice.subtotal)}
+                  />
                   {Number(invoice.tax_total) > 0 && (
                     <Row
                       label={
@@ -1018,7 +1043,9 @@ function InvoiceDrawer({
               </Card>
 
               {invoice.notes && (
-                <div className="text-xs text-secondary mb-4">{invoice.notes}</div>
+                <div className="text-xs text-secondary mb-4">
+                  {invoice.notes}
+                </div>
               )}
 
               {emailMsg && (
@@ -1303,7 +1330,8 @@ export default function Invoices() {
   // Name for the active client filter chip (clients list is active-only;
   // fall back to a generic label for an inactive/unknown client).
   const filteredClientName =
-    clients.find((c) => c.id === clientFilter)?.name || t("invoices.thisClient");
+    clients.find((c) => c.id === clientFilter)?.name ||
+    t("invoices.thisClient");
 
   const TABS = [
     { key: "all", label: t("invoices.tabAll") },
@@ -1388,7 +1416,7 @@ export default function Invoices() {
           <button
             onClick={() => updateParams((p) => p.delete("client"))}
             aria-label={t("invoices.clearFilter")}
-            className="flex items-center text-inherit cursor-pointer p-0.5"
+            className="flex items-center justify-center min-w-9 min-h-9 -mx-[9px] -my-1.5 text-inherit cursor-pointer"
           >
             <i className="ti ti-x text-sm" aria-hidden="true" />
           </button>
@@ -1437,8 +1465,57 @@ export default function Invoices() {
         </Card>
       )}
 
+      {/* ── MOBILE: Card layout ── */}
       {!isLoading && invoices.length > 0 && (
-        <Card padding="none" className="overflow-x-auto">
+        <div className="md:hidden flex flex-col gap-2">
+          {invoices.map((inv) => {
+            const eff = inv.is_overdue ? "overdue" : inv.status;
+            return (
+              <Card
+                key={inv.id}
+                padding="none"
+                onClick={() => setSelectedId(inv.id)}
+                className="px-4 py-3.5 cursor-pointer transition-colors hover:bg-canvas"
+              >
+                <div className="flex justify-between items-start gap-3">
+                  <div className="min-w-0">
+                    <div className="text-md font-semibold text-ink">
+                      {inv.invoice_number}
+                    </div>
+                    <div
+                      className="text-md text-secondary truncate"
+                      title={inv.client_name}
+                    >
+                      {inv.client_name}
+                    </div>
+                    <div className="text-xs text-muted mt-0.5">
+                      {t("invoices.colDue")}{" "}
+                      {dayjs(inv.due_date).format("MMM D, YYYY")}
+                      {inv.is_overdue && (
+                        <span className="text-expense ml-1">
+                          ({t("invoices.daysLate", { days: inv.days_overdue })})
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <div className="text-md font-semibold text-ink">
+                      {fmt(inv.total)}
+                    </div>
+                    <div className="mt-1">
+                      <StatusBadge status={eff} t={t} />
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── DESKTOP: Table layout ── */}
+      {!isLoading && invoices.length > 0 && (
+        <Card padding="none" className="hidden md:block overflow-x-auto">
           <div className="min-w-[600px]">
             <div className="grid grid-cols-[120px_1fr_120px_120px_110px] px-4 py-2.5 border-b border-line bg-canvas text-[11px] text-muted font-medium tracking-[0.5px]">
               <div>{t("invoices.colNumber")}</div>

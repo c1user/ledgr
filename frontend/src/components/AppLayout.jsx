@@ -91,7 +91,7 @@ export default function AppLayout() {
     .toUpperCase();
 
   return (
-    <div className="relative flex h-screen overflow-hidden print:h-auto print:overflow-visible">
+    <div className="relative flex h-dvh overflow-hidden print:h-auto print:overflow-visible">
       {/* ── Mobile overlay backdrop ── */}
       {mobile && sidebarOpen && (
         <div
@@ -108,7 +108,7 @@ export default function AppLayout() {
           "transition-[width,transform] duration-200 ease-in-out",
           mobile
             ? cx(
-                "fixed top-0 left-0 h-screen z-[100] w-[220px]",
+                "fixed top-0 left-0 h-dvh z-[100] w-[220px]",
                 sidebarOpen ? "translate-x-0" : "-translate-x-full",
               )
             : sidebarOpen
@@ -247,6 +247,20 @@ export default function AppLayout() {
             </button>
           )}
 
+          {/* Phones: the top bar has no room for these, so they live here. */}
+          {mobile && sidebarOpen && (
+            <div className="flex items-center justify-between gap-2 mb-2 px-1 py-1.5">
+              <LanguageToggle />
+              <button
+                onClick={() => navigate("/plans")}
+                title={t("plans.title")}
+                className="text-[11px] px-2 py-[3px] rounded bg-brand-light text-brand font-medium cursor-pointer hover:opacity-80"
+              >
+                {(plan || business?.plan || "starter").toUpperCase()}
+              </button>
+            </div>
+          )}
+
           {/* User info → My Account */}
           {sidebarOpen && (
             <NavLink
@@ -280,7 +294,10 @@ export default function AppLayout() {
             )}
           >
             <i
-              className={cx("ti ti-logout", sidebarOpen ? "text-sm" : "text-lg")}
+              className={cx(
+                "ti ti-logout",
+                sidebarOpen ? "text-sm" : "text-lg",
+              )}
               aria-hidden="true"
             />
             {sidebarOpen && t("nav.signOut")}
@@ -295,9 +312,10 @@ export default function AppLayout() {
           {/* Mobile menu button */}
           {mobile && (
             <button
+              data-tour="menu"
               onClick={() => setSidebarOpen(true)}
               aria-label={t("nav.openMenu")}
-              className="flex items-center text-xl text-secondary cursor-pointer shrink-0"
+              className="flex items-center p-2 -m-2 text-xl text-secondary cursor-pointer shrink-0"
             >
               <i className="ti ti-menu-2" aria-hidden="true" />
             </button>
@@ -305,27 +323,26 @@ export default function AppLayout() {
 
           {/* Mobile logo */}
           {mobile && (
-            <div className="font-display text-brand text-sm font-bold tracking-[3px] uppercase">
+            <div className="flex-1 font-display text-brand text-sm font-bold tracking-[3px] uppercase">
               {BRAND.name}
             </div>
           )}
 
-          <div
-            className={cx(
-              "flex-1 text-md text-muted",
-              mobile ? "text-right" : "text-left",
-            )}
-          >
-            {new Date().toLocaleDateString(
-              i18n.language === "es" ? "es-PR" : "en-US",
-              {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              },
-            )}
-          </div>
+          {/* Today's date — desktop only. On phones the long form wrapped to
+              three lines and spilled out of the 52px bar. */}
+          {!mobile && (
+            <div className="flex-1 text-md text-muted text-left">
+              {new Date().toLocaleDateString(
+                i18n.language === "es" ? "es-PR" : "en-US",
+                {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                },
+              )}
+            </div>
+          )}
 
           <div className="flex items-center gap-2 shrink-0">
             <div data-tour="quickadd">
@@ -347,14 +364,19 @@ export default function AppLayout() {
               <NotificationBell />
             </div>
             <HelpMenu />
-            <LanguageToggle />
-            <button
-              onClick={() => navigate("/plans")}
-              title={t("plans.title")}
-              className="text-[11px] px-2 py-[3px] rounded bg-brand-light text-brand font-medium cursor-pointer hover:opacity-80"
-            >
-              {(plan || business?.plan || "starter").toUpperCase()}
-            </button>
+            {/* Language + plan move into the drawer on phones (see below). */}
+            {!mobile && (
+              <>
+                <LanguageToggle />
+                <button
+                  onClick={() => navigate("/plans")}
+                  title={t("plans.title")}
+                  className="text-[11px] px-2 py-[3px] rounded bg-brand-light text-brand font-medium cursor-pointer hover:opacity-80"
+                >
+                  {(plan || business?.plan || "starter").toUpperCase()}
+                </button>
+              </>
+            )}
           </div>
         </header>
 
@@ -362,7 +384,10 @@ export default function AppLayout() {
         {user && user.emailVerified === false && !verifyDismissed && (
           <div className="flex items-center justify-between gap-3 px-5 py-2 bg-brand-light text-md border-b border-line print:hidden">
             <div className="text-secondary min-w-0">
-              <i className="ti ti-mail-exclamation text-brand mr-1.5" aria-hidden="true" />
+              <i
+                className="ti ti-mail-exclamation text-brand mr-1.5"
+                aria-hidden="true"
+              />
               {t("account.verifyNudge")}{" "}
               <NavLink to="/account" className="text-brand font-medium">
                 {t("account.verifyNudgeLink")}
@@ -371,7 +396,7 @@ export default function AppLayout() {
             <button
               onClick={() => setVerifyDismissed(true)}
               aria-label={t("common.dismiss")}
-              className="text-muted hover:text-ink cursor-pointer shrink-0"
+              className="p-2 -m-2 text-muted hover:text-ink cursor-pointer shrink-0"
             >
               <i className="ti ti-x" aria-hidden="true" />
             </button>
@@ -384,7 +409,10 @@ export default function AppLayout() {
         </div>
       </div>
 
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+      />
 
       {/* First-run welcome tour — strict false: older cached sessions
           (user object without the flag) never see it mid-session. */}

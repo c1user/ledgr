@@ -4,7 +4,10 @@ import cx from "../../lib/cx";
 export default function Tabs({ tabs, active, onChange, className }) {
   return (
     <div
-      className={cx("flex gap-1 border-b border-line overflow-x-auto", className)}
+      className={cx(
+        "flex gap-1 border-b border-line overflow-x-auto scrollbar-none",
+        className,
+      )}
       role="tablist"
     >
       {tabs.map((tab) => (

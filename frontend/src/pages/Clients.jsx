@@ -113,7 +113,7 @@ function ClientModal({ client, onClose, t }) {
           />
         </Field>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <Field label={t("clients.emailLabel")} className="mb-0">
             <Input
               type="email"
@@ -422,7 +422,9 @@ export default function Clients() {
     if (clientParam) setSearchParams({}, { replace: true });
   };
   const activeClient =
-    selected || (clientParam && clients.find((c) => c.id === clientParam)) || null;
+    selected ||
+    (clientParam && clients.find((c) => c.id === clientParam)) ||
+    null;
 
   const deleteMutation = useMutation({
     mutationFn: (id) => api.delete(`/clients/${id}`).then((r) => r.data),
@@ -540,8 +542,82 @@ export default function Clients() {
         </Card>
       )}
 
+      {/* ── MOBILE: Card layout ── */}
       {!isLoading && clients.length > 0 && (
-        <Card padding="none" className="overflow-x-auto">
+        <div className="md:hidden flex flex-col gap-2">
+          {clients.map((client) => (
+            <Card
+              key={client.id}
+              padding="none"
+              onClick={() => setSelected(client)}
+              className={cx(
+                "px-4 py-3.5 cursor-pointer transition-colors hover:bg-canvas",
+                !client.is_active && "opacity-55",
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <div
+                    className="text-md font-semibold text-ink truncate"
+                    title={client.name}
+                  >
+                    {client.name}
+                  </div>
+                  {(client.city || client.state) && (
+                    <div className="text-[11px] text-muted mt-px">
+                      {[client.city, client.state].filter(Boolean).join(", ")}
+                    </div>
+                  )}
+                  {client.billing_email && (
+                    <div
+                      className="text-[11px] text-secondary truncate"
+                      title={client.billing_email}
+                    >
+                      {client.billing_email}
+                    </div>
+                  )}
+                  {client.phone && (
+                    <div className="text-[11px] text-muted">{client.phone}</div>
+                  )}
+                </div>
+
+                <div className="shrink-0 text-right">
+                  <div
+                    className={cx(
+                      "text-md font-semibold",
+                      parseFloat(client.outstanding) > 0
+                        ? "text-brand"
+                        : "text-muted",
+                    )}
+                  >
+                    {parseFloat(client.outstanding) > 0
+                      ? fmt(client.outstanding)
+                      : "—"}
+                  </div>
+                  <div className="text-[11px] text-muted mt-px">
+                    {t("clients.colInvoices")}: {client.invoice_count}
+                  </div>
+                </div>
+
+                <Button
+                  size="sm"
+                  icon="ti-pencil"
+                  title={t("common.edit")}
+                  className="shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openEdit(client);
+                  }}
+                />
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* ── DESKTOP: Table layout ── */}
+      {!isLoading && clients.length > 0 && (
+        <Card padding="none" className="hidden md:block overflow-x-auto">
           <div className="min-w-[560px]">
             <div className="grid grid-cols-[1fr_180px_90px_120px_50px] px-4 py-2.5 border-b border-line bg-canvas text-[11px] text-muted font-medium tracking-[0.5px]">
               <div>{t("clients.colName")}</div>

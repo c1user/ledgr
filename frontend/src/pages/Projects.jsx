@@ -157,8 +157,12 @@ function ProjectModal({ onClose, clients, editItem, t }) {
           </Field>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 mb-3.5">
-          <Field label={t("projects.budget")} htmlFor="budget" className="mb-0">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3.5">
+          <Field
+            label={t("projects.budget")}
+            htmlFor="budget"
+            className="col-span-2 sm:col-span-1 mb-0"
+          >
             <Input
               id="budget"
               type="number"

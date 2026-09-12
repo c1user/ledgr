@@ -38,7 +38,10 @@ export default function NotificationBell() {
   // Ages are relative to the last fetch (dataUpdatedAt) — a pure input that
   // refreshes with each poll, unlike Date.now() in render.
   const timeAgo = (iso) => {
-    const mins = Math.max(0, Math.floor((dataUpdatedAt - new Date(iso)) / 60000));
+    const mins = Math.max(
+      0,
+      Math.floor((dataUpdatedAt - new Date(iso)) / 60000),
+    );
     if (mins < 1) return t("notif.justNow");
     if (mins < 60) return t("notif.minutesAgo", { n: mins });
     const hours = Math.floor(mins / 60);
@@ -74,8 +77,11 @@ export default function NotificationBell() {
 
       {open && (
         <>
-          <div className="fixed inset-0 z-[150]" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-1.5 z-[160] w-80 bg-surface border border-line rounded-card shadow-card fade-in">
+          <div
+            className="fixed inset-0 z-[150]"
+            onClick={() => setOpen(false)}
+          />
+          <div className="fixed inset-x-3 top-[60px] z-[160] sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-1.5 sm:w-80 bg-surface border border-line rounded-card shadow-card fade-in">
             <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-line">
               <span className="text-xs font-semibold text-ink">
                 {t("notif.title")}
@@ -93,7 +99,10 @@ export default function NotificationBell() {
             <div className="max-h-[360px] overflow-y-auto py-1">
               {items.length === 0 ? (
                 <div className="px-3.5 py-8 text-center text-muted text-md">
-                  <i className="ti ti-bell-off text-xl block mb-1.5" aria-hidden="true" />
+                  <i
+                    className="ti ti-bell-off text-xl block mb-1.5"
+                    aria-hidden="true"
+                  />
                   {t("notif.empty")}
                 </div>
               ) : (

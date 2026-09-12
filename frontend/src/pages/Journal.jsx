@@ -38,7 +38,9 @@ const SOURCE_TONE = {
 };
 
 const coaLabel = (acc, t) => {
-  const name = acc.account_name_key ? t(acc.account_name_key) : acc.account_name;
+  const name = acc.account_name_key
+    ? t(acc.account_name_key)
+    : acc.account_name;
   return acc.account_code ? `${acc.account_code} · ${name}` : name;
 };
 
@@ -85,8 +87,7 @@ export default function Journal() {
     [data],
   );
   const reversedIds = useMemo(
-    () =>
-      new Set(entries.map((e) => e.reverses_entry_id).filter(Boolean)),
+    () => new Set(entries.map((e) => e.reverses_entry_id).filter(Boolean)),
     [entries],
   );
 
@@ -179,18 +180,25 @@ export default function Journal() {
                   {e.lines.map((l) => (
                     <div
                       key={l.id}
-                      className="grid grid-cols-[1fr_110px_110px] gap-x-4 text-md"
+                      className="grid grid-cols-2 sm:grid-cols-[1fr_110px_110px] gap-x-4 text-md"
                     >
                       <span
                         className={cx(
-                          "text-secondary truncate",
+                          "text-secondary col-span-2 break-words sm:col-span-1 sm:truncate",
                           Number(l.credit) > 0 && "pl-5",
                         )}
-                        title={l.memo || undefined}
+                        title={
+                          l.memo
+                            ? `${coaLabel(l, t)} — ${l.memo}`
+                            : coaLabel(l, t)
+                        }
                       >
                         {coaLabel(l, t)}
                         {l.memo ? (
-                          <span className="text-muted text-xs"> — {l.memo}</span>
+                          <span className="text-muted text-xs">
+                            {" "}
+                            — {l.memo}
+                          </span>
                         ) : null}
                       </span>
                       <span className="text-right text-ink">
@@ -267,8 +275,7 @@ function NewEntryModal({ t, fmt, onClose, onSaved }) {
     (s, l) => s + (parseFloat(l.credit) || 0),
     0,
   );
-  const balanced =
-    totalDebit > 0 && Math.abs(totalDebit - totalCredit) < 0.005;
+  const balanced = totalDebit > 0 && Math.abs(totalDebit - totalCredit) < 0.005;
 
   const updateLine = (i, key, val) =>
     setLines((arr) =>
@@ -342,7 +349,7 @@ function NewEntryModal({ t, fmt, onClose, onSaved }) {
         </div>
 
         <div>
-          <div className="grid grid-cols-[1fr_110px_110px_1fr_26px] gap-2 text-xs text-muted font-semibold tracking-[0.5px] uppercase pb-1.5">
+          <div className="hidden sm:grid grid-cols-[1fr_110px_110px_1fr_26px] gap-2 text-xs text-muted font-semibold tracking-[0.5px] uppercase pb-1.5">
             <span>{t("journal.colAccount")}</span>
             <span className="text-right">{t("journal.colDebit")}</span>
             <span className="text-right">{t("journal.colCredit")}</span>
@@ -353,7 +360,7 @@ function NewEntryModal({ t, fmt, onClose, onSaved }) {
             {lines.map((l, i) => (
               <div
                 key={i}
-                className="grid grid-cols-[1fr_110px_110px_1fr_26px] gap-2 items-center"
+                className="grid grid-cols-1 sm:grid-cols-[1fr_110px_110px_1fr_26px] gap-2 items-center pb-3 border-b border-line sm:pb-0 sm:border-b-0"
               >
                 <Select
                   value={l.accountId}
@@ -373,39 +380,56 @@ function NewEntryModal({ t, fmt, onClose, onSaved }) {
                     </optgroup>
                   ))}
                 </Select>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  className="text-right"
-                  value={l.debit}
-                  onChange={(e) => updateLine(i, "debit", e.target.value)}
-                />
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  className="text-right"
-                  value={l.credit}
-                  onChange={(e) => updateLine(i, "credit", e.target.value)}
-                />
-                <Input
-                  type="text"
-                  value={l.memo}
-                  onChange={(e) => updateLine(i, "memo", e.target.value)}
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    setLines((arr) =>
-                      arr.length > 2 ? arr.filter((_, idx) => idx !== i) : arr,
-                    )
-                  }
-                  className="flex items-center justify-center w-[26px] h-[26px] rounded-md text-muted hover:text-danger hover:bg-danger-bg cursor-pointer"
-                  title={t("common.delete")}
-                >
-                  <i className="ti ti-x text-xs" aria-hidden="true" />
-                </button>
+                {/* Phones stack each line; from sm up the wrappers dissolve
+                    (display: contents) so the controls stay direct grid cells. */}
+                <div className="grid grid-cols-2 gap-x-2 gap-y-1 sm:contents">
+                  <span className="sm:hidden text-xs text-muted font-semibold tracking-[0.5px] uppercase">
+                    {t("journal.colDebit")}
+                  </span>
+                  <span className="sm:hidden text-xs text-muted font-semibold tracking-[0.5px] uppercase">
+                    {t("journal.colCredit")}
+                  </span>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="text-right"
+                    value={l.debit}
+                    onChange={(e) => updateLine(i, "debit", e.target.value)}
+                  />
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="text-right"
+                    value={l.credit}
+                    onChange={(e) => updateLine(i, "credit", e.target.value)}
+                  />
+                </div>
+                <div className="grid grid-cols-[1fr_26px] gap-x-2 gap-y-1 items-center sm:contents">
+                  <span className="sm:hidden col-span-2 text-xs text-muted font-semibold tracking-[0.5px] uppercase">
+                    {t("journal.colMemo")}
+                  </span>
+                  <Input
+                    type="text"
+                    value={l.memo}
+                    onChange={(e) => updateLine(i, "memo", e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setLines((arr) =>
+                        arr.length > 2
+                          ? arr.filter((_, idx) => idx !== i)
+                          : arr,
+                      )
+                    }
+                    className="flex items-center justify-center w-[26px] h-[26px] rounded-md text-muted hover:text-danger hover:bg-danger-bg cursor-pointer"
+                    title={t("common.delete")}
+                  >
+                    <i className="ti ti-x text-xs" aria-hidden="true" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -436,8 +460,8 @@ function NewEntryModal({ t, fmt, onClose, onSaved }) {
             {balanced ? t("journal.balanced") : t("journal.unbalanced")}
           </span>
           <span className="text-ink">
-            {t("journal.colDebit")} {fmt(totalDebit)} ·{" "}
-            {t("journal.colCredit")} {fmt(totalCredit)}
+            {t("journal.colDebit")} {fmt(totalDebit)} · {t("journal.colCredit")}{" "}
+            {fmt(totalCredit)}
           </span>
         </div>
 

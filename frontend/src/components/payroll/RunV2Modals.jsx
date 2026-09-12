@@ -142,7 +142,12 @@ export function RunPayrollV2Modal({ onClose, employees, t }) {
     dates.reduce((a, d) => a + (Number(hours[empId]?.[d]) || 0), 0);
 
   return (
-    <Modal open onClose={() => onClose()} title={t("payrollV2.runTitle")} size="xl">
+    <Modal
+      open
+      onClose={() => onClose()}
+      title={t("payrollV2.runTitle")}
+      size="xl"
+    >
       {error && (
         <div className="bg-danger-bg text-danger border border-danger rounded-lg px-3.5 py-2.5 text-md mb-3">
           <i className="ti ti-alert-circle mr-1.5" aria-hidden="true" />
@@ -154,7 +159,8 @@ export function RunPayrollV2Modal({ onClose, employees, t }) {
                   {t(`payrollRules.type_${b.rule_type}`, {
                     defaultValue: b.rule_type,
                   })}{" "}
-                  — {b.reason === "MISSING"
+                  —{" "}
+                  {b.reason === "MISSING"
                     ? t("payrollV2.ruleMissing")
                     : t("payrollRules.unverified")}
                 </li>
@@ -208,7 +214,7 @@ export function RunPayrollV2Modal({ onClose, employees, t }) {
             <table className="text-[12px]">
               <thead>
                 <tr className="border-b border-line">
-                  <th className="px-3 py-2 text-left text-muted sticky left-0 bg-surface">
+                  <th className="px-3 py-2 text-left text-muted sticky left-0 bg-surface max-w-[120px] sm:max-w-none truncate">
                     {t("payroll.tableEmployee", "Employee")}
                   </th>
                   {dates.map((d) => (
@@ -222,8 +228,14 @@ export function RunPayrollV2Modal({ onClose, employees, t }) {
               </thead>
               <tbody>
                 {hourly.map((emp) => (
-                  <tr key={emp.id} className="border-b border-line last:border-0">
-                    <td className="px-3 py-1.5 whitespace-nowrap text-ink sticky left-0 bg-surface">
+                  <tr
+                    key={emp.id}
+                    className="border-b border-line last:border-0"
+                  >
+                    <td
+                      className="px-3 py-1.5 whitespace-nowrap text-ink sticky left-0 bg-surface max-w-[120px] sm:max-w-none truncate"
+                      title={emp.name}
+                    >
                       {emp.name}
                     </td>
                     {dates.map((d) => (
@@ -316,7 +328,9 @@ export function BonusEligibilityPanel({ t, lang }) {
         <table className="w-full text-[13px]">
           <thead>
             <tr className="text-left text-[11px] text-muted uppercase tracking-[0.5px] border-b border-line">
-              <th className="px-4 py-2.5">{t("payroll.tableEmployee", "Employee")}</th>
+              <th className="px-4 py-2.5">
+                {t("payroll.tableEmployee", "Employee")}
+              </th>
               <th className="px-4 py-2.5">{t("payrollV2.bonusHours")}</th>
               <th className="px-4 py-2.5">{t("payrollV2.bonusStatus")}</th>
               <th className="px-4 py-2.5 text-right">
@@ -326,7 +340,10 @@ export function BonusEligibilityPanel({ t, lang }) {
           </thead>
           <tbody>
             {data.employees.map((e) => (
-              <tr key={e.employee_id} className="border-b border-line last:border-0">
+              <tr
+                key={e.employee_id}
+                className="border-b border-line last:border-0"
+              >
                 <td className="px-4 py-3 text-ink">
                   {e.name}
                   <div className="text-[11px] text-muted">
@@ -398,7 +415,8 @@ export function RunV2DetailModal({ runId, onClose, t, lang }) {
   });
 
   const reverseMutation = useMutation({
-    mutationFn: () => api.post(`/payroll-v2/${runId}/reverse`, { confirm: true }),
+    mutationFn: () =>
+      api.post(`/payroll-v2/${runId}/reverse`, { confirm: true }),
     onSuccess: () => {
       invalidate();
       toast.success(t("payrollV2.reversed"));
@@ -420,9 +438,11 @@ export function RunV2DetailModal({ runId, onClose, t, lang }) {
 
   if (!run) return null;
 
-  const statusTone = { draft: "payroll", finalized: "income", reversed: "expense" }[
-    run.status
-  ];
+  const statusTone = {
+    draft: "payroll",
+    finalized: "income",
+    reversed: "expense",
+  }[run.status];
   const itemLabel = (code) =>
     t(`payrollV2.item_${code}`, { defaultValue: code });
 
@@ -445,7 +465,12 @@ export function RunV2DetailModal({ runId, onClose, t, lang }) {
   };
 
   return (
-    <Modal open onClose={onClose} title={t("payrollV2.runDetailTitle")} size="xl">
+    <Modal
+      open
+      onClose={onClose}
+      title={t("payrollV2.runDetailTitle")}
+      size="xl"
+    >
       {run.run_mode === "sandbox" && <WatermarkBanner t={t} />}
 
       <div className="flex items-center gap-2 flex-wrap mb-4">
@@ -549,10 +574,7 @@ export function RunV2DetailModal({ runId, onClose, t, lang }) {
       </div>
 
       <div className="flex gap-2 justify-end flex-wrap">
-        <Button
-          icon="ti-file-type-pdf"
-          onClick={() => downloadPdf("stubs")}
-        >
+        <Button icon="ti-file-type-pdf" onClick={() => downloadPdf("stubs")}>
           {t("payrollV2.stubsPdf")}
         </Button>
         {run.status === "finalized" && !run.reversal_of && (

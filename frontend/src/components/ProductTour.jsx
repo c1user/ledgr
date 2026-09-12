@@ -15,7 +15,13 @@ const STEPS = [
   // key drives the i18n strings; target is highlighted; place positions the
   // card on sm+ screens (mobile always centers).
   { key: "welcome", target: null, place: "center" },
-  { key: "sidebar", target: "[data-tour='sidebar']", place: "left" },
+  {
+    key: "sidebar",
+    target: "[data-tour='sidebar']",
+    // The drawer is off-canvas on phones — ring the hamburger instead.
+    fallback: "[data-tour='menu']",
+    place: "left",
+  },
   { key: "actions", target: "[data-tour='quickadd']", place: "topright" },
   { key: "bell", target: "[data-tour='bell']", place: "topright" },
   { key: "checklist", target: "[data-tour='checklist']", place: "center" },
@@ -37,11 +43,13 @@ export default function ProductTour() {
   // Ring on the current target — class toggling only, cleaned up per step.
   useEffect(() => {
     if (!current.target) return;
-    const el = document.querySelector(current.target);
+    let el = document.querySelector(current.target);
+    if (el && current.fallback && el.getBoundingClientRect().right <= 0)
+      el = document.querySelector(current.fallback);
     if (!el) return;
     el.classList.add("tour-highlight");
     return () => el.classList.remove("tour-highlight");
-  }, [current.target]);
+  }, [current]);
 
   const finish = useMutation({
     // Server first, then local — a failed save just shows the tour again

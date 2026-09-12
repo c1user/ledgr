@@ -10,6 +10,7 @@ export default function Toggle({ checked, onChange, className, ...rest }) {
       onClick={onChange}
       className={cx(
         "relative w-9 h-5 rounded-full cursor-pointer shrink-0 transition-colors",
+        "after:absolute after:-inset-2 after:content-['']",
         checked ? "bg-brand" : "bg-line",
         className,
       )}

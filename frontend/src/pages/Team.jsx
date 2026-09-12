@@ -35,9 +35,7 @@ function InviteModal({ onClose, t, lang }) {
 
   const inviteMutation = useMutation({
     mutationFn: () =>
-      api
-        .post("/team/invites", { ...form, lang })
-        .then((r) => r.data),
+      api.post("/team/invites", { ...form, lang }).then((r) => r.data),
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["team"] });
       setResult(data);
@@ -226,79 +224,83 @@ export default function Team() {
                   </div>
                 </div>
 
-                {statusBadge(m)}
+                <div className="flex flex-wrap items-center gap-2 basis-full sm:contents">
+                  {statusBadge(m)}
 
-                {isOwner && !isSelf && !m.pending ? (
-                  <Select
-                    value={m.role}
-                    disabled={updateMutation.isPending}
-                    onChange={(e) =>
-                      updateMutation.mutate({
-                        id: m.id,
-                        body: { role: e.target.value },
-                      })
-                    }
-                    className="w-auto px-2 py-1 text-xs"
-                    aria-label={t("team.role")}
-                  >
-                    <option value="owner">{t("team.role_owner")}</option>
-                    <option value="admin">{t("team.role_admin")}</option>
-                    <option value="viewer">{t("team.role_viewer")}</option>
-                  </Select>
-                ) : (
-                  <Badge tone={ROLE_TONES[m.role] || "neutral"}>
-                    {t(`team.role_${m.role}`, m.role)}
-                  </Badge>
-                )}
-
-                {canInvite && m.pending && (
-                  <Button
-                    size="sm"
-                    icon="ti-copy"
-                    disabled={resendMutation.isPending}
-                    onClick={() => resendMutation.mutate(m.id)}
-                    title={t("team.resendHint")}
-                  >
-                    {t("team.copyLink")}
-                  </Button>
-                )}
-
-                {isOwner && !isSelf && (
-                  m.is_active ? (
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      icon={m.pending ? "ti-trash" : "ti-user-off"}
-                      onClick={async () => {
-                        if (
-                          await confirmDialog({
-                            message: m.pending
-                              ? t("team.confirmRemoveInvite", { email: m.email })
-                              : t("team.confirmDeactivate", { name: m.name }),
-                            confirmLabel: m.pending
-                              ? t("common.delete")
-                              : t("team.deactivate"),
-                            danger: true,
-                          })
-                        )
-                          removeMutation.mutate(m.id);
-                      }}
-                    />
-                  ) : (
-                    <Button
-                      size="sm"
-                      icon="ti-user-check"
-                      onClick={() =>
+                  {isOwner && !isSelf && !m.pending ? (
+                    <Select
+                      value={m.role}
+                      disabled={updateMutation.isPending}
+                      onChange={(e) =>
                         updateMutation.mutate({
                           id: m.id,
-                          body: { isActive: true },
+                          body: { role: e.target.value },
                         })
                       }
+                      className="w-auto max-w-[140px] sm:max-w-none px-2 py-1 text-xs"
+                      aria-label={t("team.role")}
                     >
-                      {t("team.reactivate")}
+                      <option value="owner">{t("team.role_owner")}</option>
+                      <option value="admin">{t("team.role_admin")}</option>
+                      <option value="viewer">{t("team.role_viewer")}</option>
+                    </Select>
+                  ) : (
+                    <Badge tone={ROLE_TONES[m.role] || "neutral"}>
+                      {t(`team.role_${m.role}`, m.role)}
+                    </Badge>
+                  )}
+
+                  {canInvite && m.pending && (
+                    <Button
+                      size="sm"
+                      icon="ti-copy"
+                      disabled={resendMutation.isPending}
+                      onClick={() => resendMutation.mutate(m.id)}
+                      title={t("team.resendHint")}
+                    >
+                      {t("team.copyLink")}
                     </Button>
-                  )
-                )}
+                  )}
+
+                  {isOwner &&
+                    !isSelf &&
+                    (m.is_active ? (
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        icon={m.pending ? "ti-trash" : "ti-user-off"}
+                        onClick={async () => {
+                          if (
+                            await confirmDialog({
+                              message: m.pending
+                                ? t("team.confirmRemoveInvite", {
+                                    email: m.email,
+                                  })
+                                : t("team.confirmDeactivate", { name: m.name }),
+                              confirmLabel: m.pending
+                                ? t("common.delete")
+                                : t("team.deactivate"),
+                              danger: true,
+                            })
+                          )
+                            removeMutation.mutate(m.id);
+                        }}
+                      />
+                    ) : (
+                      <Button
+                        size="sm"
+                        icon="ti-user-check"
+                        onClick={() =>
+                          updateMutation.mutate({
+                            id: m.id,
+                            body: { isActive: true },
+                          })
+                        }
+                      >
+                        {t("team.reactivate")}
+                      </Button>
+                    ))}
+                </div>
               </div>
             );
           })}

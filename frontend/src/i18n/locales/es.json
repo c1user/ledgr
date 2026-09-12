@@ -362,7 +362,11 @@
     "total": "Total",
     "netProfit": "Ganancia neta",
     "thisMonth": "Este mes",
-    "thisYear": "Este año"
+    "thisYear": "Este año",
+    "filters": "Filtros",
+    "apply": "Aplicar",
+    "dateFrom": "Desde",
+    "dateTo": "Hasta"
   },
   "settings": {
     "language": "Idioma",
@@ -383,6 +387,7 @@
     "newConversation": "Nueva conversación",
     "loadError": "No se pudo cargar esa conversación.",
     "deleteError": "No se pudo eliminar esa conversación.",
+    "confirmDelete": "¿Eliminar esta conversación?",
     "genericError": "Lo sentimos, algo salió mal. Inténtalo de nuevo.",
     "suggested": {
       "q1": "¿Cuál fue mi mayor gasto este mes?",

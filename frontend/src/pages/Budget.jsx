@@ -97,13 +97,12 @@ function OverviewTab({ month }) {
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["budget-summary", month],
-    queryFn: () => api.get(`/budgets/summary?month=${month}`).then((r) => r.data),
+    queryFn: () =>
+      api.get(`/budgets/summary?month=${month}`).then((r) => r.data),
   });
 
   if (isLoading) {
-    return (
-      <div className="p-10 text-center text-muted text-sm">Loading…</div>
-    );
+    return <div className="p-10 text-center text-muted text-sm">Loading…</div>;
   }
 
   if (rows.length === 0) {
@@ -197,7 +196,11 @@ function OverviewTab({ month }) {
           <span>{fmt(totalBudget)} budgeted</span>
         </div>
         <div className="flex">
-          <ProgressBar actual={totalActual} budget={totalBudget} type="expense" />
+          <ProgressBar
+            actual={totalActual}
+            budget={totalBudget}
+            type="expense"
+          />
         </div>
       </Card>
 
@@ -328,8 +331,8 @@ function SetupTab({ month }) {
   const CategoryInputRow = ({ cat }) => {
     const line = amounts[cat.id] || { amount: "", rollover: false };
     return (
-      <div className="grid grid-cols-[1fr_auto_auto] gap-3 items-center py-2 border-b border-line">
-        <div className="flex items-center gap-2">
+      <div className="grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_auto_auto] gap-3 gap-y-1.5 sm:gap-y-3 items-center py-2 border-b border-line">
+        <div className="flex items-center gap-2 col-span-2 sm:col-span-1">
           <div
             className="w-2.5 h-2.5 rounded-full shrink-0"
             style={{ background: cat.color || "var(--brand)" }}

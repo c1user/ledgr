@@ -40,7 +40,7 @@ export default function Modal({
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div
         className={cx(
-          "relative w-full flex flex-col max-h-[92vh] sm:max-h-[85vh] fade-in",
+          "relative w-full flex flex-col max-h-[92dvh] sm:max-h-[85vh] fade-in",
           "bg-surface border border-line shadow-card rounded-t-card sm:rounded-card",
           SIZES[size],
         )}

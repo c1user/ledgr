@@ -7,7 +7,7 @@ export default function TabNav({ tabs, className }) {
   return (
     <div
       className={cx(
-        "flex gap-1 mb-5 border-b border-line overflow-x-auto",
+        "flex gap-1 mb-5 border-b border-line overflow-x-auto scrollbar-none",
         className,
       )}
     >

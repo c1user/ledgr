@@ -310,16 +310,19 @@ export default function Accounts() {
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-1">
+                <div className="flex gap-2 md:gap-1">
                   <button
                     onClick={() => {
                       setEditAccount(acc);
                       setShowModal(true);
                     }}
-                    className="p-1 rounded text-muted hover:text-ink cursor-pointer"
+                    className="inline-flex md:inline-block items-center justify-center w-9 h-9 md:w-auto md:h-auto -m-1 md:m-0 p-1 rounded text-muted hover:text-ink cursor-pointer"
                     title={t("common.edit")}
                   >
-                    <i className="ti ti-pencil text-[15px]" aria-hidden="true" />
+                    <i
+                      className="ti ti-pencil text-[15px]"
+                      aria-hidden="true"
+                    />
                   </button>
                   <button
                     onClick={async () => {
@@ -332,7 +335,7 @@ export default function Accounts() {
                       )
                         deleteMutation.mutate(acc.id);
                     }}
-                    className="p-1 rounded text-danger cursor-pointer"
+                    className="inline-flex md:inline-block items-center justify-center w-9 h-9 md:w-auto md:h-auto -m-1 md:m-0 p-1 rounded text-danger cursor-pointer"
                     title={t("accounts.deactivate")}
                   >
                     <i className="ti ti-trash text-[15px]" aria-hidden="true" />
