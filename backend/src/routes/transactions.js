@@ -136,6 +136,9 @@ router.get("/", async (req, res) => {
         v.name AS vendor_name,
         pr.name AS project_name, pr.color AS project_color,
         r.id AS receipt_id, r.status AS receipt_status,
+        t.reconciliation_id, rc.status AS reconciliation_status,
+        t.reconciliation_id, rc.status AS reconciliation_status,
+        t.reconciliation_id, rc.status AS reconciliation_status,
         COALESCE(
           json_agg(
             json_build_object(
@@ -161,8 +164,9 @@ router.get("/", async (req, res) => {
       LEFT JOIN journal_entry_lines jel ON jel.journal_entry_id = je.id
       LEFT JOIN chart_of_accounts coa
         ON coa.id = jel.account_id AND coa.account_type IN ('revenue','expense')
+      LEFT JOIN reconciliations rc ON rc.id = t.reconciliation_id
       ${where}
-      GROUP BY t.id, a.name, fcoa.name, fcoa.name_key, u.name, v.name, pr.name, pr.color, r.id, r.status
+      GROUP BY t.id, a.name, fcoa.name, fcoa.name_key, u.name, v.name, pr.name, pr.color, r.id, r.status, rc.status
       ORDER BY t.date DESC, t.created_at DESC
       LIMIT $${limitIdx} OFFSET $${offsetIdx}`;
 
@@ -867,18 +871,23 @@ router.delete("/:id", async (req, res) => {
       return res.status(404).json({ error: "Transaction not found" });
     }
 
-    // Reconciled periods are locked — the books must keep matching the bank.
+    // Reconciled transactions can never be deleted: a completed
+    // reconciliation locks its period, and one cleared in an in-progress
+    // reconciliation would silently break that reconciliation's running
+    // total — it has to be un-cleared there first.
     if (existing.rows[0].reconciliation_id) {
-      const locked = await client.query(
-        "SELECT 1 FROM reconciliations WHERE id = $1 AND status = 'completed'",
+      const recon = await client.query(
+        "SELECT status FROM reconciliations WHERE id = $1",
         [existing.rows[0].reconciliation_id],
       );
-      if (locked.rowCount > 0) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({
-          error: "This transaction is locked by a completed reconciliation",
-        });
-      }
+      await client.query("ROLLBACK");
+      const completed = recon.rows[0]?.status === "completed";
+      return res.status(400).json({
+        error: completed
+          ? "This transaction is locked by a completed reconciliation"
+          : "This transaction is cleared in an in-progress reconciliation. Un-clear it in Reconcile before deleting it.",
+        code: "RECONCILED",
+      });
     }
 
     // Remove ledger entry (lines cascade), then the header.

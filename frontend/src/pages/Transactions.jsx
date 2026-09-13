@@ -4,7 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import useAuthStore from "../store/authStore";
-import { confirmDialog } from "../store/feedbackStore";
+import { confirmDialog, toast } from "../store/feedbackStore";
 import dayjs from "dayjs";
 import Papa from "papaparse";
 import cx from "../lib/cx";
@@ -1135,7 +1135,24 @@ export default function Transactions() {
       queryClient.invalidateQueries({ queryKey: ["balances"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
     },
+    onError: (err) =>
+      toast.error(err.response?.data?.error || t("transactions.deleteFailed")),
   });
+
+  // Deleting removes the ledger posting, so the funding account's balance
+  // (and every report) moves — spell that out before asking.
+  const confirmDeleteTx = async (tx) => {
+    const ok = await confirmDialog({
+      title: t("transactions.confirmDeleteTitle"),
+      message: t("transactions.confirmDeleteWarning", {
+        amount: `${tx.type === "income" ? "+" : "-"}${fmt(tx.total_amount, currency)}`,
+        account: acctName(tx) || t("common.account"),
+      }),
+      confirmLabel: t("transactions.deleteAnyway"),
+      danger: true,
+    });
+    if (ok) deleteMutation.mutate(tx.id);
+  };
 
   const handleClose = () => {
     setShowModal(false);
@@ -1180,6 +1197,11 @@ export default function Transactions() {
       {tx.recurring_id && (
         <Chip tone="neutral" icon="ti-repeat" className="ml-1.5">
           {t("transactions.recurring")}
+        </Chip>
+      )}
+      {tx.reconciliation_id && (
+        <Chip tone="neutral" icon="ti-lock" className="ml-1.5">
+          {t("transactions.reconciled")}
         </Chip>
       )}
     </>
@@ -1464,24 +1486,29 @@ export default function Transactions() {
                         aria-hidden="true"
                       />
                     </button>
-                    <button
-                      onClick={async () => {
-                        if (
-                          await confirmDialog({
-                            message: t("transactions.confirmDelete"),
-                            danger: true,
-                          })
-                        )
-                          deleteMutation.mutate(tx.id);
-                      }}
-                      className="p-1 text-danger cursor-pointer"
-                      title={t("common.delete")}
-                    >
-                      <i
-                        className="ti ti-trash text-[15px]"
-                        aria-hidden="true"
-                      />
-                    </button>
+                    {tx.reconciliation_id ? (
+                      <span
+                        className="inline-flex p-1 text-muted cursor-not-allowed"
+                        title={t("transactions.deleteLocked")}
+                        aria-label={t("transactions.deleteLocked")}
+                      >
+                        <i
+                          className="ti ti-lock text-[15px]"
+                          aria-hidden="true"
+                        />
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => confirmDeleteTx(tx)}
+                        className="p-1 text-danger cursor-pointer"
+                        title={t("common.delete")}
+                      >
+                        <i
+                          className="ti ti-trash text-[15px]"
+                          aria-hidden="true"
+                        />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1564,21 +1591,23 @@ export default function Transactions() {
                       <i className="ti ti-pencil" aria-hidden="true" />{" "}
                       {t("common.edit")}
                     </button>
-                    <button
-                      onClick={async () => {
-                        if (
-                          await confirmDialog({
-                            message: t("transactions.confirmDelete"),
-                            danger: true,
-                          })
-                        )
-                          deleteMutation.mutate(tx.id);
-                      }}
-                      className="flex items-center gap-1 px-2 py-1 text-md text-danger cursor-pointer"
-                    >
-                      <i className="ti ti-trash" aria-hidden="true" />{" "}
-                      {t("common.delete")}
-                    </button>
+                    {tx.reconciliation_id ? (
+                      <span
+                        className="flex items-center gap-1 px-2 py-1 text-md text-muted"
+                        title={t("transactions.deleteLocked")}
+                      >
+                        <i className="ti ti-lock" aria-hidden="true" />{" "}
+                        {t("transactions.reconciled")}
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => confirmDeleteTx(tx)}
+                        className="flex items-center gap-1 px-2 py-1 text-md text-danger cursor-pointer"
+                      >
+                        <i className="ti ti-trash" aria-hidden="true" />{" "}
+                        {t("common.delete")}
+                      </button>
+                    )}
                   </div>
                 </div>
               </Card>
