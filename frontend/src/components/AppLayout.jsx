@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import api from "../lib/api";
 import useAuthStore from "../store/authStore";
 import useThemeStore from "../store/themeStore";
 import useInventoryStore from "../store/inventoryStore";
-import LanguageToggle from "../components/LanguageToggle";
 import { setAppLanguage } from "../i18n";
 import BRAND from "../config/brand";
 import BrandMark from "./BrandMark";
@@ -13,7 +14,7 @@ import QuickAdd from "./QuickAdd";
 import HelpMenu from "./HelpMenu";
 import NotificationBell from "./NotificationBell";
 import ProductTour from "./ProductTour";
-import { navGroups } from "../config/nav";
+import { navGroups, isNavHidden } from "../config/nav";
 import cx from "../lib/cx";
 import useEntitlements from "../lib/useEntitlements";
 import { Toggle } from "./ui";
@@ -22,7 +23,7 @@ const MOBILE_BREAKPOINT = 768;
 
 export default function AppLayout() {
   const { t, i18n } = useTranslation();
-  const { user, business, logout } = useAuthStore();
+  const { user, business, logout, setBusiness } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
   const { plan, hasFeature, isLoading: entLoading } = useEntitlements();
   const reorderCount = useInventoryStore((s) => s.reorderCount);
@@ -30,6 +31,15 @@ export default function AppLayout() {
   const location = useLocation();
 
   const isMobile = () => window.innerWidth < MOBILE_BREAKPOINT;
+
+  // Sections hidden in Business Profile → Menu; groups left empty vanish.
+  const hiddenNav = business?.hiddenNav || [];
+  const visibleGroups = navGroups
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((i) => !isNavHidden(i.to, hiddenNav)),
+    }))
+    .filter((g) => g.items.length > 0);
 
   // Sidebar open state — collapsed by default on mobile
   const [sidebarOpen, setSidebarOpen] = useState(() => !isMobile());
@@ -49,6 +59,25 @@ export default function AppLayout() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // Refresh the persisted business snapshot once per load: the menu
+  // customization (and plan/name) may have changed from another device or
+  // by another admin since this session was stored.
+  const { data: me } = useQuery({
+    queryKey: ["auth-me"],
+    queryFn: () => api.get("/auth/me").then((r) => r.data),
+    enabled: !!user,
+    staleTime: Infinity,
+  });
+  useEffect(() => {
+    if (!me?.business) return;
+    setBusiness({
+      name: me.business.name,
+      plan: me.business.plan,
+      currency: me.business.currency,
+      hiddenNav: me.business.hiddenNav || [],
+    });
+  }, [me, setBusiness]);
 
   // Apply the user's saved language on login and on page refresh
   useEffect(() => {
@@ -152,7 +181,7 @@ export default function AppLayout() {
 
         {/* Nav links */}
         <nav className="flex-1 py-2.5 overflow-y-auto overflow-x-hidden">
-          {navGroups.map((group, groupIndex) => (
+          {visibleGroups.map((group, groupIndex) => (
             <div key={group.label || `group-${groupIndex}`}>
               {/* Section header (expanded) or a divider (collapsed) */}
               {group.label &&
@@ -247,10 +276,9 @@ export default function AppLayout() {
             </button>
           )}
 
-          {/* Phones: the top bar has no room for these, so they live here. */}
+          {/* Phones: the top bar has no room for the plan badge, so it lives here. */}
           {mobile && sidebarOpen && (
-            <div className="flex items-center justify-between gap-2 mb-2 px-1 py-1.5">
-              <LanguageToggle />
+            <div className="flex items-center justify-end gap-2 mb-2 px-1 py-1.5">
               <button
                 onClick={() => navigate("/plans")}
                 title={t("plans.title")}
@@ -264,7 +292,7 @@ export default function AppLayout() {
           {/* User info → My Account */}
           {sidebarOpen && (
             <NavLink
-              to="/account"
+              to="/settings/account"
               title={t("account.title")}
               className="flex items-center gap-2 mb-2 rounded-md px-1 py-1 -mx-1 hover:bg-canvas"
             >
@@ -364,18 +392,15 @@ export default function AppLayout() {
               <NotificationBell />
             </div>
             <HelpMenu />
-            {/* Language + plan move into the drawer on phones (see below). */}
+            {/* The plan badge moves into the drawer on phones (see below). */}
             {!mobile && (
-              <>
-                <LanguageToggle />
-                <button
-                  onClick={() => navigate("/plans")}
-                  title={t("plans.title")}
-                  className="text-[11px] px-2 py-[3px] rounded bg-brand-light text-brand font-medium cursor-pointer hover:opacity-80"
-                >
-                  {(plan || business?.plan || "starter").toUpperCase()}
-                </button>
-              </>
+              <button
+                onClick={() => navigate("/plans")}
+                title={t("plans.title")}
+                className="text-[11px] px-2 py-[3px] rounded bg-brand-light text-brand font-medium cursor-pointer hover:opacity-80"
+              >
+                {(plan || business?.plan || "starter").toUpperCase()}
+              </button>
             )}
           </div>
         </header>
@@ -389,7 +414,10 @@ export default function AppLayout() {
                 aria-hidden="true"
               />
               {t("account.verifyNudge")}{" "}
-              <NavLink to="/account" className="text-brand font-medium">
+              <NavLink
+                to="/settings/account"
+                className="text-brand font-medium"
+              >
                 {t("account.verifyNudgeLink")}
               </NavLink>
             </div>

@@ -222,11 +222,13 @@ export default function IvuReport() {
           <Button
             icon="ti-download"
             disabled={!hasActivity}
-            title={!hasActivity ? t("ivu.exportDisabledHint") : undefined}
+            title={
+              !hasActivity ? t("ivu.exportDisabledHint") : t("ivu.exportCsv")
+            }
             loading={exportCsv.isPending}
             onClick={() => exportCsv.mutate()}
           >
-            {t("ivu.exportCsv")}
+            <span className="hidden sm:inline">{t("ivu.exportCsv")}</span>
           </Button>
         </div>
       </div>

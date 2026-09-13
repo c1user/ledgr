@@ -168,9 +168,11 @@ router.get("/", async (req, res) => {
 
     const result = await pool.query(query, params);
 
+    // Same filters as the list, so the "N total" the page shows reflects
+    // what is actually being listed (params before limit/offset).
     const countResult = await pool.query(
-      "SELECT COUNT(*) FROM transactions t WHERE t.business_id = $1",
-      [businessId],
+      `SELECT COUNT(*) FROM transactions t ${where}`,
+      params.slice(0, limitIdx - 1),
     );
 
     return res.json({

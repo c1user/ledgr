@@ -239,4 +239,71 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+// ── GET /api/chart-of-accounts/:id/transactions ──────────────
+// Backs the category drawer: every transaction whose journal entry posted
+// to this revenue/expense account OR one of its sub-accounts, newest first
+// (50 max), plus all-time totals over the whole set. `category_amount` is
+// the part of each transaction that hit THIS category — for a split
+// transaction that is the split's share, not the whole total.
+router.get("/:id/transactions", async (req, res) => {
+  const { businessId } = req.user;
+  const { id } = req.params;
+
+  try {
+    const acct = await pool.query(
+      `SELECT coa.id,
+              EXISTS (SELECT 1 FROM chart_of_accounts c WHERE c.parent_id = coa.id)
+                AS has_children
+       FROM chart_of_accounts coa
+       WHERE coa.id = $1 AND coa.business_id = $2`,
+      [id, businessId],
+    );
+    if (acct.rows.length === 0) {
+      return res.status(404).json({ error: "Category not found" });
+    }
+
+    const result = await pool.query(
+      `WITH matched AS (
+         SELECT je.source_id AS transaction_id,
+                SUM(ABS(jl.debit - jl.credit)) AS category_amount
+         FROM journal_entries je
+         JOIN journal_entry_lines jl ON jl.journal_entry_id = je.id
+         JOIN chart_of_accounts coa ON coa.id = jl.account_id
+         WHERE je.business_id = $2
+           AND je.source_type = 'transaction'
+           AND (coa.id = $1 OR coa.parent_id = $1)
+         GROUP BY je.source_id
+       )
+       SELECT t.id, t.date::text AS date, t.merchant, t.total_amount, t.type,
+              t.is_split, t.notes, m.category_amount,
+              COALESCE(a.name, fcoa.name) AS account_name,
+              fcoa.name_key AS account_name_key,
+              COUNT(*) OVER () AS total_count,
+              SUM(m.category_amount) OVER () AS total_sum
+       FROM matched m
+       JOIN transactions t ON t.id = m.transaction_id AND t.business_id = $2
+       LEFT JOIN accounts a ON a.id = t.account_id
+       LEFT JOIN chart_of_accounts fcoa ON fcoa.id = t.funding_coa_id
+       ORDER BY t.date DESC, t.created_at DESC
+       LIMIT 50`,
+      [id, businessId],
+    );
+
+    const rows = result.rows;
+    return res.json({
+      transactions: rows.map(({ total_count, total_sum, ...tx }) => tx),
+      summary: {
+        count: rows.length ? Number(rows[0].total_count) : 0,
+        total: rows.length ? Number(rows[0].total_sum) : 0,
+        includes_subcategories: acct.rows[0].has_children,
+      },
+    });
+  } catch (err) {
+    console.error("Get category transactions error:", err);
+    return res
+      .status(500)
+      .json({ error: "Failed to fetch category transactions" });
+  }
+});
+
 export default router;

@@ -20,6 +20,9 @@ const LegalPage = lazy(() => import("./pages/LegalPage"));
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 const Unsubscribe = lazy(() => import("./pages/Unsubscribe"));
 const Account = lazy(() => import("./pages/Account"));
+const Settings = lazy(() => import("./pages/Settings"));
+const MenuSettings = lazy(() => import("./pages/MenuSettings"));
+const Preferences = lazy(() => import("./pages/Preferences"));
 const Team = lazy(() => import("./pages/Team"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const TransactionsHub = lazy(() => import("./pages/TransactionsHub"));
@@ -99,240 +102,252 @@ export default function App() {
     <BrowserRouter>
       <Suspense fallback={<PageFallback />}>
         <Routes>
-        {/* Public routes */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/join" element={<Join />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/terms" element={<LegalPage doc="terms" />} />
-        <Route path="/privacy" element={<LegalPage doc="privacy" />} />
-        <Route path="/verify-email" element={<VerifyEmail />} />
-        <Route path="/unsubscribe" element={<Unsubscribe />} />
+          {/* Public routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/join" element={<Join />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/terms" element={<LegalPage doc="terms" />} />
+          <Route path="/privacy" element={<LegalPage doc="privacy" />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/unsubscribe" element={<Unsubscribe />} />
 
-        {/* Protected routes — all wrapped in AppLayout */}
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <AppLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
+          {/* Protected routes — all wrapped in AppLayout */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
 
-          {/* Transactions hub — ledger, recurring schedules and rules */}
-          <Route path="transactions" element={<TransactionsHub />}>
-            <Route index element={<Transactions />} />
+            {/* Transactions hub — ledger, recurring schedules and rules */}
+            <Route path="transactions" element={<TransactionsHub />}>
+              <Route index element={<Transactions />} />
+              <Route
+                path="recurring"
+                element={
+                  <RequireFeature feature="recurring">
+                    <Recurring />
+                  </RequireFeature>
+                }
+              />
+              <Route path="rules" element={<Rules />} />
+              <Route
+                path="reconcile"
+                element={
+                  <RequireFeature feature="reconciliation">
+                    <Reconcile />
+                  </RequireFeature>
+                }
+              />
+            </Route>
+            {/* Legacy redirects for the old top-level routes */}
             <Route
               path="recurring"
-              element={
-                <RequireFeature feature="recurring">
-                  <Recurring />
-                </RequireFeature>
-              }
+              element={<Navigate to="/transactions/recurring" replace />}
             />
-            <Route path="rules" element={<Rules />} />
             <Route
-              path="reconcile"
-              element={
-                <RequireFeature feature="reconciliation">
-                  <Reconcile />
-                </RequireFeature>
-              }
+              path="rules"
+              element={<Navigate to="/transactions/rules" replace />}
             />
-          </Route>
-          {/* Legacy redirects for the old top-level routes */}
-          <Route
-            path="recurring"
-            element={<Navigate to="/transactions/recurring" replace />}
-          />
-          <Route
-            path="rules"
-            element={<Navigate to="/transactions/rules" replace />}
-          />
 
-          <Route
-            path="categories"
-            element={<Navigate to="/chart-of-accounts" replace />}
-          />
-          <Route path="accounts" element={<Accounts />} />
-          <Route path="receipts" element={<Receipts />} />
-          <Route
-            path="payroll"
-            element={
-              <RequireFeature feature="payroll">
-                <Payroll />
-              </RequireFeature>
-            }
-          />
-          <Route
-            path="payroll/rules"
-            element={
-              <RequireFeature feature="payroll">
-                <PayrollRules />
-              </RequireFeature>
-            }
-          />
-          <Route
-            path="payroll/compliance"
-            element={
-              <RequireFeature feature="payroll">
-                <PayrollCompliance />
-              </RequireFeature>
-            }
-          />
-          <Route
-            path="ai"
-            element={
-              <RequireFeature feature="ai_chat">
-                <AiChat />
-              </RequireFeature>
-            }
-          />
-
-          {/* Reports hub — P&L, balance sheet, tax summary and Hacienda */}
-          <Route path="reports" element={<Reports />}>
-            <Route index element={<ProfitLoss />} />
             <Route
-              path="cash-flow"
+              path="categories"
+              element={<Navigate to="/chart-of-accounts" replace />}
+            />
+            <Route path="accounts" element={<Accounts />} />
+            <Route path="receipts" element={<Receipts />} />
+            <Route
+              path="payroll"
               element={
-                <RequireFeature feature="advanced_reports">
-                  <CashFlow />
+                <RequireFeature feature="payroll">
+                  <Payroll />
                 </RequireFeature>
               }
             />
-            <Route path="balance-sheet" element={<BalanceSheet />} />
-            <Route path="tax-summary" element={<TaxSummary />} />
+            <Route
+              path="payroll/rules"
+              element={
+                <RequireFeature feature="payroll">
+                  <PayrollRules />
+                </RequireFeature>
+              }
+            />
+            <Route
+              path="payroll/compliance"
+              element={
+                <RequireFeature feature="payroll">
+                  <PayrollCompliance />
+                </RequireFeature>
+              }
+            />
+            <Route
+              path="ai"
+              element={
+                <RequireFeature feature="ai_chat">
+                  <AiChat />
+                </RequireFeature>
+              }
+            />
+
+            {/* Reports hub — P&L, balance sheet, tax summary and Hacienda */}
+            <Route path="reports" element={<Reports />}>
+              <Route index element={<ProfitLoss />} />
+              <Route
+                path="cash-flow"
+                element={
+                  <RequireFeature feature="advanced_reports">
+                    <CashFlow />
+                  </RequireFeature>
+                }
+              />
+              <Route path="balance-sheet" element={<BalanceSheet />} />
+              <Route path="tax-summary" element={<TaxSummary />} />
+              <Route
+                path="hacienda"
+                element={
+                  <RequireFeature feature="hacienda">
+                    <Hacienda />
+                  </RequireFeature>
+                }
+              />
+              <Route
+                path="ivu"
+                element={
+                  <RequireFeature feature="hacienda">
+                    <IvuReport />
+                  </RequireFeature>
+                }
+              />
+            </Route>
+            <Route path="journal" element={<Journal />} />
+            {/* Legacy redirects for the old top-level report routes */}
+            <Route
+              path="balance-sheet"
+              element={<Navigate to="/reports/balance-sheet" replace />}
+            />
+            <Route
+              path="tax-summary"
+              element={<Navigate to="/reports/tax-summary" replace />}
+            />
             <Route
               path="hacienda"
+              element={<Navigate to="/reports/hacienda" replace />}
+            />
+
+            {/* Settings hub — business profile, account, menu, preferences */}
+            <Route path="settings" element={<Settings />}>
+              <Route index element={<BusinessProfile />} />
+              <Route path="account" element={<Account />} />
+              <Route path="menu" element={<MenuSettings />} />
+              <Route path="preferences" element={<Preferences />} />
+            </Route>
+            <Route
+              path="account"
+              element={<Navigate to="/settings/account" replace />}
+            />
+            <Route path="plans" element={<Plans />} />
+            <Route
+              path="team"
               element={
-                <RequireFeature feature="hacienda">
-                  <Hacienda />
+                <RequireFeature feature="multi_user">
+                  <Team />
                 </RequireFeature>
               }
             />
             <Route
-              path="ivu"
+              path="activity"
               element={
-                <RequireFeature feature="hacienda">
-                  <IvuReport />
+                <RequireFeature feature="audit_log">
+                  <Activity />
+                </RequireFeature>
+              }
+            />
+            <Route path="chart-of-accounts" element={<Accounting />} />
+            <Route
+              path="vendors"
+              element={
+                <RequireFeature feature="vendors">
+                  <Vendors />
+                </RequireFeature>
+              }
+            />
+
+            {/* Sales hub — clients, invoices and receivables as tab routes */}
+            <Route
+              path="sales"
+              element={
+                <RequireFeature feature="invoicing">
+                  <Sales />
+                </RequireFeature>
+              }
+            >
+              <Route
+                index
+                element={<Navigate to="/sales/invoices" replace />}
+              />
+              <Route path="clients" element={<Clients />} />
+              <Route path="invoices" element={<Invoices />} />
+              <Route path="receivables" element={<AccountsReceivable />} />
+            </Route>
+            {/* Legacy redirects (preserve any ?invoice=/?client= query) */}
+            <Route
+              path="clients"
+              element={<RedirectWithQuery to="/sales/clients" />}
+            />
+            <Route
+              path="invoices"
+              element={<RedirectWithQuery to="/sales/invoices" />}
+            />
+            <Route
+              path="accounts-receivable"
+              element={<RedirectWithQuery to="/sales/receivables" />}
+            />
+
+            <Route
+              path="budget"
+              element={
+                <RequireFeature feature="budgets">
+                  <Budget />
+                </RequireFeature>
+              }
+            />
+
+            {/* Projects hub — projects and time tracking (job costing) */}
+            <Route
+              path="projects"
+              element={
+                <RequireFeature feature="projects">
+                  <ProjectsHub />
+                </RequireFeature>
+              }
+            >
+              <Route index element={<Projects />} />
+              <Route path="time" element={<TimeTracking />} />
+            </Route>
+            {/* Legacy redirect for the old top-level route */}
+            <Route
+              path="time"
+              element={<Navigate to="/projects/time" replace />}
+            />
+
+            <Route
+              path="inventory"
+              element={
+                <RequireFeature feature="inventory">
+                  <Inventory />
                 </RequireFeature>
               }
             />
           </Route>
-          <Route path="journal" element={<Journal />} />
-          {/* Legacy redirects for the old top-level report routes */}
-          <Route
-            path="balance-sheet"
-            element={<Navigate to="/reports/balance-sheet" replace />}
-          />
-          <Route
-            path="tax-summary"
-            element={<Navigate to="/reports/tax-summary" replace />}
-          />
-          <Route
-            path="hacienda"
-            element={<Navigate to="/reports/hacienda" replace />}
-          />
 
-          <Route path="settings" element={<BusinessProfile />} />
-          <Route path="account" element={<Account />} />
-          <Route path="plans" element={<Plans />} />
-          <Route
-            path="team"
-            element={
-              <RequireFeature feature="multi_user">
-                <Team />
-              </RequireFeature>
-            }
-          />
-          <Route
-            path="activity"
-            element={
-              <RequireFeature feature="audit_log">
-                <Activity />
-              </RequireFeature>
-            }
-          />
-          <Route path="chart-of-accounts" element={<Accounting />} />
-          <Route
-            path="vendors"
-            element={
-              <RequireFeature feature="vendors">
-                <Vendors />
-              </RequireFeature>
-            }
-          />
-
-          {/* Sales hub — clients, invoices and receivables as tab routes */}
-          <Route
-            path="sales"
-            element={
-              <RequireFeature feature="invoicing">
-                <Sales />
-              </RequireFeature>
-            }
-          >
-            <Route index element={<Navigate to="/sales/invoices" replace />} />
-            <Route path="clients" element={<Clients />} />
-            <Route path="invoices" element={<Invoices />} />
-            <Route path="receivables" element={<AccountsReceivable />} />
-          </Route>
-          {/* Legacy redirects (preserve any ?invoice=/?client= query) */}
-          <Route
-            path="clients"
-            element={<RedirectWithQuery to="/sales/clients" />}
-          />
-          <Route
-            path="invoices"
-            element={<RedirectWithQuery to="/sales/invoices" />}
-          />
-          <Route
-            path="accounts-receivable"
-            element={<RedirectWithQuery to="/sales/receivables" />}
-          />
-
-          <Route
-            path="budget"
-            element={
-              <RequireFeature feature="budgets">
-                <Budget />
-              </RequireFeature>
-            }
-          />
-
-          {/* Projects hub — projects and time tracking (job costing) */}
-          <Route
-            path="projects"
-            element={
-              <RequireFeature feature="projects">
-                <ProjectsHub />
-              </RequireFeature>
-            }
-          >
-            <Route index element={<Projects />} />
-            <Route path="time" element={<TimeTracking />} />
-          </Route>
-          {/* Legacy redirect for the old top-level route */}
-          <Route
-            path="time"
-            element={<Navigate to="/projects/time" replace />}
-          />
-
-          <Route
-            path="inventory"
-            element={
-              <RequireFeature feature="inventory">
-                <Inventory />
-              </RequireFeature>
-            }
-          />
-        </Route>
-
-        {/* Catch all */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          {/* Catch all */}
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Suspense>
 

@@ -30,7 +30,8 @@
     "groupExpenses": "Expenses",
     "groupBanking": "Banking",
     "groupAccounting": "Accounting",
-    "groupOperations": "Operations"
+    "groupOperations": "Operations",
+    "settings": "Settings"
   },
   "upgrade": {
     "title": "Available on the {{plan}} plan",
@@ -371,7 +372,18 @@
   "settings": {
     "language": "Language",
     "english": "English",
-    "spanish": "Español"
+    "spanish": "Español",
+    "menuTab": "Menu",
+    "preferencesTab": "Preferences",
+    "preferencesTitle": "Preferences",
+    "preferencesSubtitle": "How the app reads and looks for you.",
+    "languageTitle": "Language",
+    "languageHint": "Applies to your account everywhere you sign in.",
+    "themeTitle": "Theme",
+    "themeHint": "Light or dark. Saved on this device.",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "menuViewerHint": "Only owners and admins can change the menu."
   },
   "aichat": {
     "title": "AI Assistant",
@@ -833,7 +845,14 @@
     "saveFailed": "Failed to save category",
     "deleteFailed": "Failed to delete category",
     "errNameRequired": "Category name is required",
-    "confirmDelete": "Delete \"{{name}}\"? This cannot be undone."
+    "confirmDelete": "Delete \"{{name}}\"? This cannot be undone.",
+    "viewTransactions": "View transactions",
+    "recentTransactions": "Recent transactions",
+    "noTransactions": "No transactions in this category yet",
+    "txCount": "Transactions",
+    "totalAmount": "All-time total",
+    "includesSubcategories": "Includes subcategories",
+    "viewAllTransactions": "View all in Transactions"
   },
   "rules": {
     "title": "Auto-Categorization Rules",
@@ -1517,7 +1536,11 @@
     "saving": "Saving…",
     "saved": "Saved",
     "saveFailed": "Failed to save the business profile",
-    "errNameRequired": "Business name is required"
+    "errNameRequired": "Business name is required",
+    "menuTitle": "Menu",
+    "menuHint": "Turn off the sections this business doesn't use, so the sidebar only shows what matters. Hidden pages stay reachable by link and can be turned back on anytime.",
+    "menuAlwaysOn": "Always shown: {{items}}.",
+    "menuSaveFailed": "Couldn't save the menu settings"
   },
   "hacienda": {
     "title": "Hacienda 480.6SP",

@@ -5,9 +5,14 @@ import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import cx from "../lib/cx";
 import useEntitlements from "../lib/useEntitlements";
-import { navGroups, subPages } from "../config/nav";
+import { navGroups, subPages, isNavHidden } from "../config/nav";
+import useAuthStore from "../store/authStore";
 
 const allPages = [...navGroups.flatMap((g) => g.items), ...subPages];
+
+// Stable empty fallback so the memo below does not recompute every render.
+const NO_HIDDEN_NAV = [];
+const selectHiddenNav = (s) => s.business?.hiddenNav || NO_HIDDEN_NAV;
 
 const RESULT_ICONS = {
   transaction: "ti-arrows-up-down",
@@ -31,6 +36,7 @@ export default function CommandPalette({ open, onClose }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { hasFeature } = useEntitlements();
+  const hiddenNav = useAuthStore(selectHiddenNav);
 
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -72,6 +78,7 @@ export default function CommandPalette({ open, onClose }) {
   const sections = useMemo(() => {
     const ql = query.trim().toLowerCase();
     const pages = allPages
+      .filter((p) => !isNavHidden(p.to, hiddenNav))
       .map((p) => ({
         kind: "page",
         key: p.to,
@@ -101,7 +108,7 @@ export default function CommandPalette({ open, onClose }) {
       }
     }
     return out;
-  }, [query, debounced, results, t, hasFeature]);
+  }, [query, debounced, results, t, hasFeature, hiddenNav]);
 
   const flat = useMemo(() => sections.flatMap((s) => s.items), [sections]);
 
@@ -118,8 +125,10 @@ export default function CommandPalette({ open, onClose }) {
     onClose();
     if (item.kind === "page") navigate(item.to);
     else if (item.kind === "transaction") navigate("/transactions");
-    else if (item.kind === "invoice") navigate(`/sales/invoices?invoice=${item.id}`);
-    else if (item.kind === "client") navigate(`/sales/clients?client=${item.id}`);
+    else if (item.kind === "invoice")
+      navigate(`/sales/invoices?invoice=${item.id}`);
+    else if (item.kind === "client")
+      navigate(`/sales/clients?client=${item.id}`);
     else if (item.kind === "vendor") navigate("/vendors");
   }
 
@@ -144,7 +153,10 @@ export default function CommandPalette({ open, onClose }) {
     if (item.kind === "page") {
       return (
         <>
-          <i className={cx("ti", item.icon, "text-secondary")} aria-hidden="true" />
+          <i
+            className={cx("ti", item.icon, "text-secondary")}
+            aria-hidden="true"
+          />
           <span className="flex-1 truncate">{item.text}</span>
           {item.locked && (
             <i className="ti ti-lock text-muted text-xs" aria-hidden="true" />
@@ -192,7 +204,9 @@ export default function CommandPalette({ open, onClose }) {
         <span className="flex-1 truncate">
           {item.name}
           {item.billing_email && (
-            <span className="text-muted ml-2 text-xs">{item.billing_email}</span>
+            <span className="text-muted ml-2 text-xs">
+              {item.billing_email}
+            </span>
           )}
         </span>
       </>

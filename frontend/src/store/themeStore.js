@@ -10,6 +10,13 @@ const useThemeStore = create(
     (set, get) => ({
       theme: "light",
 
+      // Explicit choice (Settings → Preferences); toggleTheme stays for the
+      // sidebar switch.
+      setTheme: (next) => {
+        document.documentElement.setAttribute("data-theme", next);
+        set({ theme: next });
+      },
+
       toggleTheme: () => {
         const next = get().theme === "light" ? "dark" : "light";
         document.documentElement.setAttribute("data-theme", next);

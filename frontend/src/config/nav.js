@@ -81,7 +81,12 @@ export const navGroups = [
   },
   {
     items: [
-      { to: "/ai", icon: "ti-sparkles", label: "nav.aiChat", feature: "ai_chat" },
+      {
+        to: "/ai",
+        icon: "ti-sparkles",
+        label: "nav.aiChat",
+        feature: "ai_chat",
+      },
       {
         to: "/team",
         icon: "ti-users-group",
@@ -94,7 +99,7 @@ export const navGroups = [
         label: "nav.activity",
         feature: "audit_log",
       },
-      { to: "/settings", icon: "ti-settings", label: "nav.businessProfile" },
+      { to: "/settings", icon: "ti-settings", label: "nav.settings" },
     ],
   },
 ];
@@ -104,7 +109,17 @@ export const navGroups = [
 export const subPages = [
   // My Account has no sidebar row (the user block links to it) but should
   // still be reachable from the command palette.
-  { to: "/account", icon: "ti-user-circle", label: "account.title" },
+  { to: "/settings/account", icon: "ti-user-circle", label: "account.title" },
+  {
+    to: "/settings/menu",
+    icon: "ti-adjustments-horizontal",
+    label: "business.menuTitle",
+  },
+  {
+    to: "/settings/preferences",
+    icon: "ti-palette",
+    label: "settings.preferencesTab",
+  },
   {
     to: "/sales/invoices",
     icon: "ti-file-invoice",
@@ -142,7 +157,11 @@ export const subPages = [
     label: "cashflow.title",
     feature: "advanced_reports",
   },
-  { to: "/reports/balance-sheet", icon: "ti-scale", label: "balanceSheet.title" },
+  {
+    to: "/reports/balance-sheet",
+    icon: "ti-scale",
+    label: "balanceSheet.title",
+  },
   { to: "/reports/tax-summary", icon: "ti-receipt-tax", label: "tax.title" },
   {
     to: "/reports/hacienda",
@@ -176,3 +195,22 @@ export const subPages = [
   },
   { to: "/plans", icon: "ti-crown", label: "plans.title" },
 ];
+
+// ── Per-business menu customization ─────────────────────────
+// Business Profile → Menu lets owners/admins hide the sections a business
+// doesn't use (stored in businesses.hidden_nav, shipped in the auth
+// payload as business.hiddenNav). These three are always shown. Mirrors
+// backend/src/config/nav.js — keep the two in sync.
+export const LOCKED_NAV = ["/dashboard", "/transactions", "/settings"];
+
+export const hideableNavGroups = navGroups
+  .map((g) => ({
+    ...g,
+    items: g.items.filter((i) => !LOCKED_NAV.includes(i.to)),
+  }))
+  .filter((g) => g.items.length > 0);
+
+// True when `to` (a page or one of its sub-pages) sits under a hidden section.
+export function isNavHidden(to, hiddenNav) {
+  return (hiddenNav || []).some((h) => to === h || to.startsWith(`${h}/`));
+}

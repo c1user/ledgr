@@ -11,6 +11,7 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import pool from "../config/db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { HIDEABLE_NAV, normalizeHiddenNav } from "../config/nav.js";
 import { getPlan } from "../middleware/entitlements.js";
 import { getEntitlements, PLANS } from "../config/entitlements.js";
 import {
@@ -135,7 +136,7 @@ router.get("/", async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT id, name, tax_id, merchant_registration_number,
-              address, city, state, zip, currency, plan
+              address, city, state, zip, currency, plan, hidden_nav
        FROM businesses WHERE id = $1`,
       [businessId],
     );
@@ -199,6 +200,38 @@ router.put("/", requireRole("owner", "admin"), async (req, res) => {
   } catch (err) {
     console.error("Update business error:", err);
     return res.status(500).json({ error: "Failed to update business profile" });
+  }
+});
+
+// ── PUT /api/business/nav ────────────────────────────────────
+// Which sidebar sections this business hides (owner/admin). Hidden pages
+// stay reachable by URL — this only declutters the menu for everyone in
+// the business. Validated against HIDEABLE_NAV so a stale client cannot
+// hide Dashboard/Transactions/Settings or store junk.
+router.put("/nav", requireRole("owner", "admin"), async (req, res) => {
+  const { businessId } = req.user;
+  const hiddenNav = normalizeHiddenNav(req.body?.hiddenNav);
+  if (!hiddenNav) {
+    return res.status(400).json({
+      error: "hiddenNav must be an array of hideable menu routes",
+      allowed: HIDEABLE_NAV,
+    });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE businesses SET hidden_nav = $1::jsonb
+       WHERE id = $2
+       RETURNING hidden_nav`,
+      [JSON.stringify(hiddenNav), businessId],
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+    return res.json({ hiddenNav: result.rows[0].hidden_nav });
+  } catch (err) {
+    console.error("Update hidden nav error:", err);
+    return res.status(500).json({ error: "Failed to save menu settings" });
   }
 });
 

@@ -1010,7 +1010,15 @@ export default function Transactions() {
     setAppliedNewParam(newParam);
     if (newParam) setShowModal(true);
   }
-  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  // Deep links (a category drawer's "view all", the dashboard chart) preset
+  // the filters through the URL.
+  const [filters, setFilters] = useState(() => ({
+    ...EMPTY_FILTERS,
+    categoryId: searchParams.get("categoryId") || "",
+    type: ["income", "expense"].includes(searchParams.get("type"))
+      ? searchParams.get("type")
+      : "",
+  }));
   // Phones get one "Filters" button that opens a bottom sheet. The sheet
   // edits a draft; nothing refetches until Apply.
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
@@ -1028,6 +1036,8 @@ export default function Transactions() {
     setFilters(EMPTY_FILTERS);
     setDraftFilters(EMPTY_FILTERS);
     setFilterSheetOpen(false);
+    if (searchParams.get("categoryId") || searchParams.get("type"))
+      setSearchParams({}, { replace: true });
   };
 
   const { data, isLoading } = useQuery({

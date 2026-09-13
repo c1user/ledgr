@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import api from "../lib/api";
 import { coaToCategories } from "../lib/coaCategories";
+import CategoryDrawer from "../components/CategoryDrawer";
 import { confirmDialog, toast } from "../store/feedbackStore";
 import cx from "../lib/cx";
 import {
@@ -223,17 +224,30 @@ function CategoryModal({ onClose, editCategory, categories, t }) {
 }
 
 // ── Category Card ─────────────────────────────────────────────
-function CategoryCard({ category, subcategories, onEdit, onDelete, t }) {
+function CategoryCard({
+  category,
+  subcategories,
+  onSelect,
+  onEdit,
+  onDelete,
+  t,
+}) {
   return (
     <Card padding="none" className="px-4 py-3.5">
       <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2.5">
+        {/* Name opens the drawer with this category's transactions */}
+        <button
+          type="button"
+          onClick={() => onSelect(category)}
+          title={t("categories.viewTransactions")}
+          className="flex items-center gap-2.5 min-w-0 text-left cursor-pointer group"
+        >
           <div
             className="w-3 h-3 rounded-full shrink-0"
             style={{ background: category.color }}
           />
-          <div>
-            <div className="text-sm font-medium text-ink">
+          <div className="min-w-0">
+            <div className="text-sm font-medium text-ink group-hover:text-brand transition-colors">
               {category.name}
               {category.is_system && (
                 <span className="text-[10px] bg-payroll-bg text-payroll px-1.5 py-px rounded-sm ml-1.5 font-normal">
@@ -247,8 +261,8 @@ function CategoryCard({ category, subcategories, onEdit, onDelete, t }) {
               </div>
             )}
           </div>
-        </div>
-        <div className="flex gap-2 md:gap-1">
+        </button>
+        <div className="flex gap-2 md:gap-1 shrink-0">
           <button
             onClick={() => onEdit(category)}
             className="inline-flex md:inline-block items-center justify-center w-9 h-9 md:w-auto md:h-auto -m-1 md:m-0 p-1 text-muted hover:text-ink cursor-pointer"
@@ -276,13 +290,20 @@ function CategoryCard({ category, subcategories, onEdit, onDelete, t }) {
               key={sub.id}
               className="flex justify-between items-center py-1 pl-4"
             >
-              <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onSelect(sub)}
+                title={t("categories.viewTransactions")}
+                className="flex items-center gap-2 min-w-0 text-left cursor-pointer group"
+              >
                 <div
                   className="w-2 h-2 rounded-full shrink-0"
                   style={{ background: sub.color }}
                 />
-                <span className="text-md text-secondary">{sub.name}</span>
-              </div>
+                <span className="text-md text-secondary group-hover:text-brand transition-colors truncate">
+                  {sub.name}
+                </span>
+              </button>
               <div className="flex gap-2 md:gap-1">
                 <button
                   onClick={() => onEdit(sub)}
@@ -314,6 +335,7 @@ export default function Categories() {
   const [showModal, setShowModal] = useState(false);
   const [editCategory, setEditCategory] = useState(null);
   const [activeTab, setActiveTab] = useState("expense");
+  const [selected, setSelected] = useState(null); // category shown in the drawer
 
   const { data: coaGroups, isLoading } = useQuery({
     queryKey: ["chart-of-accounts"],
@@ -420,12 +442,25 @@ export default function Categories() {
               key={cat.id}
               category={cat}
               subcategories={subMap[cat.id]}
+              onSelect={setSelected}
               onEdit={handleEdit}
               onDelete={handleDelete}
               t={t}
             />
           ))}
         </div>
+      )}
+
+      {selected && (
+        <CategoryDrawer
+          category={selected}
+          onClose={() => setSelected(null)}
+          onEdit={() => {
+            const cat = selected;
+            setSelected(null);
+            handleEdit(cat);
+          }}
+        />
       )}
 
       {showModal && (

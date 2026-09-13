@@ -151,7 +151,7 @@ router.post("/register", async (req, res) => {
     const businessResult = await client.query(
       `INSERT INTO businesses (name, email, tax_id, currency)
        VALUES ($1, $2, $3, $4)
-       RETURNING id, name, email, plan, currency`,
+       RETURNING id, name, email, plan, currency, hidden_nav`,
       [safeName, email.toLowerCase().trim(), taxId || null, currency || "USD"],
     );
     const business = businessResult.rows[0];
@@ -222,6 +222,7 @@ router.post("/register", async (req, res) => {
         name: business.name,
         plan: business.plan,
         currency: business.currency,
+        hiddenNav: business.hidden_nav || [],
       },
     });
   } catch (err) {
@@ -253,7 +254,7 @@ router.post("/login", async (req, res) => {
       `SELECT u.id, u.business_id, u.name, u.email, u.role, u.password_hash,
               u.language, u.is_active, u.email_verified, u.totp_enabled,
               u.token_version, u.tour_done_at,
-              b.name AS business_name, b.plan, b.currency
+              b.name AS business_name, b.plan, b.currency, b.hidden_nav
        FROM users u
        JOIN businesses b ON b.id = u.business_id
        WHERE u.email = $1`,
@@ -310,6 +311,7 @@ router.post("/login", async (req, res) => {
         name: user.business_name,
         plan: user.plan,
         currency: user.currency,
+        hiddenNav: user.hidden_nav || [],
       },
     });
   } catch (err) {
@@ -381,7 +383,7 @@ router.post("/reset-password", async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT u.id, u.business_id, u.name, u.email, u.role, u.language,
-              b.name AS business_name, b.plan, b.currency
+              b.name AS business_name, b.plan, b.currency, b.hidden_nav
        FROM users u
        JOIN businesses b ON b.id = u.business_id
        WHERE u.reset_token = $1
@@ -427,6 +429,7 @@ router.post("/reset-password", async (req, res) => {
         name: user.business_name,
         plan: user.plan,
         currency: user.currency,
+        hiddenNav: user.hidden_nav || [],
       },
     });
   } catch (err) {
@@ -457,7 +460,7 @@ router.post("/accept-invite", async (req, res) => {
     const result = await pool.query(
       `SELECT u.id, u.business_id, u.email, u.role, u.language,
               u.token_version,
-              b.name AS business_name, b.plan, b.currency
+              b.name AS business_name, b.plan, b.currency, b.hidden_nav
        FROM users u
        JOIN businesses b ON b.id = u.business_id
        WHERE u.invite_token = $1
@@ -515,6 +518,7 @@ router.post("/accept-invite", async (req, res) => {
         name: invited.business_name,
         plan: invited.plan,
         currency: invited.currency,
+        hiddenNav: invited.hidden_nav || [],
       },
     });
   } catch (err) {
@@ -812,7 +816,7 @@ router.post("/2fa/verify-login", async (req, res) => {
       `SELECT u.id, u.business_id, u.name, u.email, u.role, u.language,
               u.email_verified, u.totp_enabled, u.totp_secret, u.backup_codes,
               u.token_version, u.tour_done_at,
-              b.name AS business_name, b.plan, b.currency
+              b.name AS business_name, b.plan, b.currency, b.hidden_nav
        FROM users u
        JOIN businesses b ON b.id = u.business_id
        WHERE u.id = $1 AND u.is_active`,
@@ -861,6 +865,7 @@ router.post("/2fa/verify-login", async (req, res) => {
         name: user.business_name,
         plan: user.plan,
         currency: user.currency,
+        hiddenNav: user.hidden_nav || [],
       },
     });
   } catch (err) {
@@ -890,7 +895,7 @@ router.get("/me", requireAuth, async (req, res) => {
     const result = await pool.query(
       `SELECT u.id, u.business_id, u.name, u.email, u.role, u.last_login, u.language,
               u.email_verified, u.totp_enabled, u.tour_done_at,
-              b.name AS business_name, b.plan, b.currency, b.tax_id
+              b.name AS business_name, b.plan, b.currency, b.hidden_nav, b.tax_id
        FROM users u
        JOIN businesses b ON b.id = u.business_id
        WHERE u.id = $1`,
@@ -920,6 +925,7 @@ router.get("/me", requireAuth, async (req, res) => {
         name: user.business_name,
         plan: user.plan,
         currency: user.currency,
+        hiddenNav: user.hidden_nav || [],
         // NOTE: taxId intentionally omitted from /me — only return it when explicitly needed
       },
     });

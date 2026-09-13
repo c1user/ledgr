@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import cx from "../lib/cx";
 import useEntitlements from "../lib/useEntitlements";
+import useAuthStore from "../store/authStore";
+import { isNavHidden } from "../config/nav";
 
 // `withNew` items navigate with ?new=<nonce> — a fresh value every time so
 // the target page's param sync re-fires even if the URL is otherwise
@@ -34,6 +36,7 @@ export default function QuickAdd() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { hasFeature } = useEntitlements();
+  const hiddenNav = useAuthStore((s) => s.business?.hiddenNav) || [];
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -57,38 +60,46 @@ export default function QuickAdd() {
 
       {open && (
         <>
-          <div className="fixed inset-0 z-[150]" onClick={() => setOpen(false)} />
+          <div
+            className="fixed inset-0 z-[150]"
+            onClick={() => setOpen(false)}
+          />
           <div
             role="menu"
             className="absolute right-0 top-full mt-1.5 z-[160] w-52 py-1.5 bg-surface border border-line rounded-card shadow-card fade-in"
           >
-            {ACTIONS.map((action) => {
-              const locked = action.feature && !hasFeature(action.feature);
-              return (
-                <button
-                  key={action.to}
-                  role="menuitem"
-                  onClick={() => {
-                    setOpen(false);
-                    navigate(
-                      action.withNew
-                        ? `${action.to}?new=${Date.now()}`
-                        : action.to,
-                    );
-                  }}
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2 text-md text-ink hover:bg-canvas cursor-pointer text-left"
-                >
-                  <i
-                    className={cx("ti", action.icon, "text-secondary")}
-                    aria-hidden="true"
-                  />
-                  <span className="flex-1">{t(action.label)}</span>
-                  {locked && (
-                    <i className="ti ti-lock text-muted text-xs" aria-hidden="true" />
-                  )}
-                </button>
-              );
-            })}
+            {ACTIONS.filter((a) => !isNavHidden(a.to, hiddenNav)).map(
+              (action) => {
+                const locked = action.feature && !hasFeature(action.feature);
+                return (
+                  <button
+                    key={action.to}
+                    role="menuitem"
+                    onClick={() => {
+                      setOpen(false);
+                      navigate(
+                        action.withNew
+                          ? `${action.to}?new=${Date.now()}`
+                          : action.to,
+                      );
+                    }}
+                    className="flex items-center gap-2.5 w-full px-3.5 py-2 text-md text-ink hover:bg-canvas cursor-pointer text-left"
+                  >
+                    <i
+                      className={cx("ti", action.icon, "text-secondary")}
+                      aria-hidden="true"
+                    />
+                    <span className="flex-1">{t(action.label)}</span>
+                    {locked && (
+                      <i
+                        className="ti ti-lock text-muted text-xs"
+                        aria-hidden="true"
+                      />
+                    )}
+                  </button>
+                );
+              },
+            )}
           </div>
         </>
       )}

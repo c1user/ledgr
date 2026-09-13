@@ -101,7 +101,12 @@ function SpendingChart({ transactions, currency, navigate, fmt, t }) {
           t("dashboard.uncategorized");
         const color = split.color || "#6b6880";
         if (!categoryMap[key])
-          categoryMap[key] = { name: key, value: 0, color };
+          categoryMap[key] = {
+            name: key,
+            value: 0,
+            color,
+            id: split.account_id,
+          };
         categoryMap[key].value += parseFloat(split.amount || 0);
       }
     } else {
@@ -187,7 +192,12 @@ function SpendingChart({ transactions, currency, navigate, fmt, t }) {
             className={cx(
               "flex items-center gap-2.5 py-2",
               i < data.length - 1 && "border-b border-line",
+              cat.id && "cursor-pointer",
             )}
+            title={cat.id ? t("categories.viewTransactions") : undefined}
+            onClick={() =>
+              cat.id && navigate(`/transactions?categoryId=${cat.id}`)
+            }
             onMouseEnter={() => setActiveIndex(i)}
             onMouseLeave={() => setActiveIndex(null)}
           >
