@@ -1,0 +1,20 @@
+{
+  "name": "abaco",
+  "private": true,
+  "description": "Abaco workspace: the web/desktop app (frontend), the mobile companion (mobile, ROADMAP-V6) and the packages they share. The backend is deliberately NOT a workspace member — it has its own install, tests and deploy.",
+  "workspaces": [
+    "packages/*",
+    "frontend",
+    "mobile"
+  ],
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "build": "npm run build -w frontend",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm test --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  }
+}

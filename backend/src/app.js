@@ -9,6 +9,7 @@
  * CORS origin from env, rate limiting, request logging, audit trail.
  */
 
+import fs from "node:fs";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -52,6 +53,13 @@ import { auditLogger } from "./middleware/auditLog.js";
 
 dotenv.config();
 
+// API version for GET /api/meta — read once at boot from package.json
+// (plain fs + JSON.parse: import attributes are still flag-gated on the
+// Node line this deploys on).
+const API_VERSION = JSON.parse(
+  fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+).version;
+
 const app = express();
 
 // Behind a reverse proxy (any real deployment), Express must trust the
@@ -88,10 +96,26 @@ app.use(
 );
 
 // ── OWASP A05: CORS from environment variable ─────────────────
-// Never hardcode localhost — use CORS_ORIGIN=http://localhost:5173 in dev .env
+// Never hardcode localhost — use CORS_ORIGIN=http://localhost:5173 in dev .env.
+// Comma-separated list: the web origin plus the native shells' webview
+// origins (Capacitor: capacitor://localhost on iOS, https://localhost on
+// Android — Capacitor >= 6 defaults androidScheme to https; Tauri:
+// tauri://localhost on macOS/Linux, http://tauri.localhost on Windows).
+// Each entry must match the browser's Origin header exactly.
+// One entry keeps the previous single-string behavior.
+export const CORS_ORIGINS = String(process.env.CORS_ORIGIN || "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN,
+    origin:
+      CORS_ORIGINS.length === 0
+        ? undefined
+        : CORS_ORIGINS.length === 1
+          ? CORS_ORIGINS[0]
+          : CORS_ORIGINS,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     // Download filenames + payroll export warnings must reach the client.
@@ -178,6 +202,19 @@ app.use("/api/notifications", notificationRoutes);
 // ── Health check — no sensitive info ─────────────────────────
 app.get("/health", (req, res) => {
   res.json({ status: "ok" }); // Don't expose app name/version in production
+});
+
+// ── API metadata — public, for native shells ─────────────────
+// No auth and NOT behind authLimiter: a phone build calls this before it
+// has a session to learn whether it is too old to talk to this API.
+// minMobileBuild is the lowest native build number still supported —
+// raise MIN_MOBILE_BUILD after a breaking API change so older builds
+// show "please update" instead of failing mid-flow (see .env.example).
+app.get("/api/meta", (req, res) => {
+  res.json({
+    apiVersion: API_VERSION,
+    minMobileBuild: Number(process.env.MIN_MOBILE_BUILD) || 0,
+  });
 });
 
 // ── 404 handler ───────────────────────────────────────────────

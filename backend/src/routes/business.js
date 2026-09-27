@@ -99,10 +99,29 @@ router.delete("/", requireRole("owner"), async (req, res) => {
 // ── GET /api/business/entitlements ───────────────────────────
 // The frontend mirror of config/entitlements.js: current plan, its feature
 // list and limits, plus the feature→minimum-plan map that drives upsell copy.
+// Also carries `usage` — the counters behind the metered limits — so a
+// client can render "7 of 10 scans used" from this one call. Only the
+// metered tier (Starter: limits.aiReceiptsPerMonth = 10) pays for the
+// count; unlimited tiers report null. Same query as the upload gate in
+// routes/receipts.js — keep the two in step.
 router.get("/entitlements", async (req, res) => {
   try {
     const plan = await getPlan(req.user.businessId);
-    return res.json(getEntitlements(plan));
+    const entitlements = getEntitlements(plan);
+
+    let aiReceiptsThisMonth = null;
+    if (entitlements.limits.aiReceiptsPerMonth !== null) {
+      const used = await pool.query(
+        `SELECT COUNT(*)::INT AS count
+           FROM receipts
+          WHERE business_id = $1
+            AND created_at >= DATE_TRUNC('month', NOW())`,
+        [req.user.businessId],
+      );
+      aiReceiptsThisMonth = used.rows[0].count;
+    }
+
+    return res.json({ ...entitlements, usage: { aiReceiptsThisMonth } });
   } catch (err) {
     console.error("Get entitlements error:", err);
     return res.status(500).json({ error: "Failed to fetch entitlements" });

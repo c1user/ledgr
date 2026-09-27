@@ -47,6 +47,12 @@ const router = express.Router();
 router.use(requireAuth);
 router.param("id", uuidParam("Transaction"));
 
+// Body-level UUID guard (uuidParam only covers :id path params). A malformed
+// receiptId would otherwise reach pg as `invalid input syntax for type uuid`
+// and surface as a 500.
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // ── Helpers ──────────────────────────────────────────────────
 // resolveFundingSource / validateCategoryAccounts / buildLines /
 // createLedgerTransaction live in services/transactionPosting.js so the
@@ -528,6 +534,16 @@ router.post("/", async (req, res) => {
       .status(400)
       .json({ error: "totalAmount must be greater than 0" });
   }
+  // Receipt booking: when a receiptId is sent, the receipt is claimed
+  // atomically with the transaction (see the BEGIN…COMMIT block below).
+  // null / "" mean "no receipt", same as before; anything else must be a UUID.
+  const hasReceipt = receiptId != null && receiptId !== "";
+  if (
+    hasReceipt &&
+    (typeof receiptId !== "string" || !UUID_RE.test(receiptId))
+  ) {
+    return res.status(400).json({ error: "receiptId must be a UUID" });
+  }
 
   let allocations = readAllocations(req.body);
   // Auto-categorization: if the caller didn't pick a category (e.g. a future
@@ -568,6 +584,50 @@ router.post("/", async (req, res) => {
   try {
     await client.query("BEGIN");
 
+    // Claim the receipt inside the same transaction as the posting. The row
+    // lock (FOR UPDATE) serializes two concurrent bookings of one receipt:
+    // the second waits, then sees status = 'linked' and gets the 409. The
+    // business_id predicate is what keeps a receipt from another tenant
+    // indistinguishable from a missing one.
+    //
+    // 'linked' only refuses while a transaction of this business still
+    // references the receipt. A row left 'linked' with nothing pointing at
+    // it (DELETE /transactions/:id never released receipts before; the FK is
+    // ON DELETE SET NULL) is claimed here like a reviewed one instead of
+    // being stuck behind a 409 with no unlink endpoint. The reference check
+    // is its own statement, issued once the lock is held: in READ COMMITTED
+    // a sub-select inside the locking SELECT keeps the snapshot taken
+    // before a concurrent booking committed and could miss the transaction
+    // that booking just inserted.
+    if (hasReceipt) {
+      const receipt = await client.query(
+        `SELECT id, status FROM receipts
+         WHERE id = $1 AND business_id = $2
+         FOR UPDATE`,
+        [receiptId, businessId],
+      );
+      if (receipt.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "Receipt not found" });
+      }
+      if (receipt.rows[0].status === "linked") {
+        const ref = await client.query(
+          `SELECT EXISTS (
+             SELECT 1 FROM transactions
+              WHERE receipt_id = $1 AND business_id = $2
+           ) AS referenced`,
+          [receiptId, businessId],
+        );
+        if (ref.rows[0].referenced) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({
+            error: "Receipt already linked",
+            code: "RECEIPT_LINKED",
+          });
+        }
+      }
+    }
+
     const result = await createLedgerTransaction(client, {
       businessId,
       userId,
@@ -592,8 +652,25 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: result.error });
     }
 
+    if (hasReceipt) {
+      await client.query(
+        `UPDATE receipts SET status = 'linked'
+         WHERE id = $1 AND business_id = $2`,
+        [receiptId, businessId],
+      );
+    }
+
     await client.query("COMMIT");
-    return res.status(201).json(result.transaction);
+    // The extra `receipt` field only appears when a receipt was booked, so
+    // existing callers see an unchanged body and new ones can feature-detect.
+    return res.status(201).json(
+      hasReceipt
+        ? {
+            ...result.transaction,
+            receipt: { id: receiptId, status: "linked" },
+          }
+        : result.transaction,
+    );
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("Create transaction error:", err);
@@ -692,11 +769,9 @@ router.put("/:id", async (req, res) => {
     }
     if (withholdingAmount < 0 || withholdingAmount >= totalAmount) {
       await client.query("ROLLBACK");
-      return res
-        .status(400)
-        .json({
-          error: "withholdingAmount must be between 0 and the total amount",
-        });
+      return res.status(400).json({
+        error: "withholdingAmount must be between 0 and the total amount",
+      });
     }
 
     // Allocations: if the body provides them, use them; else recover the
@@ -862,8 +937,20 @@ router.delete("/:id", async (req, res) => {
   try {
     await client.query("BEGIN");
 
+    // Lock the header first and read it under that lock. PUT /receipts/:id/link
+    // locks the receipt it links, then this transaction, then releases the
+    // receipt the transaction carried before: with the transaction locked
+    // here before any receipt, a concurrent link either commits before this
+    // lock is granted (the read below then sees the receipt it just
+    // attached) or waits behind this delete while holding only its own
+    // receipt — no cycle, and no stale receipt_id. An unlocked read here
+    // used to strand the newly linked receipt at 'linked' with nothing
+    // referencing it, and locking the receipt before the transaction
+    // deadlocked against that same link.
     const existing = await client.query(
-      "SELECT id, reconciliation_id FROM transactions WHERE id = $1 AND business_id = $2",
+      `SELECT id, reconciliation_id, receipt_id
+         FROM transactions WHERE id = $1 AND business_id = $2
+         FOR UPDATE`,
       [id, businessId],
     );
     if (existing.rows.length === 0) {
@@ -890,12 +977,35 @@ router.delete("/:id", async (req, res) => {
       });
     }
 
-    // Remove ledger entry (lines cascade), then the header.
+    // Remove ledger entry (lines cascade), then the header. RETURNING hands
+    // back the receipt the row carried at the moment it went — the value to
+    // release, whatever was read earlier.
     await deleteEntriesForSource(client, businessId, "transaction", id);
-    await client.query(
-      "DELETE FROM transactions WHERE id = $1 AND business_id = $2",
+    const deleted = await client.query(
+      "DELETE FROM transactions WHERE id = $1 AND business_id = $2 RETURNING receipt_id",
       [id, businessId],
     );
+    const releasedId = deleted.rows[0]?.receipt_id ?? null;
+
+    if (releasedId) {
+      // A receipt booked on this transaction is released with it. Left at
+      // status = 'linked' with nothing referencing it, it could never be
+      // deleted (DELETE /receipts/:id → 400) and would only heal on its next
+      // booking or link. Back to 'reviewed' (it was looked at when it was
+      // booked) — but only when no other transaction of this business still
+      // references it: rows written before the one-receipt-one-transaction
+      // guards existed can share a receipt. This UPDATE takes the receipt
+      // row lock itself, after the transaction lock above.
+      await client.query(
+        `UPDATE receipts SET status = 'reviewed'
+          WHERE id = $1 AND business_id = $2 AND status = 'linked'
+            AND NOT EXISTS (
+              SELECT 1 FROM transactions
+               WHERE receipt_id = $1 AND business_id = $2
+            )`,
+        [releasedId, businessId],
+      );
+    }
 
     await client.query("COMMIT");
     return res.json({ message: "Transaction deleted" });

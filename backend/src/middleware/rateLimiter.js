@@ -14,6 +14,12 @@ export const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true, // Only count failures
+  // GET routes on /api/auth (e.g. /auth/me) check no credentials — there is
+  // nothing to brute-force. A 401 on GET /auth/me after a token_version
+  // bump (sign-out-everywhere, password change) must not burn one of the
+  // 10 login attempts, or a stale phone build could lock its own user out
+  // of logging back in.
+  skip: (req) => req.method === "GET",
   message: {
     error: "Too many login attempts. Please try again in 15 minutes.",
   },

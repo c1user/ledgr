@@ -3,7 +3,7 @@
 **Fecha:** 17 de agosto de 2026 · **Rama:** `ABACOQ` (commit `32ecfdc`)
 Generado a partir de una auditoría completa de ROADMAP.md, ROADMAP-V2 a V5, `TAX_DATA_TODO.md`, `PAYROLL_RUNBOOK.md`, el código fuente y las notas del proyecto.
 
-**Dónde estamos:** todo el trabajo de código de los roadmaps V1–V3 y V5 está terminado y commiteado. La suite automatizada del backend pasa completa (106 pruebas, incluyendo todo el motor de nómina v2), y el lint y el build del frontend pasan. ROADMAP-V4 (lanzamiento multi-plataforma) está íntegramente pendiente: sus 37 casillas siguen sin marcar.
+**Dónde estamos:** todo el trabajo de código de los roadmaps V1–V3 y V5 está terminado y commiteado. La suite automatizada del backend pasa completa (106 pruebas, incluyendo todo el motor de nómina v2), y el lint y el build del frontend pasan. ROADMAP-V4 (lanzamiento multi-plataforma) está íntegramente pendiente: sus casillas siguen sin marcar (la Fase 5 móvil ahora vive en ROADMAP-V6.md, decisión del 21 de septiembre de 2026: la app móvil será una app compañera pequeña, no un wrap de la app completa).
 
 **Cómo leer este documento:** las secciones van en orden de trabajo. Primero lo necesario para **probar** la funcionalidad que ya existe (§1), luego funcionalidad que falta construir (§2), luego datos y decisiones que desbloquean la nómina real y el lanzamiento (§3), y al final lo que **solo** hace falta el día del despliegue a producción (§4).
 
@@ -106,8 +106,8 @@ Hoy `/plans` es un selector instantáneo y gratis: cualquier dueño se auto-asig
 ### 2.6 Plataformas adicionales (no bloquean el lanzamiento web)
 
 - [ ] **Escritorio (Tauri) — Fase 4 completa de V4:** shell, diálogos nativos de guardar archivo, auto-update, firma de código Windows/macOS, instaladores + página /download, protocolo `abaco://`. No existe nada aún.
-- [ ] **Móvil (Capacitor) — Fase 5 completa de V4:** wrap iOS/Android, auditoría UX móvil (tablas densas, modales, touch targets — la mitigación anti-rechazo de las tiendas), captura de recibos con cámara nativa, deep links, paquete de cumplimiento de tiendas (privacy labels, Data Safety, listados EN+ES), TestFlight / Play closed testing, sumisiones (esperar al menos un rechazo por tienda). No existe nada aún.
-- [ ] Diferido post-lanzamiento a propósito: Plaid, IAP de Apple (según decisión §3.3), listados Microsoft/Mac App Store, sitio de marketing, push notifications.
+- [ ] **Móvil — app compañera "Abaco Scan" (escaneo de recibos + asistente IA), ROADMAP-V6:** app pequeña separada (ya NO es un wrap de la app completa), envuelta con Capacitor 8; mismos colores/fuentes/UI kit/i18n compartidos vía `packages/*` y misma API/base de datos (mismas cuentas). Solo inicio de sesión (con 2FA); escáner de documentos con detección de bordes y modo "pila de recibos"; recepción desde la hoja de compartir (fotos y PDF); cola offline; bloqueo con Face ID/huella; recordatorios locales de vencimientos (IVU, nómina) y de recibos por revisar; respuesta háptica, accesos directos de la app y gestos de deslizar en los recibos; asistente con entrada de voz; sin enlaces ni precios de compra en la app. Fases: 0 decisiones (Node 22, Android Studio, pipeline de iOS en CI) → 1 base compartida (también mejora Tauri: fuentes e íconos auto-alojados) → 2 núcleo de la app (verificable en Chrome) → 3 shells nativos + tiendas (Android local, iOS por CI/TestFlight, cumplimiento, prueba cerrada de Play, sumisiones). Se elimina la auditoría UX de tablas densas; deep links y push quedan diferidos (el dueño los descartó para v1; revisar tras el lanzamiento, V6 Fase 4). v1.1 aprobado: extracción IA de recibos PDF. Estado 2026-09-27: **V6 Fase 1 (base compartida: workspace npm raíz, @abaco/tokens|ui|locales, contrato del backend) y Fase 2 (la app `mobile/` completa, verificada en Chrome a 375×812 con la cuenta demo: escaneo real → revisión → contabilización, recibos, asistente, ajustes, EN/ES, claro/oscuro) HECHAS, sin commitear.** Falta la Fase 3 (Node 22 + Capacitor CLI, `cap add`, verificación de plugins nativos, CSP con hash, íconos, Android Studio, TestFlight, tiendas).
+- [ ] Diferido post-lanzamiento a propósito: Plaid, IAP de Apple (descartado por la decisión de §3.3; solo si se revierte), listados Microsoft/Mac App Store, sitio de marketing, push notifications.
 
 ---
 
@@ -156,10 +156,10 @@ Todas las reglas se sembraron como placeholders **UNVERIFIED**; la nómina en mo
 
 ### 3.3 Decisiones de producto (del dueño)
 
-- [ ] Confirmar disponibilidad del nombre "Abaco" en ambas tiendas antes de fijar la marca.
+- [ ] Confirmar disponibilidad de los nombres "Abaco" (app completa/PWA) y "Abaco Scan" (compañera móvil) en ambas tiendas antes de fijar la marca (V4 0.11, V6 0.1).
 - [ ] Precios reales de los tres tiers y política de trial.
 - [ ] ¿Cuentas demo en producción? (Recomendación del roadmap: no; o una controlada con contraseña rotativa.)
-- [ ] **Decisión IAP de Apple, tomarla ya:** ¿app iOS solo-inicio-de-sesión (suscripción se compra en web, evitando el 15–30% de Apple) o IAP nativo (semanas extra de trabajo)? Determina el alcance de las fases móviles.
+- [x] **Decisión IAP de Apple — TOMADA 2026-09-25: solo inicio de sesión.** La app compañera no tiene página de planes; sus avisos de 403 UPGRADE_REQUIRED son solo texto, sin enlaces ni precios de compra en iOS ni Android (Apple 3.1.3(f)).
 - [ ] ¿Analytics? Si eliges una herramienta con cookies, se activa el requisito del banner de cookies que hoy no hace falta. Recomendado: opción sin cookies.
 
 ### 3.4 Cuentas de terceros (plazos largos — abrirlas temprano)
@@ -168,7 +168,7 @@ Todas las reglas se sembraron como placeholders **UNVERIFIED**; la nómina en mo
 - [ ] **Hosting:** backend (Render/Railway/Fly/VPS) + Postgres administrado + host estático para el frontend ($0–25/mes al inicio).
 - [ ] **Email transaccional** (SES/Postmark/Resend) + registros SPF/DKIM/DMARC en el DNS. Sin esto no llegan invitaciones, resets ni verificaciones.
 - [ ] **Stripe:** crear y activar la cuenta (la verificación de identidad tarda días).
-- [ ] **Apple Developer Program** ($99/año; también necesario para firmar/notarizar el build de macOS).
+- [x] **Apple Developer Program** — COMPRADO 2026-09-26 ($99/año; también necesario para firmar/notarizar el build de macOS). Decidido 2026-09-25: comprarlo ya — TestFlight es la vía para probar la app compañera en el iPhone durante el desarrollo (V6 0.5 / 2.14), no solo para publicar.
 - [ ] **Google Play Console** ($25 único) — *el plazo más largo de todo el proyecto:* cuentas personales nuevas deben correr una prueba cerrada con ~12 testers por 14 días antes de poder publicar.
 - [ ] **Firma de código Windows** (Azure Trusted Signing ~$10/mes) para que los instaladores no disparen SmartScreen.
 - [ ] **Revisión legal** de Términos y Privacidad (existen borradores bilingües); al aprobarse, poner `DRAFT = false` en `frontend/src/pages/LegalPage.jsx:9`. Las tiendas exigen una URL de política de privacidad viva, así que esto también bloquea las sumisiones.
@@ -189,6 +189,7 @@ Todas las reglas se sembraron como placeholders **UNVERIFIED**; la nómina en mo
 ### 4.2 Infraestructura de producción
 
 - [ ] Provisionar Postgres de producción con SSL, correr migraciones, desplegar el API con secretos frescos (JWT_SECRET, ANTHROPIC_API_KEY, AWS, SMTP), apuntar `api.<dominio>`, verificar `/health`.
+- [ ] **Build del frontend desde la raíz del repo** (desde V6 Fase 1, 2026-09-25, el repo es un workspace de npm con un solo lockfile en la raíz): comando de build del host estático = `npm ci && npm run build -w frontend`, salida en `frontend/dist`. El backend sigue instalándose por su cuenta (`cd backend && npm ci`).
 - [ ] **`PAYROLL_ENC_KEY`:** generar la clave de producción (cifra los SSN; perderla = perder todos los SSN para siempre), custodiarla igual que JWT_SECRET con copia fuera de la máquina, y añadirla al chequeo `REQUIRED_ENV` de `server.js` para que falle al arrancar y no en la primera nómina.
 - [ ] Bucket S3 de producción separado de dev, ACLs privadas, reglas de ciclo de vida, usuario IAM limitado a ese bucket.
 - [ ] **Backups automáticos diarios + al menos un restore probado** — innegociable antes de que existan libros reales.
@@ -205,7 +206,7 @@ Todas las reglas se sembraron como placeholders **UNVERIFIED**; la nómina en mo
 ### 4.4 Verificación en producción y lanzamiento
 
 - [ ] Desplegar el frontend bajo el dominio real y verificar el ciclo completo de email **en producción**: registro → verificación → invitación → reset, aterrizando en inbox (no spam).
-- [ ] Verificar la PWA sobre HTTPS en el dominio real: manifest, service worker, instalable en desktop y Android.
+- [ ] Verificar la PWA sobre HTTPS en el dominio real: manifest, service worker, instalable en desktop y Android. En Android convivirán la PWA "Abaco" y la app compañera "Abaco Scan"; mantener nombres e íconos distintos.
 - [ ] Soft-launch: mover el grupo de testers a la infraestructura de producción.
 - [ ] **Checklist de lanzamiento:** flags DRAFT apagados, datos demo fuera, backups verificados, alertas llegando a un buzón monitoreado, soporte atendido, decisión de status page tomada.
 - [ ] Ritmo post-lanzamiento: actualizaciones de dependencias semanales, un simulacro de restore de DB, revisión de errores en Sentry.
@@ -219,4 +220,4 @@ Todas las reglas se sembraron como placeholders **UNVERIFIED**; la nómina en mo
 3. **Antes de cualquier deploy:** migraciones + config (§4.1).
 4. **Después:** infra + lanzamiento web (§4.2–4.4), Stripe para cobrar (§2.5).
 5. **Para nómina real:** verificación contributiva completa (§3.1) — independiente del resto, puede avanzar cuando quieras.
-6. **Al final:** escritorio y móvil (§2.6).
+6. **Al final:** escritorio (Tauri) y la app compañera móvil (§2.6, ROADMAP-V6); la compañera puede arrancar en paralelo en cuanto exista el API alojado, y su Fase 1 (fuentes/íconos auto-alojados, paquetes compartidos) conviene hacerla antes del build de Tauri.

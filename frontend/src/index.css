@@ -1,155 +1,16 @@
-/* ── Import fonts (must precede all other statements) ──────
-   Inter = UI body · Fraunces = display face (titles, wordmark) ·
-   DM Mono = code/mono */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=DM+Mono:wght@400;500&display=swap");
+/* ── Shared design system (ROADMAP-V6 Phase 1) ─────────────────
+   Fonts, color tokens and the base rules (body, h1, focus ring, scrollbar,
+   fade-in) all come from @abaco/tokens so the web app and the mobile
+   companion look identical by construction. Imports must precede all other
+   statements. Edit colors in packages/tokens/tokens.css — never here. */
+@import "@abaco/tokens/fonts.css";
+@import "@abaco/tokens/tokens.css";
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ── Light theme (default) — "Ink & plum" brand identity ─── */
-:root {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f7f6fa;
-  --bg-tertiary: #efedf5;
-  --bg-sidebar: #fbfafd;
-
-  --text-primary: #191524;
-  --text-secondary: #4f4a60;
-  /* ≥4.5:1 on white and canvas — muted labels are 11px, AA applies */
-  --text-muted: #706a86;
-
-  --border-color: #e6e3ef;
-  --border-hover: #cec9e0;
-
-  --brand: #5b3a9b;
-  --brand-light: #eee7fa;
-  --brand-hover: #472a7e;
-  --on-brand: #ffffff; /* text/icon color on solid brand surfaces */
-
-  --income: #1e7a5b;
-  --expense: #c24e24;
-  --payroll: #2f6bc6;
-  --profit: #9c2f6f;
-
-  --income-bg: #e0f3eb;
-  --expense-bg: #fbe8df;
-  --payroll-bg: #e5edfb;
-
-  --danger: #b3323c;
-  --danger-bg: #fae5e7;
-
-  --card-shadow: 0 1px 3px rgba(30, 20, 60, 0.07);
-
-  /* Table density — rows read these via py-[var(--row-y)] etc. */
-  --row-y: 12px;
-  --row-y-sm: 10px;
-}
-
-/* ── Dark theme ──────────────────────────────────────────── */
-[data-theme="dark"] {
-  --bg-primary: #181420;
-  --bg-secondary: #110e18;
-  --bg-tertiary: #0b0811;
-  --bg-sidebar: #14101b;
-
-  --text-primary: #e9e6f3;
-  --text-secondary: #9b95af;
-  /* ≥4.5:1 on card surfaces (#181420) — the old #575069 sat at 2.4:1 */
-  --text-muted: #8b84a3;
-
-  --border-color: #2b2439;
-  --border-hover: #3d3454;
-
-  --brand: #a987e9;
-  --brand-light: #251d39;
-  --brand-hover: #9169de;
-  --on-brand: #191524; /* dark ink on the light plum — readable buttons */
-
-  --income: #4fc79a;
-  --expense: #f0895c;
-  --payroll: #6e9ef0;
-  --profit: #e06aae;
-
-  --income-bg: #11352a;
-  --expense-bg: #3c2114;
-  --payroll-bg: #142640;
-
-  --danger: #e85d67;
-  --danger-bg: #45181d;
-
-  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-}
-
-/* ── Base styles ─────────────────────────────────────────── */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-body {
-  font-family: "Inter", sans-serif;
-  background-color: var(--bg-secondary);
-  color: var(--text-primary);
-  font-size: 14px;
-  line-height: 1.6;
-  /* Digits align in every table/column — this is an accounting app. */
-  font-variant-numeric: tabular-nums;
-  transition:
-    background-color 0.2s,
-    color 0.2s;
-}
-
-/* Display face for page titles (component-level uses `font-display`). */
-h1 {
-  font-family: "Fraunces", Georgia, serif;
-  letter-spacing: -0.01em;
-}
-
-/* ── Keyboard navigation ─────────────────────────────────────
-   Visible ring on keyboard focus only. Form fields are excluded —
-   they carry their own focus:border-brand treatment. */
-button:focus-visible,
-a:focus-visible,
-[role="menuitem"]:focus-visible,
-[role="tab"]:focus-visible,
-[tabindex]:focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: 2px;
-}
-
-/* ── Scrollbar ───────────────────────────────────────────── */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--border-hover);
-}
-
-/* ── Animations ──────────────────────────────────────────── */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.fade-in {
-  animation: fadeIn 0.2s ease;
-}
-
-/* ── First-run tour highlight (ProductTour.jsx) ──────────── */
+/* ── First-run tour highlight (ProductTour.jsx) — web only ── */
 @keyframes tourPulse {
   0%,
   100% {
@@ -168,17 +29,4 @@ a:focus-visible,
   z-index: 390;
   border-radius: 8px;
   animation: tourPulse 1.6s ease-in-out infinite;
-}
-
-/* ── Utilities ───────────────────────────────────────────── */
-@layer utilities {
-  /* Horizontal tab strips / chip rows on phones: keep them swipeable
-     without painting a permanent scrollbar track under them. */
-  .scrollbar-none {
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-  .scrollbar-none::-webkit-scrollbar {
-    display: none;
-  }
 }

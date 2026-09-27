@@ -1,0 +1,27 @@
+{
+  "name": "@abaco/ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Abaco UI-kit primitives (Button, Card, Modal, …), cx helper, BrandMark, SplitEditor and the toast/confirm feedback layer — shared by frontend/ and mobile/. Primitives only: navigation and screens belong to each app.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./cx": "./src/cx.js",
+    "./BrandMark": "./src/BrandMark.jsx",
+    "./SplitEditor": "./src/SplitEditor.jsx",
+    "./feedback": "./src/feedback/index.js"
+  },
+  "scripts": {
+    "lint": "eslint ."
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-i18next": "^17.0.0",
+    "react-router-dom": "^7.0.0",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^10.3.0"
+  }
+}

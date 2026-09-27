@@ -1,0 +1,27 @@
+/* ── Shared design system (ROADMAP-V6 Phase 1) ─────────────────
+   Fonts, color tokens and the base rules come from @abaco/tokens so the phone
+   and the web app look identical by construction. Imports must precede all
+   other statements. Edit colors in packages/tokens/tokens.css — never here. */
+@import "@abaco/tokens/fonts.css";
+@import "@abaco/tokens/tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Phone viewport ──
+   100dvh follows the visible viewport as the browser chrome / keyboard
+   collapses; 100vh is the fallback for older WebViews. overscroll-behavior
+   stops the rubber-band bounce on the shell — pull-to-refresh lives inside
+   the lists, not on the page. */
+html,
+body,
+#root {
+  height: 100vh;
+  height: 100dvh;
+}
+
+body {
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+}

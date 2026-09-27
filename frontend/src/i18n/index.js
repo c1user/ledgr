@@ -2,8 +2,9 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
-import en from "./locales/en.json";
-import es from "./locales/es.json";
+// Locale files are shared with the mobile companion (ROADMAP-V6 Phase 1.5).
+import en from "@abaco/locales/en.json";
+import es from "@abaco/locales/es.json";
 
 i18n.use(initReactI18next).init({
   resources: {

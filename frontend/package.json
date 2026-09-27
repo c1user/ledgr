@@ -14,7 +14,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@tabler/icons-webfont": "^3.44.0",
+    "@abaco/locales": "*",
+    "@abaco/tokens": "*",
+    "@abaco/ui": "*",
     "@tanstack/react-query": "^5.100.14",
     "axios": "^1.16.1",
     "dayjs": "^1.11.21",

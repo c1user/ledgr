@@ -1,14 +1,21 @@
 # ROADMAP V4 — Production launch & multi-platform
 
 Everything between today's dev setup and real users running Abaco as a
-downloadable desktop app and an Apple/Google store app. Feature work is done
-(V1–V3); this roadmap is packaging, infrastructure, billing, and compliance.
+downloadable desktop app (the full app) and a smaller companion mobile app
+for receipt scanning + the AI assistant ("Abaco Scan", see ROADMAP-V6.md).
+Feature work is done (V1–V3); this roadmap is packaging, infrastructure,
+billing, and compliance.
 
 **The one architectural fact that shapes everything:** Abaco is a
 client-server app. The Express API + PostgreSQL + S3 + Anthropic backend must
-run on a server **no matter which client ships**. The desktop and mobile
-"apps" are shells around the same frontend, talking to that hosted API.
-Nothing in Phases 4–6 can even be tested until Phase 1 exists.
+run on a server **no matter which client ships**. The desktop "app" is a
+shell around the same frontend. The mobile app is a separate, smaller
+client (receipt scanning + AI assistant) that shares the design tokens, UI
+kit and locales through `packages/*` and talks to the same hosted API —
+same accounts, same PostgreSQL/S3 (decided 2026-09-21; ROADMAP-V6.md).
+Nothing in Phases 4–6 can ship or be store-tested until Phase 1 exists
+(the mobile core, V6 Phases 1–2, is developed and verified against the
+local backend).
 
 **On the "do I still need a web version?" question — yes, keep it.** Three
 reasons, in order of force:
@@ -26,8 +33,10 @@ reasons, in order of force:
 API); billing second (the app stores need to know the monetization story
 before review, and testers can exercise it); web launch third (it's the
 cheapest client and validates production end-to-end); desktop fourth (no
-gatekeeper, fast iteration); mobile last (store review cycles have the
-longest lead times and the most requirements).
+gatekeeper, fast iteration); the mobile companion in parallel with desktop
+once V6 Phase 1's packages exist, with its store admin started first
+(store review cycles have the longest lead times and the most
+requirements).
 
 ---
 
@@ -45,9 +54,11 @@ longest lead times and the most requirements).
       (SES/Postmark/Resend; free tiers cover a beta).
 - [ ] **0.5 Stripe account** — activation + identity verification can take
       days; start early.
-- [ ] **0.6 Apple Developer Program** — $99/yr, required for the iOS app AND
+- [x] **0.6 Apple Developer Program** — PURCHASED 2026-09-26. $99/yr, required for the iOS app AND
       for signing/notarizing the macOS desktop build. Enrollment can take
-      days.
+      days. DECIDED 2026-09-25: purchase now — TestFlight is the iPhone
+      testing path for the mobile companion (V6 0.5 / 2.14), so this gates
+      on-device testing, not just the store release.
 - [ ] **0.7 Google Play Console** — $25 one-time. NOTE: new personal
       accounts must run a closed test with ~12 testers for 14 days before
       production access — this is the single longest lead-time item; start
@@ -62,7 +73,9 @@ longest lead times and the most requirements).
 - [ ] **0.11 Product decisions** — final app name/branding check ("Abaco"
       availability in both stores), pricing for the three tiers, free-trial
       policy, whether the demo accounts exist in production (recommend: no;
-      use a "demo mode" seed per request instead).
+      use a "demo mode" seed per request instead). Also pick the mobile
+      companion's store name ("Abaco Scan", distinct from the PWA "Abaco"
+      so both can live on one Android home screen).
 
 ## Phase 1 — Production backend & infrastructure  *(everything depends on this)*
 
@@ -116,19 +129,25 @@ longest lead times and the most requirements).
       Stripe flows.
 - [ ] **2.5 Dunning & billing emails** — payment failed / card expiring
       (Stripe can send these; enable and brand them).
-- [ ] **2.6 The Apple question (decide now, build in Phase 6)** — Apple
+- [x] **2.6 The Apple question — DECIDED 2026-09-25: sign-in only** — Apple
       takes 15–30% of digital subscriptions sold *inside* iOS apps and
       requires their In-App Purchase system. The pragmatic pattern for
       B2B SaaS: the iOS app is **sign-in only** (no purchase, no pricing
-      links) and subscriptions are bought on the web. Decide this policy
-      now — it determines Phase 6 scope (native IAP integration is weeks of
-      extra work and 15–30% margin).
+      links) and subscriptions are bought on the web. Decided; Phase 6.4
+      IAP stays deferred (native IAP integration is weeks of extra work and
+      15–30% margin). The companion app has no Plans page;
+      its 403 UPGRADE_REQUIRED upsells (10-scan Starter cap on
+      /api/receipts/upload, ai_chat = Premium) are informational text only —
+      no links or prices on either platform (Apple 3.1.3(f)).
 
 ## Phase 3 — Web production launch  *(cheapest client; validates everything)*
 
 - [ ] **3.1 Deploy frontend** to the static host under the real domain,
       pointed at the prod API; verify the full email loop (register →
-      verify → invite → reset) end-to-end in production.
+      verify → invite → reset) end-to-end in production. Since V6 Phase 1
+      the repo is an npm workspace with ONE root lockfile: the host's
+      install/build must run from the repo root —
+      `npm ci && npm run build -w frontend` (output: `frontend/dist`).
 - [ ] **3.2 PWA check on prod** — manifest/service-worker over HTTPS on the
       real domain; installability on desktop + Android.
 - [ ] **3.3 Seed policy** — no demo accounts in prod (or a controlled one
@@ -155,34 +174,28 @@ longest lead times and the most requirements).
 - [ ] **4.6 Deep-link handling** — register an `abaco://` protocol so email
       links can open the desktop app when installed (fallback stays web).
 
-## Phase 5 — Mobile store apps (Capacitor)  *(longest lead times; start store admin early)*
+## Phase 5 — Mobile companion app "Abaco Scan"  *(moved to ROADMAP-V6.md; longest lead times; start store admin early)*
 
-- [ ] **5.1 Capacitor wrap** of the existing frontend (iOS + Android
-      projects), pointed at the prod API; safe-area/status-bar/keyboard
-      handling.
-- [ ] **5.2 Mobile UX audit** — the app is responsive, but store-quality
-      needs a pass on the dense tables (Transactions, Payroll), modals on
-      small screens, and touch targets. Budget real time here; this is
-      what separates "wrapped website" rejections from approvals.
-- [ ] **5.3 Native camera receipt capture** — replace the file input with
-      the Capacitor camera plugin; this is the single biggest mobile win
-      for a bookkeeping app (snap the receipt at the register).
-- [ ] **5.4 Deep links** (iOS Universal Links + Android App Links) so
-      invite/reset/verification emails open the app when installed.
-- [ ] **5.5 Push notifications (optional, can ship v1.1)** — FCM/APNs wired
-      to the existing notification events; the in-app bell already covers
-      the need at launch.
-- [ ] **5.6 Store compliance package** — privacy policy URL (0.9), Apple
-      privacy "nutrition labels" + Google Data Safety form (the Privacy
-      Policy already discloses everything — transcribe it), account
-      deletion requirement (✔ already built — close business), sign-in
-      policy per the 2.6 decision, screenshots/descriptions in EN + ES.
-- [ ] **5.7 Beta channels** — TestFlight (iOS) + Play closed testing
-      (Android; satisfies the 14-day/12-tester requirement from 0.7) using
-      your test group.
-- [ ] **5.8 Store submissions** — expect at least one rejection round each;
-      Apple commonly pushes back on wrapped apps (5.2 is the mitigation)
-      and on anything smelling like external purchases (2.6).
+The mobile app is no longer a Capacitor wrap of the full frontend. It is a
+separate, smaller React app (receipt scanning + AI assistant) wrapped by
+Capacitor, sharing tokens / UI kit / locales via `packages/*` and the same
+hosted API/PostgreSQL/S3. The full plan lives in **ROADMAP-V6.md**:
+
+- [ ] **5.1 V6 Phase 0** — decisions & prerequisites (identity, sign-in-only
+      policy, Node 22, Android toolchain, iOS CI lane). Docs done 2026-09-25.
+- [ ] **5.2 V6 Phase 1** — shared foundation (root workspace, @abaco/tokens,
+      /ui, /locales, backend contract changes, icons). Also benefits the
+      Tauri build (self-hosted fonts and icons → offline-safe).
+- [ ] **5.3 V6 Phase 2** — mobile app core (auth, document-scanner capture,
+      share-sheet intake, review → book, receipts, assistant with voice,
+      settings, offline outbox, local reminders) — all testable in Chrome.
+- [ ] **5.4 V6 Phase 3** — native shells + stores (Android local, iOS via
+      CI/TestFlight, compliance package, closed test, submissions).
+
+Dropped from the old Phase 5: "Capacitor wrap of the existing frontend",
+the mobile UX audit of dense tables/modals (no dense tables on the phone),
+and deep links + push notifications (both declined by the owner for v1 —
+revisit after launch, V6 Phase 4; email flows stay on the web).
 
 ## Phase 6 — Launch & operate
 
@@ -201,11 +214,12 @@ longest lead times and the most requirements).
 
 ---
 
-**Cost floor to launch all three platforms:** domain ~$12/yr · hosting
+**Cost floor to launch all three platforms (web, desktop, mobile companion):** domain ~$12/yr · hosting
 $0–25/mo · Apple $99/yr · Google $25 once · Windows signing ~$10/mo ·
 Stripe (per-transaction only) · SMTP/Sentry free tiers. Roughly **$250 for
 year one** plus per-use Anthropic/S3 costs.
 
 **Critical path:** 0.1→1.3→3.1 makes the product real; 0.7's 14-day Android
-test and 0.6's enrollment are the clocks to start first; everything in
-Phase 4 can proceed in parallel with Phase 5's store admin.
+test and 0.6's enrollment are the clocks to start first; Phase 4 (Tauri) and
+the mobile companion (ROADMAP-V6.md) both proceed in parallel — their shared
+prerequisites are the hosted API (1.3) and V6 Phase 1's packages.

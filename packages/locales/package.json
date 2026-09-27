@@ -1,0 +1,15 @@
+{
+  "name": "@abaco/locales",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Abaco EN/ES translation files and the chart-of-accounts naming helpers — shared by frontend/, mobile/ and the backend PDF renderer (by path).",
+  "type": "module",
+  "exports": {
+    "./en.json": "./en.json",
+    "./es.json": "./es.json",
+    "./coa": "./coa.js"
+  },
+  "scripts": {
+    "test": "node --test parity.test.mjs"
+  }
+}

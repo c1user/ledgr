@@ -1,0 +1,79 @@
+/* @abaco/tokens — the "Ink & plum" design tokens shared by the web app
+   (frontend/) and the mobile companion (mobile/). Moved verbatim from
+   frontend/src/index.css on 2026-09-25 (ROADMAP-V6 Phase 1.2). Every color in
+   both apps resolves to one of these custom properties; change them HERE only.
+   Light = :root, dark = [data-theme="dark"] on <html>. */
+
+/* ── Light theme (default) — "Ink & plum" brand identity ─── */
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f7f6fa;
+  --bg-tertiary: #efedf5;
+  --bg-sidebar: #fbfafd;
+
+  --text-primary: #191524;
+  --text-secondary: #4f4a60;
+  /* ≥4.5:1 on white and canvas — muted labels are 11px, AA applies */
+  --text-muted: #706a86;
+
+  --border-color: #e6e3ef;
+  --border-hover: #cec9e0;
+
+  --brand: #5b3a9b;
+  --brand-light: #eee7fa;
+  --brand-hover: #472a7e;
+  --on-brand: #ffffff; /* text/icon color on solid brand surfaces */
+
+  --income: #1e7a5b;
+  --expense: #c24e24;
+  --payroll: #2f6bc6;
+  --profit: #9c2f6f;
+
+  --income-bg: #e0f3eb;
+  --expense-bg: #fbe8df;
+  --payroll-bg: #e5edfb;
+
+  --danger: #b3323c;
+  --danger-bg: #fae5e7;
+
+  --card-shadow: 0 1px 3px rgba(30, 20, 60, 0.07);
+
+  /* Table density — rows read these via py-[var(--row-y)] etc. */
+  --row-y: 12px;
+  --row-y-sm: 10px;
+}
+
+/* ── Dark theme ──────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg-primary: #181420;
+  --bg-secondary: #110e18;
+  --bg-tertiary: #0b0811;
+  --bg-sidebar: #14101b;
+
+  --text-primary: #e9e6f3;
+  --text-secondary: #9b95af;
+  /* ≥4.5:1 on card surfaces (#181420) — the old #575069 sat at 2.4:1 */
+  --text-muted: #8b84a3;
+
+  --border-color: #2b2439;
+  --border-hover: #3d3454;
+
+  --brand: #a987e9;
+  --brand-light: #251d39;
+  --brand-hover: #9169de;
+  --on-brand: #191524; /* dark ink on the light plum — readable buttons */
+
+  --income: #4fc79a;
+  --expense: #f0895c;
+  --payroll: #6e9ef0;
+  --profit: #e06aae;
+
+  --income-bg: #11352a;
+  --expense-bg: #3c2114;
+  --payroll-bg: #142640;
+
+  --danger: #e85d67;
+  --danger-bg: #45181d;
+
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}

@@ -34,10 +34,7 @@ for (const lang of ["en", "es"]) {
   try {
     LOCALES[lang] = JSON.parse(
       readFileSync(
-        path.resolve(
-          __dirname,
-          `../../../frontend/src/i18n/locales/${lang}.json`,
-        ),
+        path.resolve(__dirname, `../../../packages/locales/${lang}.json`),
         "utf8",
       ),
     );

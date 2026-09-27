@@ -111,10 +111,15 @@ const getBusinessContext = async (businessId) => {
       [businessId, firstOfMonth],
     ),
     pool.query(
-      `SELECT name, type, current_balance
-       FROM accounts
-       WHERE business_id = $1 AND is_active = true
-       ORDER BY type, name`,
+      // Live balance from the ledger, exactly as GET /api/accounts reports it;
+      // the stored current_balance is only the opening amount for accounts
+      // with no ledger twin/activity yet.
+      `SELECT a.name, a.type,
+              COALESCE(bal.natural_balance, a.current_balance) AS current_balance
+       FROM accounts a
+       LEFT JOIN account_ledger_balances bal ON bal.account_id = a.coa_account_id
+       WHERE a.business_id = $1 AND a.is_active = true
+       ORDER BY a.type, a.name`,
       [businessId],
     ),
     pool.query(
@@ -163,6 +168,7 @@ Answer questions accurately based on this data. Be concise and helpful.
 If asked about something not in the data, say so honestly.
 Never make up numbers. Always use the currency ${biz.currency}.
 Respond in the same language the user writes in (English or Spanish). If the user mixes languages, prefer the language of their most recent message.
+Format: plain text only — no Markdown (no **bold**, no # headings, no | tables |). Use short lines; for lists, one item per line starting with "- ".
 Today's date is ${now.toISOString().split("T")[0]}.
 
 SECURITY RULES — FOLLOW THESE ABSOLUTELY:

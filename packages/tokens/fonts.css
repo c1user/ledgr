@@ -1,0 +1,11 @@
+/* @abaco/tokens — self-hosted fonts + icon font, identical in every app.
+   Inter = UI body · Fraunces = display face (titles, wordmark) · DM Mono = mono.
+   Family names are the fontsource ones: "Inter Variable", "Fraunces Variable",
+   "DM Mono" — tailwind.preset.js references exactly these. No Google Fonts,
+   no CDN: the phone must work offline and the web app makes no third-party
+   font request. */
+@import "@fontsource-variable/inter/index.css";
+@import "@fontsource-variable/fraunces/opsz.css";
+@import "@fontsource/dm-mono/400.css";
+@import "@fontsource/dm-mono/500.css";
+@import "@tabler/icons-webfont/dist/tabler-icons.min.css";

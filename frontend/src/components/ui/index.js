@@ -1,14 +1,21 @@
-export { default as Badge } from "./Badge";
-export { default as Button } from "./Button";
-export { default as Card } from "./Card";
-export { default as EmptyState } from "./EmptyState";
-export { default as Field } from "./Field";
-export { default as FilterSheet, FilterButton } from "./FilterSheet";
-export { default as Input, controlClass } from "./Input";
-export { default as Modal } from "./Modal";
-export { default as PageHeader } from "./PageHeader";
-export { default as Select } from "./Select";
-export { default as TabNav } from "./TabNav";
-export { default as Tabs } from "./Tabs";
-export { default as Textarea } from "./Textarea";
-export { default as Toggle } from "./Toggle";
+// Re-export shim (ROADMAP-V6 Phase 1.4): the UI kit lives in packages/ui
+// (@abaco/ui) so the web app and the mobile companion share one set of
+// primitives. Existing imports of "components/ui" keep working unchanged.
+export {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  FilterSheet,
+  FilterButton,
+  Input,
+  controlClass,
+  Modal,
+  PageHeader,
+  Select,
+  TabNav,
+  Tabs,
+  Textarea,
+  Toggle,
+} from "@abaco/ui";
