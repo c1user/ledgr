@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">AbacoPR Lite</string>
+    <string name="title_activity_main">AbacoPR Lite</string>
+    <string name="package_name">com.abacopr.lite</string>
+    <string name="custom_url_scheme">com.abacopr.lite</string>
+</resources>

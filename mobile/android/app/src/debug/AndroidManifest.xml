@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Merged into DEBUG builds only (ROADMAP-V6 2.14c dev shell): lets the
+     WebView reach the developer's backend over plain http (emulator host
+     10.0.2.2 or the PC's LAN address). Release builds never get this. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application
+        android:usesCleartextTraffic="true"
+        tools:ignore="UnusedAttribute" />
+</manifest>

@@ -2,7 +2,7 @@
 
 Everything between today's dev setup and real users running Abaco as a
 downloadable desktop app (the full app) and a smaller companion mobile app
-for receipt scanning + the AI assistant ("Abaco Scan", see ROADMAP-V6.md).
+for receipt scanning + the AI assistant ("AbacoPR Lite", see ROADMAP-V6.md).
 Feature work is done (V1–V3); this roadmap is packaging, infrastructure,
 billing, and compliance.
 
@@ -74,7 +74,7 @@ requirements).
       availability in both stores), pricing for the three tiers, free-trial
       policy, whether the demo accounts exist in production (recommend: no;
       use a "demo mode" seed per request instead). Also pick the mobile
-      companion's store name ("Abaco Scan", distinct from the PWA "Abaco"
+      companion's store name ("AbacoPR Lite", distinct from the PWA "Abaco"
       so both can live on one Android home screen).
 
 ## Phase 1 — Production backend & infrastructure  *(everything depends on this)*
@@ -174,7 +174,7 @@ requirements).
 - [ ] **4.6 Deep-link handling** — register an `abaco://` protocol so email
       links can open the desktop app when installed (fallback stays web).
 
-## Phase 5 — Mobile companion app "Abaco Scan"  *(moved to ROADMAP-V6.md; longest lead times; start store admin early)*
+## Phase 5 — Mobile companion app "AbacoPR Lite"  *(moved to ROADMAP-V6.md; longest lead times; start store admin early)*
 
 The mobile app is no longer a Capacitor wrap of the full frontend. It is a
 separate, smaller React app (receipt scanning + AI assistant) wrapped by

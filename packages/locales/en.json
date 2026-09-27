@@ -1865,7 +1865,7 @@
       "offline": "You're offline",
       "offlineHint": "Some things will wait until you're back online.",
       "updateRequiredTitle": "Update required",
-      "updateRequiredBody": "This version of Abaco Scan is no longer supported. Update the app from the store, or keep working on the web.",
+      "updateRequiredBody": "This version of AbacoPR Lite is no longer supported. Update the app from the store, or keep working on the web.",
       "openWeb": "Open Abaco on the web",
       "scanAnother": "Scan another",
       "viewReceipt": "View receipt",
@@ -2023,7 +2023,7 @@
       "reminders": "Reminders",
       "remindersHint": "Pending receipts and tax deadlines, on this device.",
       "biometricLockWebHint": "Face ID / fingerprint works in the phone app. In the browser the lock screen opens without asking.",
-      "remindersDenied": "Notifications are turned off for Abaco Scan. Allow them in your phone's settings to get reminders.",
+      "remindersDenied": "Notifications are turned off for AbacoPR Lite. Allow them in your phone's settings to get reminders.",
       "openWeb": "Open Abaco on the web",
       "terms": "Terms of service",
       "privacy": "Privacy policy",
@@ -2039,7 +2039,7 @@
       "scansLimit": "Your plan includes {{limit}} scans per month and you have used them all. Plans are managed from your Abaco account on the web."
     },
     "lock": {
-      "title": "Abaco Scan is locked",
+      "title": "AbacoPR Lite is locked",
       "unlock": "Unlock",
       "useBiometrics": "Use Face ID / fingerprint"
     },

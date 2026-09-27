@@ -8,7 +8,7 @@ export default defineConfig({
   plugins: [
     react(),
     // Phase 2 — installable PWA. The same build is later wrapped by Tauri
-    // (desktop). Mobile is a SEPARATE companion app (mobile/, "Abaco Scan":
+    // (desktop). Mobile is a SEPARATE companion app (mobile/, "AbacoPR Lite":
     // receipt scan + AI) that shares packages/* (tokens, ui, locales) and
     // the hosted API — it does not wrap this build. See ROADMAP-V6.md.
     VitePWA({

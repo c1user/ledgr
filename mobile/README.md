@@ -1,4 +1,4 @@
-# Abaco Scan (`mobile/`)
+# AbacoPR Lite (`mobile/`)
 
 The phone companion to Abaco (ROADMAP-V6). It does two jobs — **scanning
 receipts into the books** and **talking to the AI assistant** — and shares
@@ -93,7 +93,7 @@ so HMR and the proxy are unaffected).
 ```
 mobile/src/**          may import @abaco/ui, @abaco/tokens, @abaco/locales (as packages)
 mobile/src/native/**   the ONLY place that may import @capacitor/*, @capacitor-community/*,
-                       @capawesome/*, @aparajita/*, @capacitor-mlkit/*, send-intent
+                       @capawesome/*, @aparajita/*, @capacitor-mlkit/*
 nothing in mobile/     may import from frontend/src/*
 ```
 
@@ -108,17 +108,18 @@ never executes plugin code:
 | `secureStorage.js`                                           | Keychain / KeyStore                                        | `localStorage` with a `console.warn`       |
 | `network.js`                                                 | `@capacitor/network`                                       | `navigator.onLine` + online/offline events |
 | `speech.js`                                                  | speech-recognition (+ `speechSynthesis`)                   | Web Speech API                             |
-| `haptics.js`, `shortcuts.js`, `shareIntake.js`, `privacy.js` | the plugin                                                 | no-ops                                     |
+| `haptics.js`, `shortcuts.js`, `privacy.js`                   | the plugin                                                 | no-ops                                     |
+| `shareIntake.js`                                             | Android: in-house `ShareIntakePlugin.java`; iOS: 3.4        | no-op                                      |
 | `notifications.js`                                           | `@capacitor/local-notifications`                           | no-op (`requestPermission()` → false)      |
 | `biometrics.js`                                              | biometric-auth                                             | `authenticate()` → true + `console.info`   |
 | `outbox.js`                                                  | `@capacitor/filesystem` (`Data/outbox/<id>.jpg`)           | IndexedDB                                  |
 | `appLifecycle.js`                                            | `@capacitor/app` resume / back button                      | `visibilitychange`                         |
 | `browser.js`                                                 | `@capacitor/browser`                                       | `window.open`                              |
 
-`@capacitor-community/speech-recognition` and `send-intent` are published
-for Capacitor 7 (their peer range admits 8); their native side is verified
-in Phase 3 — see the `// Phase 3: plugin verification` notes in the
-wrappers. `@capacitor-community/text-to-speech` is not installed; spoken
+`@capacitor-community/speech-recognition` is published
+for Capacitor 7 (its peer range admits 8); its native side is verified
+in Phase 3 — see the `// Phase 3: plugin verification` note in the
+wrapper. `@capacitor-community/text-to-speech` is not installed; spoken
 answers use `window.speechSynthesis` until it is.
 
 ## Source map
@@ -161,8 +162,8 @@ strings and DATE columns as ISO timestamps — parse at the edge
   insets, back button → router history, keyboard `resize: "native"`,
   `local-notifications` small icon, the `abaco-mobile-theme` → status-bar
   style sync noted in `store/themeStore.js`.
-- Verify the Capacitor-7 plugins (speech recognition, send-intent) on a
-  device or replace them; decide on an iOS VisionKit scanner plugin (today
+- Verify the Capacitor-7 plugin (speech recognition) on a
+  device or replace it; decide on an iOS VisionKit scanner plugin (today
   iOS uses the plain camera).
 - **CSP:** replace `script-src 'unsafe-inline'` with the sha256 hash of the
   bridge script Capacitor injects into `index.html` (computed after `cap sync`).

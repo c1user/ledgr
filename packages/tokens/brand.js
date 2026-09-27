@@ -2,8 +2,8 @@
 // Change the product name here — never hard-code it in components.
 export const BRAND = {
   name: "Abaco",
-  mobileName: "Abaco Scan", // store name of the mobile companion (ROADMAP-V6)
-  appId: "com.abacopr.scan", // iOS bundle id / Android application id
+  mobileName: "AbacoPR Lite", // store name of the mobile companion (ROADMAP-V6)
+  appId: "com.abacopr.lite", // iOS bundle id / Android application id
 };
 
 // Literal hex values for the places CSS variables cannot reach: the PWA

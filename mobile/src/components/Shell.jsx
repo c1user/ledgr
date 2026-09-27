@@ -1,10 +1,11 @@
 import { useEffect } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import BrandMark from "@abaco/ui/BrandMark";
 import { BRAND } from "@abaco/tokens/brand.js";
 import useAuthStore from "../store/authStore.js";
 import useOutboxStore, { selectOutboxCount } from "../store/outboxStore.js";
+import { onShareEvent } from "../native/shareIntake.js";
 import TabBar from "./TabBar.jsx";
 import OfflineBanner from "./OfflineBanner.jsx";
 
@@ -18,12 +19,24 @@ export default function Shell() {
   const business = useAuthStore((s) => s.business);
   const expiresSoon = useAuthStore((s) => s.expiresSoon);
   const outboxCount = useOutboxStore(selectOutboxCount);
+  const navigate = useNavigate();
 
   // Offline outbox (2.11): wire the launch / network / resume triggers once,
   // whichever tab the app opens on. start() is idempotent (Scan calls it too).
   useEffect(() => {
     useOutboxStore.getState().start();
   }, []);
+
+  // Share-sheet intake (2.6): a share that lands while another tab is up
+  // switches to Scan, whose subscription pulls the files and opens the
+  // CaptureSheet. Already on Scan → its own listener handles it.
+  useEffect(
+    () =>
+      onShareEvent(() => {
+        if (window.location.pathname !== "/scan") navigate("/scan");
+      }),
+    [navigate],
+  );
 
   return (
     <div className="flex h-full flex-col bg-canvas">

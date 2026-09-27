@@ -7,6 +7,10 @@ import { isNative } from "./platform.js";
 const KEY_PREFIX = "abaco.";
 const WEB_PREFIX = "abaco-mobile-";
 
+// NOTE: a Capacitor plugin object is a Proxy that turns ANY property access
+// into a native call — including ".then". Resolving a promise with the proxy
+// itself therefore makes "await" invoke SecureStorage.then() on the device
+// ("not implemented on android"). Always resolve with a wrapper object.
 let pluginPromise = null;
 async function plugin() {
   if (!pluginPromise) {
@@ -14,11 +18,11 @@ async function plugin() {
       async ({ SecureStorage }) => {
         await SecureStorage.setKeyPrefix(KEY_PREFIX);
         await SecureStorage.setSynchronize(false);
-        return SecureStorage;
+        return { SecureStorage };
       },
     );
   }
-  return pluginPromise;
+  return pluginPromise; // resolves { SecureStorage } — callers destructure
 }
 
 let warned = false;
@@ -41,7 +45,8 @@ export const isSupported = () => isNative();
 
 export async function get(key) {
   if (isNative()) {
-    const value = await (await plugin()).get(key);
+    const { SecureStorage } = await plugin();
+    const value = await SecureStorage.get(key);
     return value === undefined ? null : value;
   }
   const ls = webStorage();
@@ -50,7 +55,8 @@ export async function get(key) {
 
 export async function set(key, value) {
   if (isNative()) {
-    await (await plugin()).set(key, value);
+    const { SecureStorage } = await plugin();
+    await SecureStorage.set(key, value);
     return;
   }
   const ls = webStorage();
@@ -59,7 +65,8 @@ export async function set(key, value) {
 
 export async function remove(key) {
   if (isNative()) {
-    await (await plugin()).remove(key);
+    const { SecureStorage } = await plugin();
+    await SecureStorage.remove(key);
     return;
   }
   const ls = webStorage();

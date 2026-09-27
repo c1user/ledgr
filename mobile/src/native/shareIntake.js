@@ -1,57 +1,79 @@
 // Share-sheet intake (ROADMAP-V6 2.6): images/PDFs shared from other apps
 // enter the upload pipeline.
-//   Device: the "send-intent" plugin (published for Capacitor 7; its peer
-//           range accepts core 8 so the JS is installed — the native side is
-//           verified in Phase 3.2/3.4, and iOS additionally needs the share
-//           extension target from 3.1). // Phase 3: plugin verification
-//   Web:    no-op.
+//   Android: the in-house "ShareIntake" plugin (android/app/src/main/java/
+//            com/abacopr/lite/ShareIntakePlugin.java). MainActivity is the
+//            share target; the plugin copies the files, pokes the window
+//            event EVENT and hands them over once through consume().
+//   iOS:     same contract, implemented with the share extension in 3.4.
+//            Until then consume() rejects (UNIMPLEMENTED) → nothing happens.
+//   Web:     no-op.
+import { registerPlugin } from "@capacitor/core";
 import { isNative, toWebUrl } from "./platform.js";
+
+/** Window event the native side fires when a share has been copied. */
+export const EVENT = "abacoShareReceived";
 
 export const isSupported = () => isNative();
 
-async function intentToFile(intent) {
-  if (!intent?.url) return null;
-  const url = decodeURIComponent(intent.url);
-  const res = await fetch(toWebUrl(url));
-  const blob = await res.blob();
+const ShareIntake = registerPlugin("ShareIntake", {
+  web: () => ({ consume: async () => ({ items: [] }) }),
+});
+
+const stamp = () => new Date().toISOString().replace(/[:.]/g, "-");
+
+/** { url, name, type } → { blob, filename, previewUrl } (the camera's shape). */
+async function toFile(item) {
+  if (!item?.url) return null;
+  const res = await fetch(toWebUrl(item.url));
+  if (!res.ok) return null;
+  let blob = await res.blob();
+  if (!blob.type && item.type) blob = new Blob([blob], { type: item.type });
   const filename =
-    intent.title ||
-    `shared-${new Date().toISOString().replace(/[:.]/g, "-")}.${
-      blob.type.includes("pdf") ? "pdf" : "jpg"
-    }`;
+    item.name ||
+    `shared-${stamp()}.${blob.type.includes("pdf") ? "pdf" : "jpg"}`;
   return { blob, filename, previewUrl: URL.createObjectURL(blob) };
 }
 
 /**
+ * onShareEvent(cb) → unsubscribe. Fires when a share arrives, WITHOUT taking
+ * the files — the Shell uses it to switch to the Scan tab, whose
+ * onSharedFiles() subscription then pulls them.
+ */
+export function onShareEvent(cb) {
+  if (!isNative() || typeof window === "undefined") return () => {};
+  const handler = () => cb();
+  window.addEventListener(EVENT, handler);
+  return () => window.removeEventListener(EVENT, handler);
+}
+
+/**
  * onSharedFiles(cb) → unsubscribe. cb([{ blob, filename, previewUrl }])
- * Checks for an intent that launched the app, then listens for later ones.
+ * Pulls whatever is waiting (a share that launched the app, or one that
+ * arrived while another screen was up), then listens for later ones.
  */
 export function onSharedFiles(cb) {
   if (!isNative() || typeof window === "undefined") return () => {};
   let cancelled = false;
-  let SendIntentRef = null;
 
-  const deliver = async () => {
-    if (!SendIntentRef) return;
+  const drain = async () => {
     try {
-      const intent = await SendIntentRef.checkSendIntentReceived();
-      const file = await intentToFile(intent);
-      if (file && !cancelled) cb([file]);
-      if (intent?.url) await SendIntentRef.finish?.();
+      const { items } = await ShareIntake.consume();
+      if (!items?.length || cancelled) return;
+      const files = (await Promise.all(items.map(toFile))).filter(Boolean);
+      if (files.length && !cancelled) cb(files);
     } catch {
-      /* no pending intent */
+      /* not implemented on this platform (iOS until 3.4) */
     }
   };
 
-  import("send-intent")
-    .then(({ SendIntent }) => {
-      SendIntentRef = SendIntent;
-      return deliver();
-    })
-    .catch(() => {});
-  window.addEventListener("sendIntentReceived", deliver);
+  // Subscribe first so a copy finishing during the initial pull is not lost.
+  const handler = () => {
+    drain();
+  };
+  window.addEventListener(EVENT, handler);
+  drain();
   return () => {
     cancelled = true;
-    window.removeEventListener("sendIntentReceived", deliver);
+    window.removeEventListener(EVENT, handler);
   };
 }

@@ -1,4 +1,4 @@
-# ROADMAP V6 — Mobile companion app "Abaco Scan"
+# ROADMAP V6 — Mobile companion app "AbacoPR Lite"
 
 Owner decision (2026-09-21): **web + desktop = the full Abaco app** (the
 `frontend/` build; Tauri wraps that same build per V4 Phase 4). **Mobile is
@@ -34,9 +34,9 @@ phone-first screens, its own native features.
   stays standalone).
 - **Both apps self-host fonts and icons** (fontsource + the Tabler npm
   package); the website drops Google Fonts and the jsdelivr `@latest` link.
-- Working title **"Abaco Scan"**, `appId com.abacopr.scan` — distinct from
-  the installable PWA "Abaco" so both can live on one Android home screen.
-  Changeable any time before store submission.
+- **Final name "AbacoPR Lite", `appId com.abacopr.lite`** (owner decision
+  2026-09-27; baked into the Apple identifiers and store records) — distinct
+  from the installable PWA "Abaco" so both can live on one Android home screen.
 - Shared UI kit stays **primitives only** (Button, Card, Badge, Input,
   Select, Textarea, Field, Modal, Tabs, TabNav, PageHeader, EmptyState,
   Toggle, FilterSheet). Navigation and screens are the phone's own.
@@ -60,7 +60,7 @@ phone-first screens, its own native features.
   receipt is framed, perspective crop, deskew, contrast; "scan a stack"
   batch mode that uploads each page in sequence. Cleaner images raise the
   AI's extraction confidence.
-- **"Share to Abaco Scan"** — the app appears in the iOS/Android share sheet
+- **"Share to AbacoPR Lite"** — the app appears in the iOS/Android share sheet
   and accepts photos, screenshots, and PDFs from Mail, Photos, WhatsApp,
   Files into the review queue.
 - **Offline capture queue** — snap with no signal; uploads when back online;
@@ -109,7 +109,7 @@ ledgr/
   package-lock.json     NEW  single lockfile (frontend/package-lock.json goes away)
   backend/              UNCHANGED shape — not a workspace member (own npm ci, own node --test)
   frontend/             full app: web + Tauri desktop; imports @abaco/tokens, @abaco/ui, @abaco/locales
-  mobile/               NEW  "Abaco Scan": Vite 8 + React 19 + Tailwind 3.4 + Capacitor 8
+  mobile/               NEW  "AbacoPR Lite": Vite 8 + React 19 + Tailwind 3.4 + Capacitor 8
   packages/
     tokens/   @abaco/tokens   tokens.css (verbatim :root + [data-theme="dark"]), fonts.css, tailwind.preset.js, brand.js, drift test
     ui/       @abaco/ui       the 14 primitives + cx + BrandMark + SplitEditor + feedback (toast/confirm)
@@ -166,7 +166,7 @@ ledgr/
   time):** `@capacitor/camera` 8.x (`takePhoto` / `chooseFromGallery`;
   `getPhoto`/`pickImages` are deprecated) as the fallback capture path; a
   document-scanner plugin (iOS VisionKit / Android ML Kit, e.g.
-  `capacitor-document-scanner`); `send-intent` for the share-sheet target;
+  `capacitor-document-scanner`); an in-house `ShareIntake` plugin for the share-sheet target (send-intent was tried and dropped, see 2.6);
   `@aparajita/capacitor-secure-storage` 8.x; `@aparajita/capacitor-biometric-auth`;
   `@capacitor/local-notifications`; `@capacitor/haptics`;
   `@capawesome/capacitor-app-shortcuts`; `@capacitor-community/speech-recognition`
@@ -178,24 +178,34 @@ ledgr/
 
 ## Phase 0 — Decisions & prerequisites  *(no app code)*
 
-- [ ] **0.1 Identity** — confirm "Abaco Scan" / `com.abacopr.scan` and an
-      icon variant (orange viewfinder corner on the abacus mark); check
-      name availability in both stores (V4 0.11).
+- [ ] **0.1 Identity** — name/id DECIDED 2026-09-27: "AbacoPR Lite" /
+      `com.abacopr.lite` (applied in brand.js, capacitor.config.ts, locales,
+      docs). Still to do: icon variant (orange viewfinder corner on the abacus
+      mark) and the name-availability check in both stores (V4 0.11).
 - [ ] **0.2 Policy lock-in** — V4 2.6 = sign-in only; no purchase CTAs,
       links, or prices anywhere in the app; a production reviewer account
       on Premium (2FA off, a few receipts, rotating password) reconciled
       with V4 3.3.
-- [ ] **0.3 Node 22 LTS** via nvm-windows; run `backend` `npm test` and the
-      `frontend` build on 22 before switching the machine for good.
-      (Fallback: Capacitor 7.6.x on Node 20.)
-- [ ] **0.4 Android toolchain** — Android Studio (installs the JDK), SDK 36,
-      `ANDROID_HOME`, a physical Android phone with USB debugging. Nothing
-      of this exists on the dev machine today.
+- [x] **0.3 Node 22 LTS** — DONE 2026-09-27: Node 22.23.2 installed with
+      winget (in-place upgrade from 20.19.4; npm stays 11.5.2). Verified on 22:
+      backend 239 tests, frontend lint/build/tests, mobile lint/162 tests/prod
+      build, package tests; `npx @capacitor/cli@8 --version` → 8.5.2. One
+      change needed: Node 22's test runner no longer accepts a directory, so
+      `backend/package.json` test script is now `node --test "tests/*.test.mjs"`.
+- [x] **0.4 Android toolchain** — DONE 2026-09-27: Android Studio installed
+      by the owner (SDK at %LOCALAPPDATA%AndroidSdk: platform 37, build-tools
+      36, platform-tools, emulator; license accepted). Its bundled runtime is
+      JDK 25, which Gradle 8.14 (Capacitor 8 template) cannot run on, so
+      Microsoft OpenJDK 21 was installed via winget; `ANDROID_HOME` and
+      `JAVA_HOME` set as user env vars. Capacitor CLI 8.5.2 + @capacitor/android
+      + @capacitor/ios + typescript added to mobile/; `npx cap add android`
+      generated mobile/android (18 plugins). Still needed: an emulator (Google
+      APIs image) or a USB phone.
 - [ ] **0.5 iOS build lane — DECIDED 2026-09-25: paid Apple Developer
       Program + TestFlight** (chosen over free-Apple-ID sideloading, which
       expires weekly and cannot run the share extension or reach testers).
       Apple Developer Program: PURCHASED (owner, 2026-09-26). Next: App Store Connect
-      app record for `com.abacopr.scan` + API key, TestFlight internal
+      app record for `com.abacopr.lite` + API key, TestFlight internal
       group with the owner's iPhone, a Codemagic or GitHub Actions macOS
       job skeleton (no Mac on hand; iOS binaries are compiled only in CI).
 - [x] **0.6 Docs** — this file; V4 intro, 0.11, 2.6, Phase 5 → pointer,
@@ -289,7 +299,7 @@ ledgr/
       "scan a stack", upload with progress + `idempotencyKey` field, error
       mapping (403 `UPGRADE_REQUIRED` → text-only `UpsellNotice`; 413/415;
       429; network → outbox), Starter meter from entitlements `usage`.
-- [x] **2.6 Share-sheet intake** (2026-09-27) — wrapper + subscription on the Scan tab; the send-intent JS package is published for Capacitor 7, native side verified in 3.1; consider moving the subscription to Shell so shares arriving on other tabs are caught — `native/shareTarget.js`: images and PDFs
+- [x] **2.6 Share-sheet intake** (2026-09-27) — `native/shareIntake.js` + subscription on the Scan tab; the Shell switches to Scan when a share lands on another tab. Android side = in-house `ShareIntakePlugin.java` (MainActivity is the share target; files copied to cacheDir/shared, window event `abacoShareReceived`, `consume()`); the `send-intent` package was dropped 2026-09-27 — its receiving activity is a second BridgeActivity that finishes itself on pause, so uploads started from it died. iOS share extension implements the same contract in 3.4 — images and PDFs
       received from other apps enter the same upload pipeline (PDFs upload
       without AI until v1.1).
 - [x] **2.7 Review & book** (2026-09-27) — atomic booking via the 201 receipt field verified against the API (full page, sticky CTA) — confidence bar,
@@ -361,11 +371,38 @@ ledgr/
       iPhone-only device family), `PrivacyInfo.xcprivacy`; the iOS share
       extension target; Android manifest portrait + permissions audit
       (camera, microphone; never `READ_MEDIA_IMAGES` — Photo Picker only).
+      **Status 2026-09-27 (Android half done):** `npx cap add android/ios` done
+      (both projects in the repo); Capacitor 8.5.x CLI on Node 22; JDK =
+      Microsoft OpenJDK 21 (Android Studio's JBR 25 is too new for Gradle 8.14);
+      `local.properties` uses forward slashes; the debug APK builds
+      (`gradlew assembleDebug`; the root `build.gradle` lifts every library module
+      to the project compileSdk because speech-recognition 7.x hard-codes 35).
+      Manifest: portrait; MainActivity is the SEND / SEND_MULTIPLE share target
+      (in-house `ShareIntakePlugin.java`, see 2.6); `SCHEDULE_EXACT_ALARM`
+      removed (reminders are inexact). `Info.plist`: portrait + camera / photo /
+      microphone / speech / Face ID strings (EN). **Pending:** icons + splash from
+      1.9 via `@capacitor/assets`; iOS `es.lproj/InfoPlist.strings`,
+      `PrivacyInfo.xcprivacy`, iPhone-only device family and the share extension
+      (all at 3.4, where Xcode / CI can validate them); the CSP hash.
 - [ ] **3.2 Android on device** — emulator + USB phone: document scanner,
       share target, KeyStore token, biometric prompt, local notifications,
       app shortcuts, haptics, `SystemBars` insets, back button, keyboard,
       privacy screen, `https://localhost` CORS against the local backend
       (`CAP_ENV=dev` live reload), CSP verified.
+      **Status 2026-09-27 (emulator Pixel_10a, Android 17):** verified — sign-in
+      (light theme, Inter, brand colour, safe-area insets 54 / 24 px); token only
+      in encrypted app-private storage; ML Kit document scanner launches; share
+      from Google Photos → CaptureSheet → upload → AI read → Review (after
+      replacing send-intent, whose activity is a second BridgeActivity); local
+      reminders scheduled as inexact RTC_WAKEUP alarms (18:00 receipts, 09:00
+      deadlines) with no "Alarms & reminders" prompt; `https://localhost` origin
+      accepted by the local backend (dev shell → `http://10.0.2.2:5000`, cleartext
+      only when `CAP_ENV=dev`). Capacitor pitfall fixed in `secureStorage.js` /
+      `notifications.js`: never resolve a promise with a plugin proxy (`await`
+      calls `.then()` natively). **Pending:** USB phone, biometric prompt, app
+      shortcuts, haptics, keyboard, back button, privacy screen (on in release
+      only), speech recognition, CSP; the reminder title says "deadline coming
+      up" for an already-overdue ("vencida") obligation — wording follow-up.
 - [ ] **3.3 Android release** — upload keystore (custody like `JWT_SECRET`;
       losing it means a new listing), Play App Signing, AAB, internal
       testing → closed testing with 12 testers × 14 days (V4 0.7 clock —

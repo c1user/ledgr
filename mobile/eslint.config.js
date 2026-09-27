@@ -14,7 +14,6 @@ const NATIVE_PACKAGES = [
   "@capawesome/*",
   "@aparajita/*",
   "@capacitor-mlkit/*",
-  "send-intent",
 ];
 
 const noFrontendImports = {
@@ -25,6 +24,10 @@ const noFrontendImports = {
 
 export default [
   ...base,
+  {
+    // Native projects: Gradle / Xcode output and the copied web bundle.
+    ignores: ["android/**", "ios/**", "dist/**"],
+  },
   {
     files: ["**/*.{js,jsx}"],
     rules: {

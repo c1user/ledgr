@@ -9,7 +9,7 @@
     "migrate:status": "node scripts/migrate.mjs --status",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node --test tests/"
+    "test": "node --test \"tests/*.test.mjs\""
   },
   "keywords": [],
   "author": "",

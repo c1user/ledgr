@@ -5,16 +5,18 @@ import { isNative } from "./platform.js";
 
 export const isSupported = () => isNative();
 
+// Resolve with a wrapper, never with the plugin proxy itself: "await" would
+// otherwise call LocalNotifications.then() natively (see secureStorage.js).
 async function plugin() {
   const { LocalNotifications } = await import("@capacitor/local-notifications");
-  return LocalNotifications;
+  return { ln: LocalNotifications };
 }
 
 /** → true when notifications may be shown. */
 export async function requestPermission() {
   if (!isNative()) return false;
   try {
-    const ln = await plugin();
+    const { ln } = await plugin();
     const { display } = await ln.requestPermissions();
     return display === "granted";
   } catch {
@@ -29,13 +31,17 @@ export async function requestPermission() {
 export async function schedule(items) {
   if (!isNative() || !items?.length) return false;
   try {
-    const ln = await plugin();
+    const { ln } = await plugin();
     await ln.schedule({
       notifications: items.map(({ id, title, body, at }) => ({
         id,
         title,
         body,
         schedule: { at, allowWhileIdle: true },
+        // Android: inexact on purpose — 09:00 / 18:00 reminders need no clock
+        // precision, and the default (exact) makes the plugin open the system
+        // "Alarms & reminders" screen on every schedule() until granted.
+        isExactNotification: false,
         smallIcon: "ic_stat_abaco",
       })),
     });
@@ -48,7 +54,7 @@ export async function schedule(items) {
 export async function cancelAll() {
   if (!isNative()) return;
   try {
-    const ln = await plugin();
+    const { ln } = await plugin();
     const { notifications } = await ln.getPending();
     if (notifications?.length) {
       await ln.cancel({
