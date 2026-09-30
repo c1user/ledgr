@@ -16,7 +16,16 @@
     </style>
 
 
+    <!-- Launch theme. On Android 12+ the SYSTEM splash draws from the
+         windowSplashScreen* attributes below (the drawable is the pre-12
+         path): same canvas colour as the in-app boot splash so the hand-off
+         is invisible; values-night/colors.xml carries the dark variant.
+         The icon is the launcher icon until ROADMAP-V6 1.9 / 3.1 generates
+         the final assets. -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
 </resources>

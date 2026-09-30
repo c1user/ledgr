@@ -17,7 +17,13 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import api from "./api.js";
-import { cancelAll, schedule } from "../native/notifications.js";
+import {
+  cancelAll,
+  checkPermission,
+  isSupported as notificationsSupported,
+  schedule,
+} from "../native/notifications.js";
+import usePrefsStore from "../store/prefsStore.js";
 import { onResume } from "../native/appLifecycle.js";
 
 /** Fixed id for the pending-receipts reminder (int32 max; hashes stay below). */
@@ -315,6 +321,13 @@ export function useReminderScheduler() {
       }
       lastScheduledAt = startedAt;
       try {
+        // The OS permission is requested only by the Settings toggle (with
+        // its rationale). Revoked since? Turn the toggle off so it tells the
+        // truth instead of silently scheduling nothing.
+        if (notificationsSupported() && !(await checkPermission())) {
+          usePrefsStore.getState().setRemindersEnabled(false);
+          return;
+        }
         const lang = String(i18n.language || "en").startsWith("es")
           ? "es"
           : "en";

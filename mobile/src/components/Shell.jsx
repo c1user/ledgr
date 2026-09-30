@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import BrandMark from "@abaco/ui/BrandMark";
@@ -6,8 +6,18 @@ import { BRAND } from "@abaco/tokens/brand.js";
 import useAuthStore from "../store/authStore.js";
 import useOutboxStore, { selectOutboxCount } from "../store/outboxStore.js";
 import { onShareEvent } from "../native/shareIntake.js";
+import {
+  onShortcut,
+  register as registerShortcuts,
+} from "../native/shortcuts.js";
 import TabBar from "./TabBar.jsx";
 import OfflineBanner from "./OfflineBanner.jsx";
+
+/** Home-screen quick actions (long-press the app icon) → routes. */
+const SHORTCUTS = [
+  { id: "scan", to: "/scan", titleKey: "mobile.scan.scanReceipt" },
+  { id: "assistant", to: "/assistant", titleKey: "mobile.assistant.title" },
+];
 
 /**
  * Authenticated app frame: 52px header (mark + wordmark + business name),
@@ -19,7 +29,13 @@ export default function Shell() {
   const business = useAuthStore((s) => s.business);
   const expiresSoon = useAuthStore((s) => s.expiresSoon);
   const outboxCount = useOutboxStore(selectOutboxCount);
+  // `navigate` gets a new identity on every route change (react-router 7);
+  // the native listeners below must not be re-registered each time.
   const navigate = useNavigate();
+  const navigateRef = useRef(navigate);
+  useEffect(() => {
+    navigateRef.current = navigate;
+  }, [navigate]);
 
   // Offline outbox (2.11): wire the launch / network / resume triggers once,
   // whichever tab the app opens on. start() is idempotent (Scan calls it too).
@@ -27,15 +43,28 @@ export default function Shell() {
     useOutboxStore.getState().start();
   }, []);
 
+  // App shortcuts (2.13): registered with the current language while signed
+  // in (again when the language changes — `t` is stable otherwise); a tap on
+  // one routes to its screen. No-op on the web.
+  useEffect(() => {
+    registerShortcuts(
+      SHORTCUTS.map(({ id, titleKey }) => ({ id, title: t(titleKey) })),
+    );
+    return onShortcut((id) => {
+      const target = SHORTCUTS.find((s) => s.id === id);
+      if (target) navigateRef.current(target.to);
+    });
+  }, [t]);
+
   // Share-sheet intake (2.6): a share that lands while another tab is up
   // switches to Scan, whose subscription pulls the files and opens the
   // CaptureSheet. Already on Scan → its own listener handles it.
   useEffect(
     () =>
       onShareEvent(() => {
-        if (window.location.pathname !== "/scan") navigate("/scan");
+        if (window.location.pathname !== "/scan") navigateRef.current("/scan");
       }),
-    [navigate],
+    [],
   );
 
   return (

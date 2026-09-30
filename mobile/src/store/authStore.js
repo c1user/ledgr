@@ -65,13 +65,24 @@ const useAuthStore = create((set, get) => ({
         /* meta unreachable: never block the app on it */
       }
 
-      const token = await getToken();
+      let token;
+      try {
+        token = await getToken();
+      } catch (err) {
+        // Keychain / KeyStore refused (rotated key, corrupt entry): a dead
+        // boot is worse than a re-login. Best-effort wipe, land on Login.
+        console.warn("[abaco] secure storage unavailable:", err?.message);
+        await clearToken().catch(() => {});
+        setAuthToken(null);
+        set({ ...anon, status: "anon", expiredReason: null });
+        return;
+      }
       if (!token) {
         set({ ...anon, status: "anon", expiredReason: null });
         return;
       }
       if (isExpired(token)) {
-        await clearToken();
+        await clearToken().catch(() => {});
         setAuthToken(null);
         set({ ...anon, status: "expired", expiredReason: "expired" });
         return;

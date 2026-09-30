@@ -24,6 +24,18 @@ export async function requestPermission() {
   }
 }
 
+/** → true when the OS permission is already granted (never prompts). */
+export async function checkPermission() {
+  if (!isNative()) return false;
+  try {
+    const { ln } = await plugin();
+    const { display } = await ln.checkPermissions();
+    return display === "granted";
+  } catch {
+    return false;
+  }
+}
+
 /**
  * schedule([{ id: number, title, body, at: Date }]) → true when scheduled.
  * Ids are stable integers so a reschedule replaces the previous reminder.

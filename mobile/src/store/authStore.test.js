@@ -14,7 +14,7 @@ vi.mock("../i18n.js", () => ({ setAppLanguage: vi.fn(), default: {} }));
 const api = (await import("../lib/api.js")).default;
 const { getAuthToken } = await import("../lib/api.js");
 const useAuthStore = (await import("./authStore.js")).default;
-const { clearToken } = await import("../lib/secureStore.js");
+const { clearToken, getToken } = await import("../lib/secureStore.js");
 
 const b64url = (obj) =>
   Buffer.from(JSON.stringify(obj))
@@ -74,6 +74,18 @@ describe("authStore.hydrate", () => {
     });
     await useAuthStore.getState().hydrate();
     expect(useAuthStore.getState().status).toBe("anon");
+    expect(getAuthToken()).toBeNull();
+  });
+
+  it("secure storage rejects → anon (never stuck on the boot splash)", async () => {
+    mem.set("token", token(now() + 3600));
+    getToken.mockRejectedValueOnce(new Error("KeyStore: AEADBadTagException"));
+    api.defaults.adapter = routes({
+      "GET /meta": [200, { minMobileBuild: 0 }],
+    });
+    await useAuthStore.getState().hydrate();
+    expect(useAuthStore.getState().status).toBe("anon");
+    expect(clearToken).toHaveBeenCalled();
     expect(getAuthToken()).toBeNull();
   });
 

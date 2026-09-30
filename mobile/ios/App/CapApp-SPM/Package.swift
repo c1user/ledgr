@@ -26,8 +26,7 @@ let package = Package(
         .package(name: "CapacitorPreferences", path: "../../../../node_modules/@capacitor/preferences"),
         .package(name: "CapacitorPrivacyScreen", path: "../../../../node_modules/@capacitor/privacy-screen"),
         .package(name: "CapacitorSplashScreen", path: "../../../../node_modules/@capacitor/splash-screen"),
-        .package(name: "CapawesomeCapacitorAppShortcuts", path: "../../../../node_modules/@capawesome/capacitor-app-shortcuts"),
-        .package(name: "SendIntent", path: "../../../../node_modules/send-intent")
+        .package(name: "CapawesomeCapacitorAppShortcuts", path: "../../../../node_modules/@capawesome/capacitor-app-shortcuts")
     ],
     targets: [
         .target(
@@ -49,8 +48,7 @@ let package = Package(
                 .product(name: "CapacitorPreferences", package: "CapacitorPreferences"),
                 .product(name: "CapacitorPrivacyScreen", package: "CapacitorPrivacyScreen"),
                 .product(name: "CapacitorSplashScreen", package: "CapacitorSplashScreen"),
-                .product(name: "CapawesomeCapacitorAppShortcuts", package: "CapawesomeCapacitorAppShortcuts"),
-                .product(name: "SendIntent", package: "SendIntent")
+                .product(name: "CapawesomeCapacitorAppShortcuts", package: "CapawesomeCapacitorAppShortcuts")
             ]
         )
     ]

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- HEX.canvasLight in @abaco/tokens/brand.js (bg-secondary, light) -->
+    <color name="splash_background">#f7f6fa</color>
+</resources>

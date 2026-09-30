@@ -6,6 +6,8 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Parcelable;
 import android.provider.OpenableColumns;
@@ -33,10 +35,14 @@ import java.util.List;
  * MainActivity (launchMode singleTask) is the share target declared in
  * AndroidManifest.xml. It hands every ACTION_SEND / ACTION_SEND_MULTIPLE
  * intent to {@link #receive}: the shared images / PDFs are copied into
- * cacheDir/shared/ off the UI thread (the sender's content:// grant only
- * lasts while this activity lives), the JS layer is poked with the window
- * event {@value #EVENT} and pulls the copies once through {@code consume()}
- * (src/native/shareIntake.js), then uploads them like a camera capture.
+ * cacheDir/shared/&lt;batch&gt;/ off the UI thread (the sender's content://
+ * grant only lasts while this activity lives), the JS layer is poked with the
+ * window event {@value #EVENT} and pulls the copies once through
+ * {@code consume()} (src/native/shareIntake.js), then uploads them like a
+ * camera capture. Image types the API does not accept (HEIC from newer
+ * cameras, GIF, BMP…) are transcoded to JPEG here — the WebView cannot decode
+ * HEIC itself. Batches accumulate until consumed; copies older than
+ * {@link #PURGE_AFTER_MS} are purged on the next share.
  *
  * Why in-house: the send-intent package's receiving activity is a second
  * BridgeActivity — a full copy of the app in its own task that finishes
@@ -49,9 +55,11 @@ public class ShareIntakePlugin extends Plugin {
     static final String EVENT = "abacoShareReceived";
     private static final String TAG = "AbacoShareIntake";
     private static final String DIR = "shared";
+    private static final long PURGE_AFTER_MS = 10 * 60 * 1000L;
+    private static final int JPEG_QUALITY = 90;
 
     private static final Object LOCK = new Object();
-    private static JSArray pending = null; // copied, not yet consumed by JS
+    private static final List<JSObject> pending = new ArrayList<>(); // copied, not yet consumed by JS
 
     static boolean isShare(Intent intent) {
         if (intent == null) return false;
@@ -60,7 +68,7 @@ public class ShareIntakePlugin extends Plugin {
     }
 
     /**
-     * Copies the shared items in the background, stores them for consume()
+     * Copies the shared items in the background, queues them for consume()
      * and notifies the WebView. Safe to call with any intent (non-share
      * intents are ignored) and before the page has loaded (the JS layer
      * pulls on start-up as well as on the event).
@@ -74,11 +82,12 @@ public class ShareIntakePlugin extends Plugin {
 
         new Thread(
             () -> {
-                JSArray items = copyAll(context, intentType, uris);
+                List<JSObject> items = copyAll(context, intentType, uris);
+                if (items.isEmpty()) return;
                 synchronized (LOCK) {
-                    pending = items;
+                    pending.addAll(items);
                 }
-                if (bridge != null && items.length() > 0) {
+                if (bridge != null) {
                     activity.runOnUiThread(() -> bridge.triggerWindowJSEvent(EVENT));
                 }
             },
@@ -90,13 +99,13 @@ public class ShareIntakePlugin extends Plugin {
     /** { items: [{ url, name, type, size }] } — empties the queue. */
     @PluginMethod
     public void consume(PluginCall call) {
-        JSArray items;
+        JSArray items = new JSArray();
         synchronized (LOCK) {
-            items = pending;
-            pending = null;
+            for (JSObject item : pending) items.put(item);
+            pending.clear();
         }
         JSObject ret = new JSObject();
-        ret.put("items", items != null ? items : new JSArray());
+        ret.put("items", items);
         call.resolve(ret);
     }
 
@@ -125,16 +134,15 @@ public class ShareIntakePlugin extends Plugin {
         return uris;
     }
 
-    private static JSArray copyAll(Context context, String intentType, List<Uri> uris) {
-        File dir = new File(context.getCacheDir(), DIR);
-        // The previous batch was fetched into memory by the WebView already.
-        File[] old = dir.listFiles();
-        if (old != null) for (File f : old) f.delete();
+    private static List<JSObject> copyAll(Context context, String intentType, List<Uri> uris) {
+        File root = new File(context.getCacheDir(), DIR);
+        purgeOld(root);
+        long stamp = System.currentTimeMillis();
+        File dir = new File(root, String.valueOf(stamp));
         dir.mkdirs();
 
-        JSArray items = new JSArray();
+        List<JSObject> items = new ArrayList<>();
         ContentResolver resolver = context.getContentResolver();
-        long stamp = System.currentTimeMillis();
         int index = 0;
         for (Uri uri : uris) {
             String name = displayName(resolver, uri);
@@ -143,23 +151,42 @@ public class ShareIntakePlugin extends Plugin {
                 Logger.warn(TAG, "Skipping shared item of type " + type);
                 continue;
             }
-            String ext = extensionFor(name, type);
+            boolean transcode = type.startsWith("image/") && !uploadable(type);
+            String ext = transcode ? "jpg" : extensionFor(name, type);
             File out = new File(dir, stamp + "-" + (index++) + "." + ext);
-            long size = copy(resolver, uri, out);
+            long size = transcode ? transcodeToJpeg(resolver, uri, out) : copy(resolver, uri, out);
             if (size < 0) continue;
 
             JSObject item = new JSObject();
             item.put("url", Uri.fromFile(out).toString());
-            item.put("name", name != null ? name : out.getName());
-            item.put("type", type);
+            item.put("name", transcode ? jpegName(name, out) : (name != null ? name : out.getName()));
+            item.put("type", transcode ? "image/jpeg" : type);
             item.put("size", size);
-            items.put(item);
+            items.add(item);
         }
         return items;
     }
 
+    /** What the share sheet may hand us. */
     private static boolean accepted(String type) {
         return type != null && (type.startsWith("image/") || "application/pdf".equals(type));
+    }
+
+    /** What POST /api/receipts/upload accepts as-is. */
+    private static boolean uploadable(String type) {
+        return "image/jpeg".equals(type) || "image/png".equals(type) || "image/webp".equals(type) || "application/pdf".equals(type);
+    }
+
+    private static void purgeOld(File root) {
+        File[] batches = root.listFiles();
+        if (batches == null) return;
+        long cutoff = System.currentTimeMillis() - PURGE_AFTER_MS;
+        for (File batch : batches) {
+            if (batch.lastModified() >= cutoff) continue;
+            File[] files = batch.listFiles();
+            if (files != null) for (File f : files) f.delete();
+            batch.delete();
+        }
     }
 
     private static String displayName(ContentResolver resolver, Uri uri) {
@@ -205,6 +232,12 @@ public class ShareIntakePlugin extends Plugin {
         return "application/pdf".equals(type) ? "pdf" : "jpg";
     }
 
+    private static String jpegName(String name, File out) {
+        if (name == null || name.isEmpty()) return out.getName();
+        int dot = name.lastIndexOf('.');
+        return (dot > 0 ? name.substring(0, dot) : name) + ".jpg";
+    }
+
     /** → bytes copied, or -1 on failure. */
     private static long copy(ContentResolver resolver, Uri uri, File out) {
         try (InputStream in = resolver.openInputStream(uri); OutputStream os = new FileOutputStream(out)) {
@@ -221,6 +254,29 @@ public class ShareIntakePlugin extends Plugin {
             Logger.error(TAG, "Could not copy shared item: " + e.getMessage(), e);
             out.delete();
             return -1;
+        }
+    }
+
+    /** Decodes with the platform codecs (HEIC on API 28+) and writes a JPEG. → bytes, or -1. */
+    private static long transcodeToJpeg(ContentResolver resolver, Uri uri, File out) {
+        Bitmap bitmap = null;
+        try (InputStream in = resolver.openInputStream(uri)) {
+            if (in == null) return -1;
+            bitmap = BitmapFactory.decodeStream(in);
+            if (bitmap == null) {
+                Logger.warn(TAG, "Could not decode shared image for JPEG transcode");
+                return -1;
+            }
+            try (OutputStream os = new FileOutputStream(out)) {
+                if (!bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, os)) return -1;
+            }
+            return out.length();
+        } catch (Exception | OutOfMemoryError e) {
+            Logger.error(TAG, "Could not transcode shared image: " + e.getMessage(), e instanceof Exception ? (Exception) e : null);
+            out.delete();
+            return -1;
+        } finally {
+            if (bitmap != null) bitmap.recycle();
         }
     }
 }

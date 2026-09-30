@@ -44,6 +44,24 @@ dependencies {
 
 apply from: 'capacitor.build.gradle'
 
+// Fail-safe for the dev shell (mobile/capacitor.config.ts, CAP_ENV=dev):
+// cleartext http + mixed content are baked into assets/capacitor.config.json
+// by the LAST `npx cap sync`, not by the build type. Never let them ship.
+tasks.matching { it.name ==~ /(assemble|bundle|package)Release.*/ }.configureEach {
+    doFirst {
+        def cfgFile = file('src/main/assets/capacitor.config.json')
+        if (cfgFile.exists()) {
+            def cfg = new groovy.json.JsonSlurper().parse(cfgFile)
+            if (cfg.server?.cleartext == true || cfg.android?.allowMixedContent == true) {
+                throw new GradleException(
+                    "Dev-shell capacitor.config.json (cleartext / allowMixedContent). " +
+                    "Run 'npx cap sync android' WITHOUT CAP_ENV=dev before a release build."
+                )
+            }
+        }
+    }
+}
+
 try {
     def servicesJSON = file('google-services.json')
     if (servicesJSON.text) {

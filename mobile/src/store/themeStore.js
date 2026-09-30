@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { setStyle as setSystemBarsStyle } from "../native/systemBars.js";
 
 // Persists under "abaco-mobile-theme" ({ state: { theme } }) — the same shape
 // main.jsx reads before React mounts so there is no flash. Never share a
@@ -21,8 +22,9 @@ export const resolveTheme = (theme) => {
 const applyDom = (resolved) => {
   if (typeof document === "undefined") return;
   document.documentElement.setAttribute("data-theme", resolved);
-  // Phase 3: also set the native status-bar style here (SystemBars follows
-  // the WebView in Capacitor 8 with insetsHandling "css"; verify on device).
+  // Native status / navigation bar icons follow the APP theme, not the OS
+  // night mode (no-op on the web).
+  setSystemBarsStyle(resolved);
 };
 
 let mediaUnsub = null;

@@ -48,6 +48,25 @@ VITE_API_URL=https://abacopr.com/api npm run build -w mobile   # → mobile/dist
 npm run preview -w mobile
 ```
 
+### Dev shell (Android emulator / USB phone against the local backend)
+
+The native shell that talks plain http to the PC — never a store build.
+`VITE_DEV_SHELL=1` keeps the privacy screen off (screenshots work);
+`CAP_ENV=dev` turns on cleartext + mixed content in the Capacitor config
+(`app/build.gradle` refuses to assemble a release from such a config).
+Emulator → `10.0.2.2`; a USB phone → the PC's LAN address, which must also be
+in the backend's `CORS_ORIGIN`.
+
+```sh
+VITE_API_URL=http://10.0.2.2:5000/api VITE_DEV_SHELL=1 npm run build -w mobile
+cd mobile && CAP_ENV=dev npx cap sync android
+cd android && ./gradlew assembleDebug        # JDK 17–24 (JAVA_HOME), ANDROID_HOME set
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+Before a store build run `npx cap sync android` again **without** `CAP_ENV`
+and build the bundle without `VITE_DEV_SHELL`.
+
 ## On-device loops (ROADMAP-V6 2.14)
 
 Three ways to run the app on a real phone, in the order they become
@@ -108,7 +127,9 @@ never executes plugin code:
 | `secureStorage.js`                                           | Keychain / KeyStore                                        | `localStorage` with a `console.warn`       |
 | `network.js`                                                 | `@capacitor/network`                                       | `navigator.onLine` + online/offline events |
 | `speech.js`                                                  | speech-recognition (+ `speechSynthesis`)                   | Web Speech API                             |
-| `haptics.js`, `shortcuts.js`, `privacy.js`                   | the plugin                                                 | no-ops                                     |
+| `haptics.js`, `shortcuts.js`                                 | the plugin                                                 | no-ops                                     |
+| `privacy.js`                                                 | `@capacitor/privacy-screen` — enabled at boot by `App.jsx` (off in the dev shell) | no-op                       |
+| `splash.js`, `systemBars.js`                                 | launch splash hide (`App.jsx`), status-bar style ← app theme (`themeStore`) | no-ops                            |
 | `shareIntake.js`                                             | Android: in-house `ShareIntakePlugin.java`; iOS: 3.4        | no-op                                      |
 | `notifications.js`                                           | `@capacitor/local-notifications`                           | no-op (`requestPermission()` → false)      |
 | `biometrics.js`                                              | biometric-auth                                             | `authenticate()` → true + `console.info`   |

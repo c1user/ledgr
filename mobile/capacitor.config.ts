@@ -1,6 +1,6 @@
 // Capacitor configuration for the AbacoPR Lite native shells (ROADMAP-V6 3.1).
-// Read by the Capacitor CLI (`npx cap sync`). Keep the splash color equal to
-// HEX.brand in @abaco/tokens/brand.js.
+// Read by the Capacitor CLI (`npx cap sync`). Keep the splash colour equal to
+// HEX.canvasLight in @abaco/tokens/brand.js (the in-app boot splash canvas).
 //
 // DEV SHELL (ROADMAP-V6 2.14b/c): `CAP_ENV=dev npx cap sync` produces a build
 // that may talk to the developer's PC over plain http (emulator: 10.0.2.2,
@@ -33,9 +33,17 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      // Hidden by the app once the auth store has hydrated (no white flash).
-      launchAutoHide: false,
-      backgroundColor: "#5b3a9b",
+      // App.jsx hides the launch splash as soon as the auth store has
+      // hydrated (native/splash.js). launchShowDuration is only the BACKSTOP:
+      // if the bundle never runs, the plugin hides it after 15 s instead of
+      // leaving a blank screen forever. On Android 12+ the launch splash is
+      // the SYSTEM one — its colours and icon come from
+      // android/app/src/main/res/values/styles.xml (windowSplashScreen*),
+      // not from backgroundColor, which only styles the plugin-drawn view
+      // (iOS, and show() at runtime).
+      launchAutoHide: true,
+      launchShowDuration: 15000,
+      backgroundColor: "#f7f6fa",
       showSpinner: false,
     },
     Keyboard: {
@@ -46,12 +54,10 @@ const config: CapacitorConfig = {
       style: "DEFAULT",
       insetsHandling: "css",
     },
-    PrivacyScreen: {
-      // Blurs the app in the task switcher and blocks screenshots/recording
-      // (FLAG_SECURE on Android). Off in the dev shell so device screenshots
-      // and screen recordings work while building; always on in release.
-      enable: !dev,
-    },
+    // PrivacyScreen has NO config keys: the plugin is off until JS calls
+    // enable(), which App.jsx does at boot through native/privacy.js (skipped
+    // in the dev shell, i.e. bundles built with VITE_DEV_SHELL=1, so device
+    // screenshots keep working while building).
   },
 };
 

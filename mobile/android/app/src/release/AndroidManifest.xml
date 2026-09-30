@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Release-only overrides. The dev shell (CAP_ENV=dev) may talk plain http
+     to the developer's PC; a store build never does, whatever the last
+     `cap sync` left in capacitor.config.json. app/build.gradle additionally
+     refuses to assemble a release from a dev-shell config. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application
+        android:usesCleartextTraffic="false"
+        tools:replace="android:usesCleartextTraffic" />
+</manifest>

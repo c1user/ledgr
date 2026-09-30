@@ -12,7 +12,11 @@ const usePrefsStore = create(
       lastType: "expense", // "expense" | "income" — last booked type
       biometricLock: false,
       lockAfterMinutes: 5,
-      remindersEnabled: true,
+      // Off until the user turns it on in Settings: that toggle is where the
+      // OS notification permission is requested, with a rationale next to it
+      // (ROADMAP-V6 2.12 — ask at the moment of use). The scheduler also flips
+      // this back off if the permission is revoked later.
+      remindersEnabled: false,
 
       setDefaultAccountId: (defaultAccountId) => set({ defaultAccountId }),
       setLastType: (lastType) =>

@@ -330,10 +330,10 @@ ledgr/
 - [x] **2.11 Offline outbox** (2026-09-27) — after review: items stamped with the owner and cleared on explicit sign-out; 401 waits instead of dying; 429 still counts as a dead 4xx per spec (revisit: treat 429 as retryable) — captures persisted before upload
       (`Filesystem` on device; IndexedDB in the browser), retry on
       network/resume, never retry 4xx, cap ~50, badge on Scan.
-- [x] **2.12 Local reminders** (2026-09-27) — planner + tests; native scheduling exercised in 3.2 (web is a no-op) — schedule on-device notifications from
+- [x] **2.12 Local reminders** (2026-09-27; default OFF since 2026-09-29: the Settings toggle asks for the OS permission with its rationale, the scheduler only checks it) — planner + tests; native scheduling exercised in 3.2 (web is a no-op) — schedule on-device notifications from
       `GET /api/notifications` (compliance category) and pending-receipt
       counts, honoring the user's `notify_prefs`; reschedule on app resume.
-- [x] **2.13 Tests** (2026-09-27) — 11 vitest files, 162 tests; EN/ES + light/dark verified in Chrome at 375×812 with the demo account; computed-style parity holds (Inter Variable 14px/1.6, Fraunces titles, --brand) — vitest smoke for `api.js` 401 handling,
+- [x] **2.13 Tests** (2026-09-27) — (2026-09-29: shortcuts registered from the Shell + click routing; privacy screen enabled at boot via native/privacy.js — both were wrappers nothing called)  11 vitest files, 162 tests; EN/ES + light/dark verified in Chrome at 375×812 with the demo account; computed-style parity holds (Inter Variable 14px/1.6, Fraunces titles, --brand) — vitest smoke for `api.js` 401 handling,
       `authStore.hydrate`, outbox reducer, reminder scheduling, `apiErrors`
       mapping; EN/ES + light/dark pass in Chrome; computed-style parity
       check against the web dev server (`fontFamily`, `lineHeight`,
@@ -384,6 +384,16 @@ ledgr/
       1.9 via `@capacitor/assets`; iOS `es.lproj/InfoPlist.strings`,
       `PrivacyInfo.xcprivacy`, iPhone-only device family and the share extension
       (all at 3.4, where Xcode / CI can validate them); the CSP hash.
+      **Status 2026-09-29:** the emulator's "gray screen" was the LAUNCH
+      SPLASH: `launchAutoHide: false` keeps the Android 12 system splash up
+      (and blocks every frame of the activity) until JS calls hide(), which
+      nothing did. Now `native/splash.js` hides it as soon as the auth store
+      settles (6 s JS watchdog; the plugin's `launchShowDuration: 15000` is the
+      native backstop). Android 12 splash theme = canvas colour (values /
+      values-night) + launcher icon until 1.9 lands; `ic_stat_abaco` small
+      icon added; `src/release/AndroidManifest.xml` forces cleartext off and
+      `app/build.gradle` refuses a release built from a dev-shell config;
+      iOS `CapApp-SPM/Package.swift` regenerated (no send-intent).
 - [ ] **3.2 Android on device** — emulator + USB phone: document scanner,
       share target, KeyStore token, biometric prompt, local notifications,
       app shortcuts, haptics, `SystemBars` insets, back button, keyboard,
@@ -403,6 +413,21 @@ ledgr/
       shortcuts, haptics, keyboard, back button, privacy screen (on in release
       only), speech recognition, CSP; the reminder title says "deadline coming
       up" for an already-overdue ("vencida") obligation — wording follow-up.
+      **Status 2026-09-29 (emulator, host-side screenshots):** the app
+      renders — Scan / Receipts / Settings, light and dark; status-bar icons
+      follow the APP theme (`native/systemBars.js` from themeStore — the core
+      SystemBars config only tracks OS night mode); Android Back: tab root →
+      minimise, open sheet → closes (Escape), nested screen → history.back
+      (`lib/backButton.js`; the WebView's `canGoBack` is false for SPA
+      entries and is ignored); app shortcuts registered ("Scan a receipt",
+      "Assistant") and a shortcut tap routes; privacy screen really enabled
+      at boot (`@capacitor/privacy-screen` ignores capacitor.config — off
+      only in the dev shell, `VITE_DEV_SHELL=1`) — confirm FLAG_SECURE on the
+      first release build; reminders default OFF and the scheduler turns the
+      toggle off when the OS permission is missing; boot survives a KeyStore
+      failure (→ Login). Found by an adversarial review workflow after the
+      splash fix (3 lenses × 3 refuters). Still pending: USB phone, biometric
+      prompt, haptics, keyboard, speech, CSP.
 - [ ] **3.3 Android release** — upload keystore (custody like `JWT_SECRET`;
       losing it means a new listing), Play App Signing, AAB, internal
       testing → closed testing with 12 testers × 14 days (V4 0.7 clock —

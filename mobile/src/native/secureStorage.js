@@ -21,6 +21,10 @@ async function plugin() {
         return { SecureStorage };
       },
     );
+    // A rejected setup must not poison every later call.
+    pluginPromise.catch(() => {
+      pluginPromise = null;
+    });
   }
   return pluginPromise; // resolves { SecureStorage } — callers destructure
 }

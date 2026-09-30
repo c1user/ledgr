@@ -78,6 +78,11 @@ export default defineConfig(({ mode }) => {
     ),
     define: {
       "import.meta.env.VITE_APP_VERSION": JSON.stringify(pkg.version),
+      // "1" marks the dev-shell bundle (native/privacy.js leaves the privacy
+      // screen off so device screenshots work). Never set for a store build.
+      "import.meta.env.VITE_DEV_SHELL": JSON.stringify(
+        env.VITE_DEV_SHELL || process.env.VITE_DEV_SHELL || "",
+      ),
     },
     server: {
       port: 5174,

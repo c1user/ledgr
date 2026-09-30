@@ -10,7 +10,10 @@ import { FeedbackHost } from "@abaco/ui/feedback";
 import useAuthStore from "./store/authStore.js";
 import usePrefsStore from "./store/prefsStore.js";
 import useThemeStore from "./store/themeStore.js";
-import { onResume } from "./native/appLifecycle.js";
+import { onBackButton, onResume } from "./native/appLifecycle.js";
+import { enable as enablePrivacyScreen } from "./native/privacy.js";
+import { hide as hideNativeSplash } from "./native/splash.js";
+import { handleBackButton } from "./lib/backButton.js";
 import { markBackgrounded, markUnlocked, shouldLock } from "./lib/lockGate.js";
 import { useReminderScheduler } from "./lib/reminders.js";
 import RequireAuth from "./components/RequireAuth.jsx";
@@ -26,6 +29,9 @@ import ReceiptDetail from "./pages/ReceiptDetail.jsx";
 import ReceiptReview from "./pages/ReceiptReview.jsx";
 import Assistant from "./pages/Assistant.jsx";
 import Settings from "./pages/Settings.jsx";
+
+/** Hide the native splash even if hydrate() never settles (offline DNS hang…). */
+export const SPLASH_WATCHDOG_MS = 6000;
 
 /**
  * Biometric lock (ROADMAP-V6 2.10). Mounted only while signed in and the
@@ -88,11 +94,54 @@ function Boot() {
   // StrictMode double-invoke is harmless.
   useEffect(() => {
     useThemeStore.getState().apply();
-    hydrate();
+    hydrate().catch(() => {
+      // hydrate() guards its own steps; this is the last line of defence so
+      // an unexpected throw can never leave the app on the boot splash.
+      useAuthStore.setState({ status: "anon" });
+    });
   }, [hydrate]);
+
+  // Privacy screen (2.13): blur / block screenshots from the first frame on.
+  // The plugin ignores capacitor.config.ts, so it is switched on here (no-op
+  // on the web and in the dev shell — see native/privacy.js).
+  useEffect(() => {
+    enablePrivacyScreen();
+  }, []);
+
+  // Android Back (3.2) — see lib/backButton.js. Registered ONCE: `navigate`
+  // changes identity on every route change (react-router 7), and re-adding
+  // the native listener per navigation briefly leaves two of them live —
+  // two Escapes, or two history.back() steps.
+  const navigateRef = useRef(navigate);
+  useEffect(() => {
+    navigateRef.current = navigate;
+  }, [navigate]);
+  useEffect(
+    () =>
+      onBackButton(() =>
+        handleBackButton({
+          navigate: (...args) => navigateRef.current(...args),
+        }),
+      ),
+    [],
+  );
 
   // Resume watchdog: a token that died while the app slept flips to expired.
   useEffect(() => onResume(() => useAuthStore.getState().checkToken()), []);
+
+  // Native launch splash (3.1): capacitor.config.ts has launchAutoHide: false,
+  // so the system splash stays up — and the activity draws nothing — until we
+  // hide it. Do that once hydrate() has settled on ANY status (authed, anon,
+  // expired, update-required); a watchdog hides it anyway if hydration hangs
+  // (the in-app <Splash /> keeps the screen covered). No-op on the web.
+  useEffect(() => {
+    if (status !== "booting") {
+      hideNativeSplash();
+      return undefined;
+    }
+    const watchdog = setTimeout(hideNativeSplash, SPLASH_WATCHDOG_MS);
+    return () => clearTimeout(watchdog);
+  }, [status]);
 
   // Redirect on the TRANSITION into expired / update-required only. `navigate`
   // gets a new identity on every pathname change (react-router 7), so a
