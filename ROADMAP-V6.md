@@ -269,9 +269,8 @@ ledgr/
       login attempts per 15 min per IP); `TRUST_PROXY=1` (already supported
       in `app.js` and documented in `.env.example`) must be set on the
       production host.
-- [ ] **1.9 Icons** (do at the start of 3.1, when `@capacitor/assets` consumes them) — `frontend/scripts/generate-icons.mjs --mobile` writes
-      the 1024 icon set + 2732 splash (light/dark) from the same BrandMark
-      geometry; a test asserts its colors equal `brand.js`.
+- [x] **1.9 Icons** (2026-10-01) — `frontend/scripts/generate-icons.mjs --mobile` writes `mobile/resources/` (icon-only, icon-foreground, icon-background 1024; splash + splash-dark 2732) and `npx capacitor-assets generate --android --ios` in `mobile/` turns them into every Android mipmap / splash drawable (incl. night) and the iOS AppIcon + Splash sets; colours come from brand.js and `generate-icons.test.mjs` asserts it (same BrandMark geometry as the
+      PWA icons and favicon).
 
 ## Phase 2 — Mobile app core  *(everything here is verifiable in Chrome device mode on Windows against the local backend)*
 
@@ -384,6 +383,7 @@ ledgr/
       1.9 via `@capacitor/assets`; iOS `es.lproj/InfoPlist.strings`,
       `PrivacyInfo.xcprivacy`, iPhone-only device family and the share extension
       (all at 3.4, where Xcode / CI can validate them); the CSP hash.
+      **2026-10-01:** real icons + splash generated (1.9 done): adaptive launcher icon (plum background, beads foreground inside the safe zone), Android 12 system splash shows it on the canvas colour, iOS 1024 icon + universal light/dark launch images; the Capacitor placeholder assets and the unused `values/ic_launcher_background.xml` are gone. Regenerate with the two commands in mobile/README.md "Icons".
       **Status 2026-09-29:** the emulator's "gray screen" was the LAUNCH
       SPLASH: `launchAutoHide: false` keeps the Android 12 system splash up
       (and blocks every frame of the activity) until JS calls hide(), which

@@ -67,6 +67,34 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 Before a store build run `npx cap sync android` again **without** `CAP_ENV`
 and build the bundle without `VITE_DEV_SHELL`.
 
+### Icons and splash (ROADMAP-V6 1.9)
+
+One geometry (the BrandMark) drawn by `frontend/scripts/generate-icons.mjs`
+with the colours of `@abaco/tokens/brand.js`; `mobile/resources/` holds the
+sources `@capacitor/assets` consumes (committed, so the native projects can be
+regenerated from scratch):
+
+```sh
+# 1. PWA icons + mobile/resources/ (the sources)
+node frontend/scripts/generate-icons.mjs --mobile
+# 2. every native asset from those sources
+cd mobile && npx capacitor-assets generate --android --ios \
+  --iconBackgroundColor "#5b3a9b" --iconBackgroundColorDark "#5b3a9b" \
+  --splashBackgroundColor "#f7f6fa" --splashBackgroundColorDark "#110e18"
+# 3. full-resolution adaptive launcher layers (the tool writes 48 dp ones)
+node ../frontend/scripts/generate-icons.mjs --android-adaptive
+```
+
+Android: adaptive launcher icon (`mipmap-*/ic_launcher_{foreground,background}`;
+the tool writes those two layers as 48 dp bitmaps that launchers stretch, so
+step 3 overwrites them with 108 dp renders of the same 72 dp viewport — the
+inset XML the tool writes is kept) + legacy PNGs + splash drawables for every
+density, portrait/landscape and night; the Android 12+ system splash uses the
+launcher icon on the canvas
+colour from `values/colors.xml`. iOS: `AppIcon.appiconset` (1024) and the
+universal light/dark `Splash.imageset`. The tool also re-serialises
+`AndroidManifest.xml`; review that diff.
+
 ## On-device loops (ROADMAP-V6 2.14)
 
 Three ways to run the app on a real phone, in the order they become

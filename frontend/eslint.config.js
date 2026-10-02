@@ -7,6 +7,12 @@ import { defineConfig, globalIgnores } from "eslint/config";
 export default defineConfig([
   globalIgnores(["dist"]),
   {
+    // Node-side build scripts (icon generator + its vitest suite).
+    files: ["scripts/**/*.mjs"],
+    extends: [js.configs.recommended],
+    languageOptions: { globals: globals.node },
+  },
+  {
     files: ["**/*.{js,jsx}"],
     extends: [
       js.configs.recommended,
