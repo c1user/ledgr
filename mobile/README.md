@@ -72,10 +72,12 @@ and build the bundle without `VITE_DEV_SHELL`.
 
 ### iOS lane — Codemagic → TestFlight (ROADMAP-V6 3.4)
 
-There is no Mac in the loop: `mobile/codemagic.yaml` builds the web bundle,
+There is no Mac in the loop: `codemagic.yaml` at the repo root (Codemagic only
+reads it from there, whatever the project path says) builds the web bundle,
 runs `cap sync ios`, archives `ios/App/App.xcodeproj` (scheme `App`, shared
 in `xcshareddata`) with App Store Connect API-key signing and uploads to
-TestFlight. Codemagic's project path for this app is `mobile`.
+TestFlight. Codemagic's project path for this app is `mobile`; the scripts
+`cd` to the repo root themselves.
 
 One-time setup (owner):
 
@@ -89,19 +91,30 @@ One-time setup (owner):
 3. Codemagic → Team settings → Integrations → Developer Portal: add that key
    under the name **AbacoPR Lite ASC key** (the `integrations.app_store_connect`
    value in the YAML).
-4. Codemagic → Team settings → Environment variables: group `abaco_ios` with
+4. Signing files (the YAML's `ios_signing` block FETCHES what is stored in
+   Codemagic; it does not create them): Codemagic → Team settings → Code
+   signing identities → iOS certificates → **Generate certificate** (Apple
+   Distribution, through the integration). Then in the Apple Developer
+   Portal → Profiles → **+** → App Store Connect distribution → bundle ID
+   `com.abacopr.lite` → that certificate → save; back in Codemagic → iOS
+   provisioning profiles → **Fetch profiles**. One-time; the YAML needs no
+   change.
+5. Codemagic → Team settings → Environment variables: group `abaco_ios` with
    `VITE_API_URL` = the https backend the phone will talk to. Until the API
    is hosted, run `cloudflared tunnel --url http://localhost:5000` on the PC
    and use the printed https URL + `/api` (add the same origin to the
    backend's `CORS_ORIGIN` only if you also open it in a browser; the
    WebView origin `capacitor://localhost` is already allowed).
-5. Start the `ios-testflight` workflow on branch `ABACOM`; Apple processes
+6. Start the `ios-testflight` workflow on branch `ABACOM`; Apple processes
    the upload for 10–30 min, then it appears in the TestFlight app.
 
 Build numbers: `CFBundleVersion` and `VITE_BUILD` both take Codemagic's
 `BUILD_NUMBER`, so `GET /api/meta.minMobileBuild` can retire old builds.
 Not in the first build: the iOS share extension (share-sheet intake is a
-no-op on iOS until 3.4 lands it) and Spanish permission strings.
+no-op on iOS until 3.4 lands it), Spanish permission strings, voice input
+(`@capacitor-community/speech-recognition` ships no Swift package, so the
+SPM sync skips it and dictation falls back to nothing on iOS) and the
+document scanner (iOS uses the plain camera, as planned).
 
 ### Icons and splash (ROADMAP-V6 1.9)
 

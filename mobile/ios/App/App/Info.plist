@@ -66,6 +66,10 @@
 	<string>The microphone lets you ask the assistant by voice.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Speech recognition turns your voice into a question for the assistant.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>AbacoPR Lite can save a receipt photo to your photo library.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Face ID unlocks AbacoPR Lite after it has been in the background.</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>

@@ -478,8 +478,8 @@ ledgr/
       Face ID, safe areas, keyboard, notification permission copy on a
       physical iPhone; rent a Mac by the hour only if a signing/SPM error
       needs the Xcode GUI.
-      **2026-10-10:** `mobile/codemagic.yaml` written (Codemagic project path
-      `mobile`; node 22, latest Xcode, automatic App Store signing through the
+      **2026-10-10:** `codemagic.yaml` written at the repo root (Codemagic reads it
+      only from there; project path `mobile`; node 22, latest Xcode, automatic App Store signing through the
       "AbacoPR Lite ASC key" integration, `VITE_API_URL` from the `abaco_ios`
       group, build number = Codemagic `BUILD_NUMBER` for both CFBundleVersion
       and `VITE_BUILD`, TestFlight upload); shared `App.xcscheme` added (the

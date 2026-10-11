@@ -1,8 +1,8 @@
 # Codemagic lane for AbacoPR Lite (ROADMAP-V6 3.4): build the web bundle,
 # sync Capacitor, archive the iOS app with App Store Connect API-key signing
-# and upload it to TestFlight. Codemagic's project path for this app is
-# `mobile`, so this file lives here and every script resolves the repo root
-# itself (the npm workspace lives one level up).
+# and upload it to TestFlight. Codemagic reads this file ONLY from the
+# repository root (the "Project path" setting does not move it), so it lives
+# here even though the app is in mobile/; every script cd-s explicitly.
 #
 # One-time setup in Codemagic (Team settings → Integrations → Developer
 # Portal): add the App Store Connect API key (Issuer ID, Key ID, .p8) under
@@ -13,7 +13,11 @@
 #                  hosted API); required, must be https.
 # Apple side: the bundle ID com.abacopr.lite registered in Certificates,
 # Identifiers & Profiles, an App Store Connect app record for it and an
-# internal TestFlight group — see mobile/README.md "iOS lane".
+# internal TestFlight group with automatic distribution — see
+# mobile/README.md "iOS lane". Signing: `ios_signing` below FETCHES the
+# Apple Distribution certificate and the App Store profile stored under Team
+# settings → Code signing identities (generate the certificate there, create
+# the profile in the Developer Portal, then "Fetch profiles" — one time).
 workflows:
   ios-testflight:
     name: AbacoPR Lite — iOS → TestFlight
@@ -43,6 +47,8 @@ workflows:
             *) echo "VITE_API_URL must be an https URL (App Transport Security): $VITE_API_URL"; exit 1 ;;
           esac
           echo "API: $VITE_API_URL  build: $BUILD_NUMBER"
+      - name: Node toolchain
+        script: node --version && npm --version
       - name: Install the npm workspace
         script: |
           set -e
@@ -84,4 +90,6 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-        submit_to_testflight: true
+        # Upload only. Internal testers get the build as soon as Apple has
+        # processed it; beta review (submit_to_testflight) is for external
+        # testers and needs the export-compliance answer in Info.plist first.
