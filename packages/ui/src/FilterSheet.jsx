@@ -30,6 +30,8 @@ export function FilterButton({ count = 0, label, className, ...rest }) {
   );
 }
 
+// buttonSize: Button size for Clear / Apply. The web keeps "md"; the phone
+// passes "lg" so both footer actions meet its 44 px tap-target rule.
 export default function FilterSheet({
   open,
   onClose,
@@ -38,6 +40,7 @@ export default function FilterSheet({
   onClear,
   applyLabel,
   clearLabel,
+  buttonSize = "md",
   children,
 }) {
   return (
@@ -49,11 +52,16 @@ export default function FilterSheet({
       footer={
         <>
           {onClear && (
-            <Button icon="ti-x" onClick={onClear}>
+            <Button icon="ti-x" size={buttonSize} onClick={onClear}>
               {clearLabel}
             </Button>
           )}
-          <Button variant="primary" icon="ti-check" onClick={onApply}>
+          <Button
+            variant="primary"
+            icon="ti-check"
+            size={buttonSize}
+            onClick={onApply}
+          >
             {applyLabel}
           </Button>
         </>

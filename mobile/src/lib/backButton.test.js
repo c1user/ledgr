@@ -5,6 +5,9 @@ vi.mock("../native/appLifecycle.js", () => ({ minimize: vi.fn() }));
 const { handleBackButton, ROOT_PATHS, sectionRoot } =
   await import("./backButton.js");
 
+/** Account ids are UUIDs; the router treats them as opaque segments. */
+const ACCOUNT_ID = "8f0c2b1e-5d7a-4c3b-9e2f-1a6b7c8d9e0f";
+
 /** Minimal window/document doubles for the node test environment. */
 function fakeEnv({ pathname = "/scan", dialog = false, histLen = 4 } = {}) {
   const dispatched = [];
@@ -84,6 +87,41 @@ describe("handleBackButton", () => {
     expect(sectionRoot("/receipts/abc/review")).toBe("/receipts");
     expect(sectionRoot("/settings")).toBe("/settings");
     expect(sectionRoot("/")).toBe("/scan");
+    expect(sectionRoot(`/accounts/${ACCOUNT_ID}/import`)).toBe("/accounts");
+  });
+
+  describe("Accounts tab (ROADMAP-V6 2.15)", () => {
+    it("minimises on the Accounts tab root", () => {
+      expect(ROOT_PATHS.has("/accounts")).toBe(true);
+      const env = fakeEnv({ pathname: "/accounts" });
+      const minimize = vi.fn();
+      expect(handleBackButton({ ...env, minimize })).toBe("minimize");
+      expect(minimize).toHaveBeenCalledTimes(1);
+      expect(env.backs).toHaveLength(0);
+    });
+
+    it("goes one step back from an account detail that has history", () => {
+      const env = fakeEnv({ pathname: `/accounts/${ACCOUNT_ID}` });
+      const minimize = vi.fn();
+      const navigate = vi.fn();
+      expect(handleBackButton({ ...env, minimize, navigate })).toBe("back");
+      expect(env.backs).toHaveLength(1);
+      expect(navigate).not.toHaveBeenCalled();
+      expect(minimize).not.toHaveBeenCalled();
+    });
+
+    it("routes a cold start into the CSV import to the Accounts tab", () => {
+      const env = fakeEnv({
+        pathname: `/accounts/${ACCOUNT_ID}/import`,
+        histLen: 1,
+      });
+      const minimize = vi.fn();
+      const navigate = vi.fn();
+      expect(handleBackButton({ ...env, minimize, navigate })).toBe("root");
+      expect(navigate).toHaveBeenCalledWith("/accounts", { replace: true });
+      expect(env.backs).toHaveLength(0);
+      expect(minimize).not.toHaveBeenCalled();
+    });
   });
 
   it("is a no-op without a DOM", () => {

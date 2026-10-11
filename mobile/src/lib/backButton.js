@@ -20,6 +20,7 @@ export const ROOT_PATHS = new Set([
   "/",
   "/scan",
   "/receipts",
+  "/accounts",
   "/assistant",
   "/settings",
   "/login",

@@ -173,7 +173,7 @@ router.get("/", async (req, res) => {
       LEFT JOIN reconciliations rc ON rc.id = t.reconciliation_id
       ${where}
       GROUP BY t.id, a.name, fcoa.name, fcoa.name_key, u.name, v.name, pr.name, pr.color, r.id, r.status, rc.status
-      ORDER BY t.date DESC, t.created_at DESC
+      ORDER BY t.date DESC, t.created_at DESC, t.id DESC
       LIMIT $${limitIdx} OFFSET $${offsetIdx}`;
 
     const result = await pool.query(query, params);
@@ -261,7 +261,7 @@ router.get("/export", async (req, res) => {
        LEFT JOIN accounts a ON a.id = t.account_id
        LEFT JOIN chart_of_accounts fcoa ON fcoa.id = t.funding_coa_id
        ${where}
-       ORDER BY t.date DESC, t.created_at DESC`,
+       ORDER BY t.date DESC, t.created_at DESC, t.id DESC`,
       params,
     );
 
@@ -355,6 +355,16 @@ router.post("/import", async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+
+    // Serialise imports into the same account. A client whose request timed
+    // out retries with skipDuplicates, but under READ COMMITTED its dedupe
+    // SELECT cannot see the first batch's uncommitted inserts, so both
+    // batches would book every row. The transaction-scoped advisory lock
+    // makes the retry wait until the first batch has committed (or rolled
+    // back); it is released automatically at COMMIT/ROLLBACK.
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      String(accountId || fundingCoaId),
+    ]);
 
     const funding = await resolveFundingSource(client, businessId, {
       accountId,

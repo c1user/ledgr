@@ -94,6 +94,30 @@ describe("describeError → kind", () => {
     expect(d.text).toBe("Too many requests");
   });
 
+  it("rateLimited (429) falls back to the Scan copy by default", () => {
+    const d = describeError(httpError(429, {}), t);
+    expect(d.kind).toBe("rateLimited");
+    expect(d.messageKey).toBe("mobile.scan.rateLimited");
+    expect(d.text).toBe("mobile.scan.rateLimited");
+  });
+
+  it("rateLimited (429) honours { rateLimitedKey }", () => {
+    const opts = { rateLimitedKey: "mobile.common.rateLimited" };
+    const d = describeError(httpError(429, {}), t, opts);
+    expect(d.kind).toBe("rateLimited");
+    expect(d.messageKey).toBe("mobile.common.rateLimited");
+    expect(d.text).toBe("mobile.common.rateLimited");
+    // The backend's own text still wins when present.
+    expect(
+      describeError(httpError(429, { error: "Slow down" }), t, opts).text,
+    ).toBe("Slow down");
+    // The option only affects 429s.
+    expect(
+      describeError(httpError(413, { code: "FILE_TOO_LARGE" }), t, opts)
+        .messageKey,
+    ).toBe("mobile.scan.tooLarge");
+  });
+
   it("conflict (409 RECEIPT_LINKED)", () => {
     const d = describeError(httpError(409, { code: "RECEIPT_LINKED" }), t);
     expect(d.kind).toBe("conflict");
@@ -113,6 +137,32 @@ describe("describeError → kind", () => {
     );
     expect(d.kind).toBe("validation");
     expect(d.text).toBe("A categoryId or splits[] is required");
+    expect(d.details.errors).toBeUndefined();
+  });
+
+  it("validation (400) carries the CSV import's row errors[]", () => {
+    const errors = [
+      { row: 3, error: "Invalid date" },
+      { row: 7, error: "Amount must be a non-zero number" },
+    ];
+    const d = describeError(
+      httpError(400, { error: "Some rows are invalid", errors }),
+      t,
+    );
+    expect(d.kind).toBe("validation");
+    expect(d.text).toBe("Some rows are invalid");
+    expect(d.details.errors).toEqual(errors);
+  });
+
+  it("validation (400/422) ignores a non-array errors field", () => {
+    expect(
+      describeError(httpError(400, { error: "Nope", errors: "bad" }), t).details
+        .errors,
+    ).toBeUndefined();
+    expect(
+      describeError(httpError(422, { error: "Nope", errors: null }), t).details
+        .errors,
+    ).toBeUndefined();
   });
 
   it("unknown (500 / no data)", () => {

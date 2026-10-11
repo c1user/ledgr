@@ -10,6 +10,7 @@ import {
   onShortcut,
   register as registerShortcuts,
 } from "../native/shortcuts.js";
+import { purgeExports } from "../native/share.js";
 import TabBar from "./TabBar.jsx";
 import OfflineBanner from "./OfflineBanner.jsx";
 
@@ -17,6 +18,7 @@ import OfflineBanner from "./OfflineBanner.jsx";
 const SHORTCUTS = [
   { id: "scan", to: "/scan", titleKey: "mobile.scan.scanReceipt" },
   { id: "assistant", to: "/assistant", titleKey: "mobile.assistant.title" },
+  { id: "accounts", to: "/accounts", titleKey: "accounts.title" },
 ];
 
 /**
@@ -41,6 +43,13 @@ export default function Shell() {
   // whichever tab the app opens on. start() is idempotent (Scan calls it too).
   useEffect(() => {
     useOutboxStore.getState().start();
+  }, []);
+
+  // CSV export leftovers (2.15): a share interrupted by a kill can leave its
+  // file under exports/ in the cache. Best-effort sweep once per boot, never
+  // awaited; a no-op on the web.
+  useEffect(() => {
+    purgeExports();
   }, []);
 
   // App shortcuts (2.13): registered with the current language while signed

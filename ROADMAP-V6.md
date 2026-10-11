@@ -88,8 +88,10 @@ endpoint, push notifications + weekly AI spending digest, home-screen
 widgets / Siri, deep links, location memory.
 
 **Explicitly OUT of the phone app (stay on web/desktop):** registration,
-email verification, password-reset UI, team invites, tour; transactions
-list/editor, dashboard, reports, accounts/COA/rules editing, invoices
+email verification, password-reset UI, team invites, tour; the transactions
+editor (since 2.15 the phone shows a read-only per-account list with CSV
+import/export, never add/edit/delete), dashboard, reports, accounts/COA/rules
+editing (2.15 lists accounts and balances read-only), invoices
 (incl. the AI invoice draft), payroll, inventory, projects; Plans / pricing
 / Stripe / Apple IAP (no purchase surface at all); ledger-funded bookings,
 withholding, FX, vendor/project tagging; camera capture of PDFs (PDFs
@@ -359,6 +361,45 @@ ledgr/
       the iPhone's Personal Hotspot over USB (no router needed), or a free
       HTTPS tunnel (cloudflared) for testing on cellular away from the desk
       — the tunnel origin goes into `CORS_ORIGIN`.
+- [x] **2.15 Accounts + transactions + CSV import/export (2026-10-10)** —
+      one new tab, **Accounts / Cuentas** (five tabs is the
+      ceiling; new areas nest), with: a read-mostly account list with live
+      balances (`GET /accounts` + `/accounts/summary/balances`, active /
+      collapsed-inactive sections, pull-to-refresh); an account detail with
+      hero balance + totals and a paged transaction list (`GET
+      /transactions?accountId&limit=50&offset`, `{ transactions, total }`
+      envelope, type/date filters kept in the URL and parsed strictly, row
+      sheet with splits / notes / linked receipt); **CSV import** into an
+      operational account at `/accounts/:id/import` (`POST
+      /transactions/import`, one atomic batch ≤ 2000 rows / 2 MB, column
+      mapping with sample values and a debit/credit mode, flip-sign and
+      skip-duplicates options, live summary of dropped rows, "unconfirmed"
+      retry that forces skip-duplicates, disabled on inactive accounts); and
+      **CSV export** of an account's transactions (`GET /transactions/export`
+      → `@capacitor/share` from `Directory.Cache`, `<a download>` on the web,
+      clipboard as the last resort; `purgeExports()` at boot). Backend
+      (additive only): pinning tests for the four endpoints, a `t.id`
+      tiebreaker on the list/export `ORDER BY` so paging never shifts, and a
+      per-account advisory lock in `POST /transactions/import` so a retried
+      batch waits for the first one and its duplicate check sees it (deploy
+      with the mobile release). The pure CSV helpers move to the new
+      `packages/csv` (`@abaco/csv`), which the web `Transactions.jsx`
+      imports verbatim.
+      Infra: `lib/useOnline.js`, `describeError(err, t, { rateLimitedKey })`
+      with `details.errors[]`, `/accounts` in `ROOT_PATHS`, 77 new
+      `mobile.*` keys in EN/ES. Deliberately NOT a transactions editor (no
+      add/edit/delete, no account editing — web only); business-wide list,
+      CSV share-in, chunked imports above 2000 rows, a backend guard against
+      importing into an inactive account and decimal-comma heuristics are
+      follow-ups. Built as parallel work packages A–H from the implementation
+      spec, then reviewed (14 findings fixed before merge). **Device-verified
+      2026-10-10 on the emulator:** five labels unclipped in EN and ES, light
+      and dark; the 1,354-row demo account pages on scroll; a tricky bank CSV
+      (US dates, parentheses negatives, quoted commas, a bad date and a zero
+      row) imports 3 of 5 rows with the two rejects listed, re-importing it
+      skips everything; export opens the Android share sheet with the file
+      and deletes the cache copy afterwards; Back on the new routes behaves
+      (tab root minimises, nested goes back, Done returns to the account).
 
 ## Phase 3 — Native shells, polish, stores
 

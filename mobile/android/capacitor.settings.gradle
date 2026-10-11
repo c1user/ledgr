@@ -47,6 +47,9 @@ project(':capacitor-preferences').projectDir = new File('../../node_modules/@cap
 include ':capacitor-privacy-screen'
 project(':capacitor-privacy-screen').projectDir = new File('../../node_modules/@capacitor/privacy-screen/android')
 
+include ':capacitor-share'
+project(':capacitor-share').projectDir = new File('../../node_modules/@capacitor/share/android')
+
 include ':capacitor-splash-screen'
 project(':capacitor-splash-screen').projectDir = new File('../../node_modules/@capacitor/splash-screen/android')
 

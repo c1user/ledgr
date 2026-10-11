@@ -29,6 +29,9 @@ import ReceiptDetail from "./pages/ReceiptDetail.jsx";
 import ReceiptReview from "./pages/ReceiptReview.jsx";
 import Assistant from "./pages/Assistant.jsx";
 import Settings from "./pages/Settings.jsx";
+import Accounts from "./pages/Accounts.jsx";
+import AccountDetail from "./pages/AccountDetail.jsx";
+import ImportCsv from "./pages/ImportCsv.jsx";
 
 /** Hide the native splash even if hydrate() never settles (offline DNS hang…). */
 export const SPLASH_WATCHDOG_MS = 6000;
@@ -182,6 +185,9 @@ function Boot() {
           <Route path="/receipts/:id/review" element={<ReceiptReview />} />
           <Route path="/assistant" element={<Assistant />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/accounts" element={<Accounts />} />
+          <Route path="/accounts/:id" element={<AccountDetail />} />
+          <Route path="/accounts/:id/import" element={<ImportCsv />} />
         </Route>
         <Route path="*" element={<Navigate to="/scan" replace />} />
       </Routes>

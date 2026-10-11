@@ -1,11 +1,13 @@
 # AbacoPR Lite (`mobile/`)
 
 The phone companion to Abaco (ROADMAP-V6). It does two jobs — **scanning
-receipts into the books** and **talking to the AI assistant** — and shares
-the website's colors, fonts, UI-kit primitives and translations by
-construction (`@abaco/tokens`, `@abaco/ui`, `@abaco/locales`). It talks to
-the **same hosted API** with the same accounts: a receipt scanned here is an
-ordinary `receipts` row that appears in the web Receipts page immediately.
+receipts into the books** and **talking to the AI assistant** — plus a
+read-mostly **Accounts** tab (balances, per-account transactions, CSV
+import/export; 2.15), and shares the website's colors, fonts, UI-kit
+primitives and translations by construction (`@abaco/tokens`, `@abaco/ui`,
+`@abaco/locales`, `@abaco/csv`). It talks to the **same hosted API** with the
+same accounts: a receipt scanned here is an ordinary `receipts` row that
+appears in the web Receipts page immediately.
 
 - **Sign-in only.** No registration, no pricing, no plan names with prices,
   no purchase buttons or links anywhere. Plan upsells are informational
@@ -14,7 +16,8 @@ ordinary `receipts` row that appears in the web Receipts page immediately.
 - **Bilingual EN/ES** from day one — every string goes through `t()`; the
   keys live under `login.*` and `mobile.*` in `packages/locales/{en,es}.json`
   (the parity test in `packages/locales` enforces both files).
-- **Phone-first:** bottom tab bar (Scan · Receipts · Assistant · Settings),
+- **Phone-first:** bottom tab bar (Scan · Receipts · Accounts · Assistant ·
+  Settings — five is the ceiling; new areas nest under an existing tab),
   44 px tap targets, 16 px inputs (no iOS zoom), pull-to-refresh, dark mode
   via `data-theme` on `<html>` (light | dark | system) exactly like the web.
 - **Capacitor 8** wraps it in Phase 3. In Phase 2 only the plugin JS
@@ -138,7 +141,7 @@ so HMR and the proxy are unaffected).
 ## Layering rule (enforced by `mobile/eslint.config.js`)
 
 ```
-mobile/src/**          may import @abaco/ui, @abaco/tokens, @abaco/locales (as packages)
+mobile/src/**          may import @abaco/ui, @abaco/tokens, @abaco/locales, @abaco/csv (as packages)
 mobile/src/native/**   the ONLY place that may import @capacitor/*, @capacitor-community/*,
                        @capawesome/*, @aparajita/*, @capacitor-mlkit/*
 nothing in mobile/     may import from frontend/src/*
@@ -149,21 +152,22 @@ Every wrapper in `src/native/` exports `isSupported()`, checks
 plugin through a dynamic `import()` behind that check so the web build
 never executes plugin code:
 
-| Wrapper                                                      | Native                                                     | Web fallback                               |
-| ------------------------------------------------------------ | ---------------------------------------------------------- | ------------------------------------------ |
-| `camera.js`                                                  | Android: ML Kit document scanner; iOS: `@capacitor/camera` | `<input type="file">` + JPEG re-encode     |
-| `secureStorage.js`                                           | Keychain / KeyStore                                        | `localStorage` with a `console.warn`       |
-| `network.js`                                                 | `@capacitor/network`                                       | `navigator.onLine` + online/offline events |
-| `speech.js`                                                  | speech-recognition (+ `speechSynthesis`)                   | Web Speech API                             |
-| `haptics.js`, `shortcuts.js`                                 | the plugin                                                 | no-ops                                     |
-| `privacy.js`                                                 | `@capacitor/privacy-screen` — enabled at boot by `App.jsx` (off in the dev shell) | no-op                       |
-| `splash.js`, `systemBars.js`                                 | launch splash hide (`App.jsx`), status-bar style ← app theme (`themeStore`) | no-ops                            |
-| `shareIntake.js`                                             | Android: in-house `ShareIntakePlugin.java`; iOS: 3.4        | no-op                                      |
-| `notifications.js`                                           | `@capacitor/local-notifications`                           | no-op (`requestPermission()` → false)      |
-| `biometrics.js`                                              | biometric-auth                                             | `authenticate()` → true + `console.info`   |
-| `outbox.js`                                                  | `@capacitor/filesystem` (`Data/outbox/<id>.jpg`)           | IndexedDB                                  |
-| `appLifecycle.js`                                            | `@capacitor/app` resume / back button                      | `visibilitychange`                         |
-| `browser.js`                                                 | `@capacitor/browser`                                       | `window.open`                              |
+| Wrapper                      | Native                                                                                                                              | Web fallback                                        |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `camera.js`                  | Android: ML Kit document scanner; iOS: `@capacitor/camera`                                                                          | `<input type="file">` + JPEG re-encode              |
+| `secureStorage.js`           | Keychain / KeyStore                                                                                                                 | `localStorage` with a `console.warn`                |
+| `network.js`                 | `@capacitor/network`                                                                                                                | `navigator.onLine` + online/offline events          |
+| `speech.js`                  | speech-recognition (+ `speechSynthesis`)                                                                                            | Web Speech API                                      |
+| `haptics.js`, `shortcuts.js` | the plugin                                                                                                                          | no-ops                                              |
+| `privacy.js`                 | `@capacitor/privacy-screen` — enabled at boot by `App.jsx` (off in the dev shell)                                                   | no-op                                               |
+| `splash.js`, `systemBars.js` | launch splash hide (`App.jsx`), status-bar style ← app theme (`themeStore`)                                                         | no-ops                                              |
+| `shareIntake.js`             | Android: in-house `ShareIntakePlugin.java`; iOS: 3.4                                                                                | no-op                                               |
+| `notifications.js`           | `@capacitor/local-notifications`                                                                                                    | no-op (`requestPermission()` → false)               |
+| `biometrics.js`              | biometric-auth                                                                                                                      | `authenticate()` → true + `console.info`            |
+| `outbox.js`                  | `@capacitor/filesystem` (`Data/outbox/<id>.jpg`)                                                                                    | IndexedDB                                           |
+| `appLifecycle.js`            | `@capacitor/app` resume / back button                                                                                               | `visibilitychange`                                  |
+| `browser.js`                 | `@capacitor/browser`                                                                                                                | `window.open`                                       |
+| `share.js`                   | `@capacitor/share` + `@capacitor/filesystem` (`Cache/exports/<file>.csv`, deleted after the sheet closes; `purgeExports()` at boot) | hidden `<a download>`; clipboard as the last resort |
 
 `@capacitor-community/speech-recognition` is published
 for Capacitor 7 (its peer range admits 8); its native side is verified
@@ -176,27 +180,56 @@ answers use `window.speechSynthesis` until it is.
 ```
 src/
   App.jsx             routes (/login, /mfa, /update-required, and under the Shell:
-                      /scan, /receipts, /receipts/:id, /receipts/:id/review, /assistant, /settings),
+                      /scan, /receipts, /receipts/:id, /receipts/:id/review,
+                      /accounts, /accounts/:id, /accounts/:id/import, /assistant, /settings),
                       the biometric LockGate and the reminder scheduler
-  components/         Shell (52 px header + <main> + TabBar), RequireAuth, OfflineBanner,
+  components/         Shell (52 px header + <main> + TabBar — five tabs, Android Back roots
+                      in lib/backButton.js ROOT_PATHS), RequireAuth, OfflineBanner,
                       UpsellNotice, Splash; per-screen folders auth/ scan/ review/ receipts/
-                      assistant/ settings/
+                      accounts/ (AccountRow, BalanceSummary, AccountHero, accountFormat)
+                      transactions/ (TransactionRow/List/Sheet/FilterSheet, ExportSheet,
+                      useAccountTransactions, transactionFormat)
+                      import/ (ColumnPickerSheet, ImportSummary) assistant/ settings/
   pages/              Login, Mfa, UpdateRequired, Scan, Receipts, ReceiptDetail, ReceiptReview,
-                      Assistant, Settings
+                      Accounts, AccountDetail, ImportCsv, Assistant, Settings
   store/              authStore (session; not persisted), themeStore, prefsStore, outboxStore
   lib/                api (axios + 401 → session expired), apiErrors, jwt, secureStore,
-                      queryClient, useEntitlements, upload, outbox (pure reducer), booking,
-                      lockGate, reminders
+                      queryClient, useEntitlements, useOnline, upload, outbox (pure reducer),
+                      booking, lockGate, reminders, backButton, transactionsPaging
+                      (page/filter helpers for GET /transactions), csvImport, csvExport
   native/             the plugin wrappers (see above)
   i18n.js             i18next + setAppLanguage (dayjs + <html lang>)
 ```
 
-Conventions: Tailwind class names are never built by string interpolation
-(literal class maps only); `Button size="lg"` for primary CTAs; sticky
-CTAs inside `<main>` add no safe-area padding of their own because the
-TabBar below `<main>` already carries it; NUMERIC API columns arrive as
-strings and DATE columns as ISO timestamps — parse at the edge
-(`parseFloat`, `dayjs(x).format("YYYY-MM-DD")`).
+Conventions (enforced by lint, the locale parity test, or review):
+
+- Tailwind class names are never built by string interpolation (literal
+  class maps only), and colours only through the token classes
+  (`surface/canvas/sunken/ink/secondary/muted/line/brand/income/expense`
+  and their `-bg` variants); every tap target is ≥ 44 px
+  (`min-h-[44px]`, list rows `min-h-[56px]`).
+- Every i18n string is a **literal** key (never interpolated) under
+  `mobile.*` in `packages/locales/{en,es}.json`; the parity test fails on a
+  key present in one language only.
+- `Button size="lg"` for primary CTAs; sticky CTAs inside `<main>` add no
+  safe-area padding of their own because the TabBar below `<main>` already
+  carries it.
+- NUMERIC API columns arrive as **strings** and DATE/timestamp columns as
+  **ISO timestamp strings** — convert at the edge with `Number(x)` and
+  `dayjs(x).format("MMM D, YYYY")` for display (`"YYYY-MM-DD"` for the
+  API); never `.slice(0, 10)` a timestamp. Balances render in the
+  account's currency, transaction amounts in the business currency.
+- `GET /api/transactions` returns `{ transactions, total, limit, offset }`;
+  page it with `lib/transactionsPaging.js` and parse URL filter state only
+  through `parseTxFilters()` (nothing user-editable reaches the API
+  unchecked).
+- Errors reach the UI only through `describeError(err, t, opts)` in
+  `lib/apiErrors.js` (`opts.rateLimitedKey` picks the 429 copy; the
+  Accounts screens pass `{ rateLimitedKey: "mobile.common.rateLimited" }`);
+  network-only actions check `useOnline()` and disable their CTA offline.
+- vitest runs in the **node** environment, so tests cover pure helpers and
+  injected-dependency modules (`lib/*`, `native/*` with mocks), never
+  rendered components.
 
 ## Phase 3 — what is still to do (ROADMAP-V6 3.x)
 

@@ -9,6 +9,7 @@
 //   429 { error }                      rate limited (auth, uploads, AI chat)
 //   409 { code: "RECEIPT_LINKED" }     already linked to a transaction
 //   404 / 400 { error }
+//   400 { error, errors: [{ row, error }] }   CSV import row rejections
 //   no response at all                 offline / DNS / timeout → outbox
 
 /** True when the request never got an HTTP response (offline, timeout). */
@@ -27,18 +28,26 @@ const UPSELL_KEY = {
 };
 
 /**
- * describeError(err, t) → {
+ * describeError(err, t, opts?) → {
  *   kind: "upgrade" | "tooLarge" | "unsupported" | "rateLimited" | "network"
  *       | "validation" | "notFound" | "conflict" | "unknown",
  *   messageKey?: string,   // i18n key when the copy is ours
  *   text: string,          // ready-to-render message (t(messageKey) or the
  *                          // backend's own text)
- *   details: object,       // code-specific fields (feature, limit, used, …)
+ *   details: object,       // code-specific fields (feature, limit, used,
+ *                          // errors[] for 400 row rejections, …)
  *   status: number | null,
  * }
  * `t` is optional; without it `text` falls back to the backend text / key.
+ * opts.rateLimitedKey — the i18n key for a 429 without backend text. The
+ * default is the Scan copy (uploads); the Accounts screens pass the neutral
+ * "mobile.common.rateLimited" (ERR_OPTS) because they never upload.
  */
-export function describeError(err, t) {
+export function describeError(
+  err,
+  t,
+  { rateLimitedKey = "mobile.scan.rateLimited" } = {},
+) {
   const tr = (key, opts) => (typeof t === "function" ? t(key, opts) : key);
   const status = err?.response?.status ?? null;
   const data = err?.response?.data || {};
@@ -96,8 +105,8 @@ export function describeError(err, t) {
   if (status === 429) {
     return {
       kind: "rateLimited",
-      messageKey: "mobile.scan.rateLimited",
-      text: backendText || tr("mobile.scan.rateLimited"),
+      messageKey: rateLimitedKey,
+      text: backendText || tr(rateLimitedKey),
       details: {},
       status,
     };
@@ -125,12 +134,16 @@ export function describeError(err, t) {
 
   if (status === 400 || status === 422) {
     // Backend validation messages are shown as-is (e.g. "A categoryId or
-    // splits[] is required", AI-chat injection rejections).
+    // splits[] is required", AI-chat injection rejections). The CSV import
+    // ("Some rows are invalid") also lists the rejected rows in errors[].
     return {
       kind: "validation",
       messageKey: null,
       text: backendText || tr("login.genericError"),
-      details: { code },
+      details: {
+        code,
+        errors: Array.isArray(data.errors) ? data.errors : undefined,
+      },
       status,
     };
   }

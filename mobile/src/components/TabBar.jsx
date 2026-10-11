@@ -2,11 +2,12 @@ import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import cx from "@abaco/ui/cx";
 
-// The phone owns its navigation (ROADMAP-V6): four tabs, 44px targets,
-// safe-area padding under the home indicator.
+// The phone owns its navigation (ROADMAP-V6): five tabs (the ceiling; new
+// areas nest), 44px targets, safe-area padding under the home indicator.
 const TABS = [
   { to: "/scan", icon: "ti-scan", key: "mobile.tabs.scan" },
   { to: "/receipts", icon: "ti-receipt", key: "mobile.tabs.receipts" },
+  { to: "/accounts", icon: "ti-wallet", key: "mobile.tabs.accounts" },
   { to: "/assistant", icon: "ti-sparkles", key: "mobile.tabs.assistant" },
   { to: "/settings", icon: "ti-settings", key: "mobile.tabs.settings" },
 ];
@@ -16,7 +17,7 @@ export default function TabBar({ badges = {} }) {
   return (
     <nav
       className="shrink-0 bg-surface border-t border-line pb-[max(env(safe-area-inset-bottom),var(--safe-area-inset-bottom,0px))]"
-      aria-label={t("mobile.tabs.scan") + " · " + t("mobile.tabs.settings")}
+      aria-label={t("mobile.tabs.navLabel")}
     >
       <ul className="flex h-14 items-stretch">
         {TABS.map(({ to, icon, key }) => {
@@ -38,7 +39,7 @@ export default function TabBar({ badges = {} }) {
                   className={cx("ti text-[22px] leading-none", icon)}
                   aria-hidden="true"
                 />
-                <span>{label}</span>
+                <span className="max-w-full truncate px-0.5">{label}</span>
                 {badge ? (
                   <span
                     className="absolute top-1.5 left-1/2 ml-2 min-w-[16px] rounded-full bg-brand px-1 text-center text-[10px] font-semibold leading-4 text-on-brand"

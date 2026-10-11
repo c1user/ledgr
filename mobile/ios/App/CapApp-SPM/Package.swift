@@ -25,6 +25,7 @@ let package = Package(
         .package(name: "CapacitorNetwork", path: "../../../../node_modules/@capacitor/network"),
         .package(name: "CapacitorPreferences", path: "../../../../node_modules/@capacitor/preferences"),
         .package(name: "CapacitorPrivacyScreen", path: "../../../../node_modules/@capacitor/privacy-screen"),
+        .package(name: "CapacitorShare", path: "../../../../node_modules/@capacitor/share"),
         .package(name: "CapacitorSplashScreen", path: "../../../../node_modules/@capacitor/splash-screen"),
         .package(name: "CapawesomeCapacitorAppShortcuts", path: "../../../../node_modules/@capawesome/capacitor-app-shortcuts")
     ],
@@ -47,6 +48,7 @@ let package = Package(
                 .product(name: "CapacitorNetwork", package: "CapacitorNetwork"),
                 .product(name: "CapacitorPreferences", package: "CapacitorPreferences"),
                 .product(name: "CapacitorPrivacyScreen", package: "CapacitorPrivacyScreen"),
+                .product(name: "CapacitorShare", package: "CapacitorShare"),
                 .product(name: "CapacitorSplashScreen", package: "CapacitorSplashScreen"),
                 .product(name: "CapawesomeCapacitorAppShortcuts", package: "CapawesomeCapacitorAppShortcuts")
             ]

@@ -7,6 +7,7 @@ import useAuthStore from "../store/authStore";
 import { confirmDialog, toast } from "../store/feedbackStore";
 import dayjs from "dayjs";
 import Papa from "papaparse";
+import { guessColumn, COLUMN_GUESSES, buildRows } from "@abaco/csv";
 import cx from "../lib/cx";
 import SplitEditor from "../components/SplitEditor";
 import {
@@ -672,35 +673,8 @@ function TransactionModal({
 }
 
 // ── CSV import helpers ───────────────────────────────────────
-// Normalize a bank date cell to YYYY-MM-DD. Handles ISO already, US
-// MM/DD/YYYY, and falls back to dayjs parsing. The preview lets the user catch
-// any misread before importing.
-function normalizeDate(v) {
-  if (!v) return "";
-  const s = String(v).trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  const m = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
-  if (m) return `${m[3]}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`;
-  const d = dayjs(s);
-  return d.isValid() ? d.format("YYYY-MM-DD") : "";
-}
-// Parse a bank amount cell: strips $/commas, treats (123.45) as negative.
-function parseAmount(v) {
-  if (v == null) return NaN;
-  let s = String(v).trim();
-  let neg = false;
-  if (/^\(.*\)$/.test(s)) {
-    neg = true;
-    s = s.slice(1, -1);
-  }
-  s = s.replace(/[^0-9.-]/g, "");
-  const n = parseFloat(s);
-  if (!Number.isFinite(n)) return NaN;
-  return neg ? -Math.abs(n) : n;
-}
-function guessColumn(fields, re) {
-  return fields.find((f) => re.test(f)) || "";
-}
+// normalizeDate / parseAmount / guessColumn / buildRows live in @abaco/csv
+// (packages/csv), shared verbatim with the phone's import screen.
 
 // One column-mapping dropdown (module-scope so it isn't recreated per render).
 function MappingCol({ k, label, fields, mapping, setMapping, t }) {
@@ -751,29 +725,19 @@ function ImportModal({ onClose, accounts, ledgerAccounts, fmt, t }) {
         setFields(f);
         setData(res.data || []);
         setMapping({
-          date: guessColumn(f, /date|fecha/i),
-          description: guessColumn(
-            f,
-            /desc|memo|narration|payee|concept|merchant|name/i,
-          ),
-          amount: guessColumn(f, /amount|amt|debit|monto|importe|value/i),
+          date: guessColumn(f, COLUMN_GUESSES.date),
+          description: guessColumn(f, COLUMN_GUESSES.description),
+          amount: guessColumn(f, COLUMN_GUESSES.amount),
         });
       },
       error: () => setError(t("transactions.importParseError")),
     });
   };
 
-  const buildRows = () =>
-    data
-      .map((r) => ({
-        date: normalizeDate(r[mapping.date]),
-        merchant: (r[mapping.description] ?? "").toString().trim(),
-        amount: (negate ? -1 : 1) * parseAmount(r[mapping.amount]),
-      }))
-      .filter((r) => r.date && Number.isFinite(r.amount) && r.amount !== 0);
+  const buildRowsNow = () => buildRows(data, mapping, negate);
 
   const mapped = mapping.date && mapping.amount && data.length > 0;
-  const rows = mapped ? buildRows() : [];
+  const rows = mapped ? buildRowsNow() : [];
   const preview = rows.slice(0, 8);
 
   const importMutation = useMutation({
@@ -785,7 +749,7 @@ function ImportModal({ onClose, accounts, ledgerAccounts, fmt, t }) {
           ...(isLedger
             ? { fundingCoaId: fundingId }
             : { accountId: fundingId }),
-          rows: buildRows(),
+          rows: buildRowsNow(),
           skipDuplicates,
         })
         .then((r) => r.data);

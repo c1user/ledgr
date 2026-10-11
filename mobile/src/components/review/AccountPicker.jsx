@@ -3,22 +3,9 @@ import { useTranslation } from "react-i18next";
 import { EmptyState, Modal } from "@abaco/ui";
 import cx from "@abaco/ui/cx";
 import PickerTrigger from "./PickerTrigger.jsx";
-
-// GET /api/accounts → type: 'savings'|'current'|'credit'|'cash'|'loan'
-const TYPE_KEYS = {
-  current: "accounts.typeCurrent",
-  savings: "accounts.typeSavings",
-  credit: "accounts.typeCredit",
-  cash: "accounts.typeCash",
-  loan: "accounts.typeLoan",
-};
-const TYPE_ICONS = {
-  current: "ti-building-bank",
-  savings: "ti-pig-money",
-  credit: "ti-credit-card",
-  cash: "ti-cash",
-  loan: "ti-file-percent",
-};
+// GET /api/accounts → type: 'savings'|'current'|'credit'|'cash'|'loan'.
+// The type label keys and icons live with the Accounts tab (same values).
+import { TYPE_ICONS, TYPE_KEYS } from "../accounts/accountFormat.js";
 
 /**
  * Bottom-sheet picker over the ACTIVE bank accounts (the caller filters

@@ -1,0 +1,21 @@
+{
+  "name": "@abaco/csv",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Framework-free CSV import/export helpers shared by frontend/ and mobile/ (Papa.parse output in, backend import rows out).",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "test": "node --test src/csv.test.mjs",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "dayjs": "^1.11.21"
+  },
+  "devDependencies": {
+    "papaparse": "^5.7.0",
+    "eslint": "^10.3.0"
+  }
+}
