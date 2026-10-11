@@ -70,6 +70,39 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 Before a store build run `npx cap sync android` again **without** `CAP_ENV`
 and build the bundle without `VITE_DEV_SHELL`.
 
+### iOS lane — Codemagic → TestFlight (ROADMAP-V6 3.4)
+
+There is no Mac in the loop: `mobile/codemagic.yaml` builds the web bundle,
+runs `cap sync ios`, archives `ios/App/App.xcodeproj` (scheme `App`, shared
+in `xcshareddata`) with App Store Connect API-key signing and uploads to
+TestFlight. Codemagic's project path for this app is `mobile`.
+
+One-time setup (owner):
+
+1. Apple: register the bundle ID `com.abacopr.lite` (Certificates,
+   Identifiers & Profiles → Identifiers), create the App Store Connect app
+   record "AbacoPR Lite" for it, and add yourself to an internal TestFlight
+   group.
+2. App Store Connect → Users and Access → Integrations → App Store Connect
+   API: generate a key with the **App Manager** role; note the Issuer ID and
+   Key ID and download the `.p8` once.
+3. Codemagic → Team settings → Integrations → Developer Portal: add that key
+   under the name **AbacoPR Lite ASC key** (the `integrations.app_store_connect`
+   value in the YAML).
+4. Codemagic → Team settings → Environment variables: group `abaco_ios` with
+   `VITE_API_URL` = the https backend the phone will talk to. Until the API
+   is hosted, run `cloudflared tunnel --url http://localhost:5000` on the PC
+   and use the printed https URL + `/api` (add the same origin to the
+   backend's `CORS_ORIGIN` only if you also open it in a browser; the
+   WebView origin `capacitor://localhost` is already allowed).
+5. Start the `ios-testflight` workflow on branch `ABACOM`; Apple processes
+   the upload for 10–30 min, then it appears in the TestFlight app.
+
+Build numbers: `CFBundleVersion` and `VITE_BUILD` both take Codemagic's
+`BUILD_NUMBER`, so `GET /api/meta.minMobileBuild` can retire old builds.
+Not in the first build: the iOS share extension (share-sheet intake is a
+no-op on iOS until 3.4 lands it) and Spanish permission strings.
+
 ### Icons and splash (ROADMAP-V6 1.9)
 
 One geometry (the BrandMark) drawn by `frontend/scripts/generate-icons.mjs`

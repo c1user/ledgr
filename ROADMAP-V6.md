@@ -478,6 +478,15 @@ ledgr/
       Face ID, safe areas, keyboard, notification permission copy on a
       physical iPhone; rent a Mac by the hour only if a signing/SPM error
       needs the Xcode GUI.
+      **2026-10-10:** `mobile/codemagic.yaml` written (Codemagic project path
+      `mobile`; node 22, latest Xcode, automatic App Store signing through the
+      "AbacoPR Lite ASC key" integration, `VITE_API_URL` from the `abaco_ios`
+      group, build number = Codemagic `BUILD_NUMBER` for both CFBundleVersion
+      and `VITE_BUILD`, TestFlight upload); shared `App.xcscheme` added (the
+      template had none, so `xcodebuild -scheme App` would fail on CI);
+      `PrivacyInfo.xcprivacy` registered in the target; iPhone-only device
+      family. Owner steps and the tunnel option in mobile/README.md "iOS lane".
+      Pending: first green build, share extension, `es.lproj` strings.
 - [ ] **3.5 Native polish & privacy** — haptic patterns, keyboard/scroll on
       forms and chat, empty/error states, no token logging, native-only
       assertion for secure storage, cleartext / mixed content / WebView

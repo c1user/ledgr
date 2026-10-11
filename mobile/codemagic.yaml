@@ -1,0 +1,87 @@
+# Codemagic lane for AbacoPR Lite (ROADMAP-V6 3.4): build the web bundle,
+# sync Capacitor, archive the iOS app with App Store Connect API-key signing
+# and upload it to TestFlight. Codemagic's project path for this app is
+# `mobile`, so this file lives here and every script resolves the repo root
+# itself (the npm workspace lives one level up).
+#
+# One-time setup in Codemagic (Team settings → Integrations → Developer
+# Portal): add the App Store Connect API key (Issuer ID, Key ID, .p8) under
+# the integration NAME below. Then create the environment group `abaco_ios`
+# (Team settings → Environment variables) with:
+#   VITE_API_URL   https://<api host>/api   — the backend this build talks to
+#                  (a Cloudflare tunnel in front of the dev backend, or the
+#                  hosted API); required, must be https.
+# Apple side: the bundle ID com.abacopr.lite registered in Certificates,
+# Identifiers & Profiles, an App Store Connect app record for it and an
+# internal TestFlight group — see mobile/README.md "iOS lane".
+workflows:
+  ios-testflight:
+    name: AbacoPR Lite — iOS → TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: AbacoPR Lite ASC key
+    environment:
+      groups:
+        - abaco_ios
+      vars:
+        XCODE_PROJECT: "ios/App/App.xcodeproj"
+        XCODE_SCHEME: "App"
+        BUNDLE_ID: "com.abacopr.lite"
+      node: 22
+      xcode: latest
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.abacopr.lite
+    scripts:
+      - name: Check configuration
+        script: |
+          set -e
+          : "${VITE_API_URL:?Set VITE_API_URL in the abaco_ios environment group (https://<host>/api)}"
+          case "$VITE_API_URL" in
+            https://*) ;;
+            *) echo "VITE_API_URL must be an https URL (App Transport Security): $VITE_API_URL"; exit 1 ;;
+          esac
+          echo "API: $VITE_API_URL  build: $BUILD_NUMBER"
+      - name: Install the npm workspace
+        script: |
+          set -e
+          cd "$(git rev-parse --show-toplevel)"
+          npm ci
+      - name: Build the web bundle
+        script: |
+          set -e
+          cd "$(git rev-parse --show-toplevel)"
+          # VITE_BUILD is compared against GET /api/meta.minMobileBuild on the
+          # device ("Update required"); it tracks the TestFlight build number.
+          export VITE_BUILD="$BUILD_NUMBER"
+          npm run build -w mobile
+      - name: Sync Capacitor (iOS)
+        script: |
+          set -e
+          cd "$(git rev-parse --show-toplevel)/mobile"
+          npx cap sync ios
+      - name: Set the build number
+        script: |
+          set -e
+          cd "$(git rev-parse --show-toplevel)/mobile/ios/App"
+          agvtool new-version -all "$BUILD_NUMBER"
+      - name: Apply signing profiles
+        script: |
+          set -e
+          cd "$(git rev-parse --show-toplevel)/mobile"
+          xcode-project use-profiles
+      - name: Archive the app
+        script: |
+          set -e
+          cd "$(git rev-parse --show-toplevel)/mobile"
+          xcode-project build-ipa --project "$XCODE_PROJECT" --scheme "$XCODE_SCHEME"
+    artifacts:
+      - mobile/build/ios/ipa/*.ipa
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
